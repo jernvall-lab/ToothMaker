@@ -1,10 +1,10 @@
 # ToothMaker
 
-ToothMaker is a graphical user interface for a computational tooth model that was created in Jernvall Lab (University of Helsinki) in 2010 for simulating triconodont tooth morphology [[1]](#References), then extended in 2014 for tribosphenic morphologies [[2]](#References) and used in later studies [[3, 4]](#References).
+ToothMaker is a graphical user interface for a computational tooth model that was created in Jernvall Lab (University of Helsinki) in 2010 for simulating triconodont tooth morphology [[1]](#references), then extended in 2014 for tribosphenic morphologies [[2]](#references) and used in later studies [[3, 4]](#references).
 
-<center>
+<p align="center">
   <img src="examples/ToothMaker_064.png" width="75%">
-</center>
+</p>
 
 ## Examples
 
@@ -62,7 +62,7 @@ Parameters: [hybrid_2018.txt](examples/hybrid_2018.txt)
 
 ## Build instructions
 
-These instructions concern only the building of ToothMaker, i.e., the interface. Pre-built 32 bit binaries of the tooth model, both 2010 'Triconodont' and 2014 'Tribosphenic' versions, are included (see [/models](models/)) and will be automatically copied when building ToothMaker. If you'd like to rebuild the Fortran code for the tooth model, see [Notes](#Notes).
+These instructions concern only the building of ToothMaker, i.e., the interface. Pre-built 32 bit binaries of the tooth model, both 2010 'Triconodont' and 2014 'Tribosphenic' versions, are included (see [/models](models/)) and will be automatically copied when building ToothMaker. If you'd like to rebuild the Fortran code for the tooth model, see [Notes](#notes).
 
 The 2010 version of the model is included only for completeness. For all practical purposes, the 2014 version is a superset of the 2010 version.
 
@@ -73,7 +73,7 @@ The 2010 version of the model is included only for completeness. For all practic
   * GLEW, GLM (included in [/ext](ext/))
   * Mac OS X 10.6 or later, Ubuntu 14.04 or later, Windows 7 or later
   * Support for OpenGL 3.0
-  * Support for 32 bit binaries (see [Notes](#Notes))
+  * Support for 32 bit binaries (see [Notes](#notes))
 
 ### Quickstart (macOS & Linux)
 
