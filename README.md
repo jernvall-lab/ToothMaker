@@ -52,13 +52,13 @@ Parameters: [hybrid_2018.txt](examples/hybrid_2018.txt)
 
 ## References
 
-[1] Salazar-Ciudad, I., Jernvall, J., 2010. A computational model of teeth and the developmental origins of morphological variation. Nature, 464(7288), p.583.
+[1] Salazar-Ciudad, I., Jernvall, J., 2010. A computational model of teeth and the developmental origins of morphological variation. Nature, 464, 583-586.
 
-[2] Harjunmaa, E., Seidel, K., Häkkinen, T., Renvoisé, E., Corfe, I.J., Kallonen, A., Zhang, Z.Q., Evans, A.R., Mikkola, M.L., Klein, O.D. and Jernvall, J., 2014. Replaying evolutionary transitions from the dental fossil record. Nature, 512(7512), p.44.
+[2] Harjunmaa, E. et al. 2014. Replaying evolutionary transitions from the dental fossil record. Nature, 512, 44-48.
 
-[3] Renvoisé, E., Kavanagh, K.D., Lazzari, V., Häkkinen, T.J., Rice, R., Pantalacci, S. and Jernvall, J., 2017. Mechanical constraint from growing jaw facilitates mammalian dental diversity. Proceedings of the National Academy of Sciences, 114(35), pp.9403-9408.
+[3] Renvoisé, E. et al. 2017. Mechanical constraint from growing jaw facilitates mammalian dental diversity. Proceedings of the National Academy of Sciences, 114, 9403-9408.
 
-[4] Savriama, Y. et al. Phenotypic limits of mammalian hybridisation (manuscript).
+[4] Savriama, Y. et al. Phenotypic limits of mammalian hybridization (manuscript).
 
 ## Build instructions
 
