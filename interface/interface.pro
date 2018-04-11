@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui opengl
+QT += core gui opengl
 
 TARGET = ToothMaker
 TEMPLATE = app
@@ -65,7 +65,6 @@ HEADERS += \
 INCLUDEPATH += src/ \
                ../common/ \
                ../ext/glm \
-               /opt/local/include
 
 VERSION = $$system(git rev-list --count HEAD)
 BUILD_NUM = '\\"$${VERSION}\\"'
@@ -77,22 +76,16 @@ QMAKE_CXXFLAGS_X86_64  -= -arch x86_64 -Xarch_x86_64
 QMAKE_LFLAGS -= -arch x86_64 -Xarch_x86_64
 QMAKE_LFLAGS_X86_64 -= -arch x86_64 -Xarch_x86_64
 
-unix:!macx: CONFIG += c++11
-
 QMAKE_CXXFLAGS_RELEASE -= -O2
-QMAKE_CXXFLAGS_RELEASE +=
-unix:!win32: QMAKE_CXXFLAGS_RELEASE += -O3 -std=c++11 -fopenmp
-QMAKE_CXXFLAGS_DEBUG +=
-unix:!win32: QMAKE_CXXFLAGS_DEBUG += -std=c++11
+QMAKE_CXXFLAGS_RELEASE += -O3 -std=c++11
+QMAKE_CXXFLAGS_DEBUG += -std=c++11
 
 QMAKE_CFLAGS_RELEASE -= -O2
-QMAKE_CFLAGS_RELEASE +=
-unix:!win32: QMAKE_CFLAGS_RELEASE += -O3
+QMAKE_CFLAGS_RELEASE += -O3
 QMAKE_CFLAGS_DEBUG +=
-unix:!win32: QMAKE_CFLAGS_DEBUG +=
 
-mac: QMAKE_LFLAGS += -L/opt/local/lib -fopenmp
-unix:!macx: QMAKE_LFLAGS += -fopenmp -rdynamic
+QMAKE_FLAGS +=
+unix:!macx: QMAKE_LFLAGS += -rdynamic
 
 unix:!macx: LIBS += -lX11
 win32: LIBS += -lopengl32

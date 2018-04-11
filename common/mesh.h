@@ -15,6 +15,8 @@
 #include <functional>
 #include <stdint.h>
 
+namespace mesh {
+
 struct vertex_color {
     float r, g, b, a;
 };
@@ -55,6 +57,7 @@ typedef std::vector<vertex_color>   color_array;
 typedef std::vector<double>         property;
 typedef std::vector<property>       property_array;
 
+}   // END namespace
 
 
 class Mesh
@@ -87,14 +90,14 @@ public:
     }
 
     // Assign all vertices at once.
-    void set_vectices( vertex_array& vert)          { vertices.swap(vert); }
+    void set_vectices( mesh::vertex_array& vert)    { vertices.swap(vert); }
 
     // Get all vertices.
-    const vertex_array& get_vertices()              { return vertices; }
+    const mesh::vertex_array& get_vertices()        { return vertices; }
 
 
     // Add a polygon (either triangle or quad) to the mesh.
-    void add_polygon( polygon& p )
+    void add_polygon( mesh::polygon& p )
     {
         polygons.push_back( p );
         if ( p.size() == 3 ) {
@@ -120,14 +123,14 @@ public:
     }
 
     // Returns polygons: May contain mixed triangle/quad data.
-    const polygon_array& get_polygons()                 { return polygons; }
+    const mesh::polygon_array& get_polygons()           { return polygons; }
 
     // Get triangle, quad indices.
     const std::vector<uint32_t>& get_triangle_indices() { return tris; }
     const std::vector<uint32_t>& get_quad_indices()     { return quads; }
 
     // Set color for vertex i.
-    void set_vertex_color( uint32_t i, vertex_color& c )
+    void set_vertex_color( uint32_t i, mesh::vertex_color& c )
     {
         if ( colors.size() > i )
             colors.at(i) = c;
@@ -136,10 +139,10 @@ public:
     }
 
     // Add secondary/alternative set of vertex colors.
-    void set_alt_colors( const color_array& alt )   { alt_colors = alt; }
+    void set_alt_colors( const mesh::color_array& alt ) { alt_colors = alt; }
 
     // Returns either primary (i=0) or secondary colors (i!=0).
-    const color_array& get_vertex_colors( int i=0 )
+    const mesh::color_array& get_vertex_colors( int i=0 )
     {
         if (i)
             return alt_colors;
@@ -147,16 +150,16 @@ public:
     }
 
     // Set a property for mesh vertices.
-    void set_property( property& prop )             { properties.push_back(prop); }
-    const property_array& get_properties()          { return properties; }
+    void set_property( mesh::property& prop )       { properties.push_back(prop); }
+    const mesh::property_array& get_properties()    { return properties; }
 
 
 private:
-    vertex_array    vertices;
-    polygon_array   polygons;
-    color_array     colors;
-    color_array     alt_colors;
-    property_array  properties;
+    mesh::vertex_array    vertices;
+    mesh::polygon_array   polygons;
+    mesh::color_array     colors;
+    mesh::color_array     alt_colors;
+    mesh::property_array  properties;
 
     std::vector<uint32_t> tris;
     std::vector<uint32_t> quads;

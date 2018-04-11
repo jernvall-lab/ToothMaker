@@ -34,8 +34,6 @@ Ringed seal P2, occlusal                         | Ringed seal P2, lingual
 :---------------------------------------------:|:-------------------------------------------:
 <img src="examples/ringed_seal_2018_p2-occlusal.png" width="65%"> | <img src="examples/ringed_seal_2018_p2-lingual.png" width="65%">
 
-<br/><br/>
-
 Parameters: [ringed_seal_2018.txt](examples/ringed_seal_2018.txt)
 
 Grey seal P2, occlusal                         | Grey seal P2, lingual
@@ -68,12 +66,12 @@ The 2010 version of the model is included only for completeness. For all practic
 
 ### Requirements
 
-  * Qt 5.x
-  * GCC 4.8+ or Clang 3.8+ (support for C++11)
-  * GLEW, GLM (included in [/ext](ext/))
-  * Mac OS X 10.6 or later, Ubuntu 14.04 or later, Windows 7 or later
-  * Support for OpenGL 3.0
-  * Support for 32 bit binaries (see [Notes](#notes))
+* Qt 5.x
+* GCC 4.8+ or Clang 3.8+ (support for C++11)
+* GLEW, GLM (included in [/ext](ext/))
+* Mac OS X 10.6 or later, Ubuntu 14.04 or later, Windows 7 or later
+* Support for OpenGL 3.0
+* Support for 32 bit binaries (see [Notes](#notes))
 
 ### Quickstart (macOS & Linux)
 
@@ -108,7 +106,6 @@ See the instructions [here](OSX106).
 ### Windows
 
 Windows port hasn't been maintained for some time. Building with the standard Qt package should work, though some small changes to the code may be required (such as fixing header includes).
-
 
 ## Notes
 

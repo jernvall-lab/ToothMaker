@@ -97,11 +97,6 @@ ScanWindow::ScanWindow(QWidget *parent) : QDialog(parent)
  */
 void ScanWindow::setParameters(Parameters *par)
 {
-    int i;
-
-    parNames = par->getParNames();
-    parValues = par->getParValues();
-
     tableSet = false;
     if (table!=NULL) {
         while (table->rowCount() > 0) {
@@ -110,9 +105,9 @@ void ScanWindow::setParameters(Parameters *par)
         table->clearContents();
     }
 
-    for (i=0; i<(int)parNames->size(); i++) {
-        if (!par->isParameterHidden(parNames->at(i))) {
-            addParameterRow(parNames->at(i).c_str());
+    for (auto& p : par->getParameters()) {
+        if (!p.hidden) {
+            addParameterRow( p.name.c_str() );
         }
     }
 

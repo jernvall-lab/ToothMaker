@@ -4,7 +4,9 @@
  * @class ToothLife
  * @brief Container for a complete model run.
  *
- * - Container for a set of Tooth objects.
+ * A model run consists of model parameters, a set of Tooth objects (one per
+ * step) and a run ID to distinguish between ToothLife objects.
+ *
  */
 
 #include <vector>
@@ -17,58 +19,58 @@ class ToothLife
 
 public:
     // Construct Tooth for model i with run ID j.
-    ToothLife( int i=0, int j=0 ) : parameters(NULL)
+    ToothLife( int i=0, int j=0 ) : m_parameters(nullptr)
     {
-        currentModel = i;
-        id = j;
+        m_currentModel = i;
+        m_id = j;
     }
 
     ~ToothLife()
     {
-        for (size_t i=0; i<teeth.size(); i++)
-            delete teeth.at(i);
-        teeth.clear();
-        if (parameters != NULL)
-            delete parameters;
+        for (size_t i=0; i<m_teeth.size(); i++)
+            delete m_teeth.at(i);
+        m_teeth.clear();
+        if (m_parameters != nullptr)
+            delete m_parameters;
     }
 
     // Set current model parameters.
     void setParameters( Parameters *par )
     {
-        if (parameters != NULL)
-            delete parameters;
-        parameters = new Parameters(par);
+        if (m_parameters != nullptr)
+            delete m_parameters;
+        m_parameters = new Parameters(par);
     }
 
     // Get current model parameters.
-    Parameters *getParameters()             { return parameters; }
+    Parameters *getParameters()             { return m_parameters; }
 
     // Add a tooth object.
-    void addTooth( Tooth *tooth )           { teeth.push_back(tooth); }
+    void addTooth( Tooth *tooth )           { m_teeth.push_back(tooth); }
 
     // Get a tooth object by index.
     Tooth *getTooth( int i )
     {
-        if (i>=0 && i<(int)(teeth.size()))
-            return teeth.at(i);
-        return NULL;
+        if (i>=0 && i<(int)(m_teeth.size()))
+            return m_teeth.at(i);
+        return nullptr;
     }
 
     // Return the number of tooth objects.
-    int getLifeSize()                       { return teeth.size(); }
+    int getLifeSize()                       { return m_teeth.size(); }
 
     // Get model index.
-    int getCurrentModel()                   { return currentModel; }
+    int getCurrentModel()                   { return m_currentModel; }
 
     // Get model run ID.
-    int getID()                             { return id; }
+    int getID()                             { return m_id; }
 
 
 
 private:
-    Parameters *parameters;         // Model parameters.
-    unsigned int currentModel;      // Model index.
-    std::vector<Tooth*> teeth;      // Vector of model states.
-    int id;                         // Model run ID.
+    Parameters* m_parameters;           // model parameters
+    unsigned int m_currentModel;        // model index
+    std::vector<Tooth*> m_teeth;        // vector of model states
+    int m_id;                           // model run ID
 
 };

@@ -10,7 +10,7 @@
  *    'heatmap' for blue-green-red.
  */
 
-#include <colormap.h>
+#include "colormap.h"
 
 using namespace colormap;
 
@@ -25,7 +25,7 @@ namespace {
  * @param col       Color object.
  * @param obj       GLObject.
  */
-void _map_color_heatmap(double val, double viewThresh, Color *col)
+void map_color_heatmap_(double val, double viewThresh, Color *col)
 {
     if (val<0.0) {
         val = 0.0;
@@ -72,7 +72,7 @@ void _map_color_heatmap(double val, double viewThresh, Color *col)
  * @param col       Color object.
  * @param obj       GLObject.
  */
-void _map_color_RGB(double val, double viewThresh, Color *col)
+void map_color_RGB_(double val, double viewThresh, Color *col)
 {
     col->r = 0;
     col->g = 0;
@@ -110,7 +110,7 @@ void _map_color_RGB(double val, double viewThresh, Color *col)
  * @param col       Color object.
  * @param obj       GLObject.
  */
-void _map_color_BW(double val, double viewThresh, Color *col)
+void map_color_BW_(double val, double viewThresh, Color *col)
 {
     if (val<0.0) {
         val = 0.0;
@@ -140,15 +140,15 @@ int colormap::Map_value( double val, double viewThresh, Color* col,
                          std::string type )
 {
     if (!type.compare("heatmap")) {
-        _map_color_heatmap( val, viewThresh, col );
+        map_color_heatmap_( val, viewThresh, col );
         return 0;
     }
     if (!type.compare("RGB")) {
-        _map_color_RGB( val, viewThresh, col );
+        map_color_RGB_( val, viewThresh, col );
         return 0;
     }
     if (!type.compare("BW")) {
-        _map_color_BW( val, viewThresh, col );
+        map_color_BW_( val, viewThresh, col );
         return 0;
     }
 

@@ -1,7 +1,5 @@
-#ifndef PARAMETERWINDOW_H
-#define PARAMETERWINDOW_H
+#pragma once
 
-#include <iostream>
 #include <QWidget>
 #include <QtGui>
 #include <QLineEdit>
@@ -10,9 +8,22 @@
 #include <QFileDialog>
 #include <QLabel>
 #include <QXmlStreamReader>
+#include <QCheckBox>
 
-#include <morphomaker.h>
-#include <model.h>
+#include "morphomaker.h"
+#include "model.h"
+
+
+// Need to add some platform-specific paddigns to make button and field align.
+#if defined(__linux__)
+#define BUTTON_V_PADDING 0
+#define FIELD_V_PADDING 0
+#define FIELD_H_PADDING 7
+#else
+#define BUTTON_V_PADDING -1
+#define FIELD_V_PADDING 4
+#define FIELD_H_PADDING 0
+#endif
 
 
 
@@ -24,33 +35,38 @@ class ParameterWindow : public QWidget
         ParameterWindow(QWidget *parent=0);
         ~ParameterWindow();
 
-        void set_model( Model* );
-        void set_parameter_buttons( Parameters& );
-        void add_orientation( orientation& );
-        void add_file_dialog( QString&, int, int );
+        void setModel( Model* );
+        void setParameters( Parameters& );
+
+        void addFileDialog( QString&, int, int );
         void updateButtonValues();
+
+    private slots:
+        void setParValue(int);
+        void checkbox_state(int);
+        void infoBox(int);
+        void importFile();
+
+    signals:
+        void parameter_changed();
 
     private:
         void paintEvent(QPaintEvent *);
 
-    private slots:
-        void setParValue(int);
-        void infoBox(int);
-        void importFile();
+        void addValueField_(int, int, int, bool=true);
+        void createButton_(int, int, int, int width=60, bool show=true);
+        void addCheckbox_( QString text, int x, int y, int i );
 
-    protected:
-        void addValueField(int, int, bool=true);
-        void createButton(int, int, int, int width=67, bool show=true);
+        std::vector<QLabel*>        fileLabels_;     // File dialog button objects
+        std::vector<QLineEdit*>     valueFields_;    // Value field objects
+        std::vector<QCheckBox*>     checkboxes_;
+        QStringList                 names_;
+        QStringList                 notes_;
+        std::vector<QPushButton*>   buttons_;        // Parameter button objects
 
-        std::vector<QLabel*> fileLabels;        // File dialog button objects
-        std::vector<QLineEdit*> valueFields;    // Value field objects
+        QStringList                 buttonNames;    // Parameter button names
+        QStringList                 buttonNotes;    // Parameter button descriptions
 
-        std::vector<QPushButton*> buttons;      // Parameter button objects
-        QStringList buttonNames;                // Parameter button names
-        QStringList buttonNotes;                // Parameter button descriptions
-
-        Model *model;                           // Associated model object
-        std::vector<std::string> modelFiles;
+        Model*                      model;          // Associated model object
+        std::vector<std::string>    modelFiles;
 };
-
-#endif

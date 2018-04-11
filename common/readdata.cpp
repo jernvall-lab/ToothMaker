@@ -11,9 +11,9 @@
 #include <QStringList>
 #include <QDir>
 
-#include <tooth.h>
-#include <mesh.h>
-#include <readdata.h>
+#include "tooth.h"
+#include "mesh.h"
+#include "readdata.h"
 
 
 namespace {
@@ -23,7 +23,7 @@ namespace {
  * @param in    Input stream.
  * @return
  */
-void _eat_comments(std::istream& in) {
+void eat_comments_(std::istream& in) {
     char line[256];
 
     while (true) {
@@ -47,7 +47,7 @@ void _eat_comments(std::istream& in) {
  * @param n_dim     Number of dimensions detected.
  * @param n_colors  Number of colors detected.
  */
-void _read_ply_vertex(std::istream& in, int& n_dim, int& n_colors)
+void read_ply_vertex_(std::istream& in, int& n_dim, int& n_colors)
 {
     std::string s[3] = {""};
     std::string trash;
@@ -57,7 +57,7 @@ void _read_ply_vertex(std::istream& in, int& n_dim, int& n_colors)
     while (true) {
         if (!in.good()) return;
         int pos = in.tellg();
-        _eat_comments(in);
+        eat_comments_(in);
         in >> s[0]; in >> s[1]; in >> s[2];
         std::getline(in, trash);
         if (!s[0].compare("property") && (!s[1].compare("float") || !s[1].compare("double"))) {
@@ -84,7 +84,7 @@ void _read_ply_vertex(std::istream& in, int& n_dim, int& n_colors)
  * @param in        Input stream.
  * @param list      List of detected morphogen names.
  */
-void _read_ply_concentrations(std::istream& in, std::vector<std::string>& list)
+void read_ply_concentrations_(std::istream& in, std::vector<std::string>& list)
 {
     std::string s[3] = {""};
     std::string trash;
@@ -92,7 +92,7 @@ void _read_ply_concentrations(std::istream& in, std::vector<std::string>& list)
     while (true) {
         if (!in.good()) return;
         int pos = in.tellg();
-        _eat_comments(in);
+        eat_comments_(in);
         in >> s[0]; in >> s[1]; in >> s[2];
         std::getline(in, trash);
         if (!s[0].compare("property") && (!s[1].compare("float") || !s[1].compare("double"))) {
@@ -194,14 +194,14 @@ int morphomaker::Read_PLY_file(const std::string& fname, Tooth& tooth)
     const int maxVar = 7;
 
     // File recognition.
-    _eat_comments(in);
+    eat_comments_(in);
     in >> s[0];
     std::getline(in, trash);
     if (s[0].compare("ply")) {
         std::cerr << "Invalid data file format. Aborting." << std::endl;
         return EXIT_FAILURE;
     }
-    _eat_comments(in);
+    eat_comments_(in);
     in >> s[0]; in >> s[1]; in >> s[2];
     std::getline(in, trash);
     if (s[0].compare("format") || s[1].compare("ascii") || atoi(s[2].c_str())!=1.0) {
@@ -217,7 +217,7 @@ int morphomaker::Read_PLY_file(const std::string& fname, Tooth& tooth)
 
     while (true) {
         if (!in.good()) return EXIT_FAILURE;
-        _eat_comments(in);
+        eat_comments_(in);
         in >> s[0];
         if (!s[0].compare("end_header")) {
             break;
@@ -228,12 +228,12 @@ int morphomaker::Read_PLY_file(const std::string& fname, Tooth& tooth)
         if (!s[0].compare("element")) {
             if (!s[1].compare("vertex")) {
                 n_vert = atoi(s[2].c_str());
-                _read_ply_vertex(in, n_dim, n_colors);
+                read_ply_vertex_(in, n_dim, n_colors);
             }
             if (!s[1].compare("face")) {
                 n_face = atoi(s[2].c_str());
                 // The next line should declare the vertex_indices, not interested.
-                _eat_comments(in);
+                eat_comments_(in);
                 std::getline(in, trash);
             }
             if (!s[1].compare("concentrations")) {
@@ -242,7 +242,7 @@ int morphomaker::Read_PLY_file(const std::string& fname, Tooth& tooth)
                     std::cerr << "Invalid number of concentrations. Aborting." << std::endl;
                     return EXIT_FAILURE;
                 }
-                _read_ply_concentrations(in, morphogens);
+                read_ply_concentrations_(in, morphogens);
             }
         }
         else {
@@ -268,7 +268,7 @@ int morphomaker::Read_PLY_file(const std::string& fname, Tooth& tooth)
         }
         std::getline(in, trash);
 
-        vertex_color color;
+        mesh::vertex_color color;
         if ( n_colors >= 3 ) {
             color.r = p[n_dim];
             color.g = p[n_dim+1];
@@ -307,7 +307,7 @@ int morphomaker::Read_PLY_file(const std::string& fname, Tooth& tooth)
     // Concentrations, if present.
     for (i=0; i<n_vert; i++) {
         if (!in.good()) return EXIT_FAILURE;
-        property prop;
+        mesh::property prop;
 
         for (j=0; j<(int)morphogens.size(); j++) {
             if (!in.good()) return EXIT_FAILURE;
@@ -316,7 +316,7 @@ int morphomaker::Read_PLY_file(const std::string& fname, Tooth& tooth)
             if (v > 1.0) {       // Presume the values are in scale 0-255.
                 v = v / 255.0;
             }
-            vertex_color c;
+            mesh::vertex_color c;
             c.r = v; c.g = v; c.b = v; c.a = 1.0;
             prop.push_back( v );
             mesh.set_vertex_color( i, c );
@@ -351,7 +351,7 @@ int morphomaker::Read_OFF_file(const std::string& fname, Tooth& tooth)
     }
 
     // Must find 'OFF' or 'COFF' tag on the first non-comment line.
-    _eat_comments(in);
+    eat_comments_(in);
     std::string s;
     in >> s;
     if (s.find("OFF") && s.find("COFF")) {
@@ -361,7 +361,7 @@ int morphomaker::Read_OFF_file(const std::string& fname, Tooth& tooth)
     }
 
     // The next line should contain the vertices, faces counts.
-    _eat_comments(in);
+    eat_comments_(in);
     int nvertices=0, nfaces=0, nedges=0;
     in >> nvertices; in >> nfaces; in >> nedges;
 
@@ -377,7 +377,7 @@ int morphomaker::Read_OFF_file(const std::string& fname, Tooth& tooth)
     int i,j;
     for (i=0; i<nvertices; i++) {
         if (!in.good()) return EXIT_FAILURE;
-        _eat_comments(in);
+        eat_comments_(in);
 
         // Read node coordinates and potentially vertex color information.
         for (j=0; j<maxVar; j++) {
@@ -387,7 +387,7 @@ int morphomaker::Read_OFF_file(const std::string& fname, Tooth& tooth)
             in >> p[j];
         }
         mesh.add_vertex( p[0], p[1], p[2] );
-        vertex_color c = { 0.0, 0.0, 0.0, 0.0 };
+        mesh::vertex_color c = { 0.0, 0.0, 0.0, 0.0 };
         if ( j == 7 ) {     // Only acccept RGBA colors, hence must be 7 cols.
             c = { p[3], p[4], p[5], p[6] };
         }
@@ -401,7 +401,7 @@ int morphomaker::Read_OFF_file(const std::string& fname, Tooth& tooth)
     // Read nfaces lines of polygon data.
     for (i=0; i<nfaces; i++) {
         if (!in.good()) return EXIT_FAILURE;
-        _eat_comments(in);
+        eat_comments_(in);
 
         in >> t[0];
         if (t[0]<3 || t[0]>4) {
@@ -513,7 +513,7 @@ int morphomaker::Read_Humppa_DAD_file( int step, int stepsize, int run_id,
                 continue;
             }
 
-            vertex vert = { list[1].toFloat(), list[2].toFloat(), list[3].toFloat() };
+            mesh::vertex vert = { list[1].toFloat(), list[2].toFloat(), list[3].toFloat() };
             tooth.add_cell_shape( i-1, vert );
             j++;
         }

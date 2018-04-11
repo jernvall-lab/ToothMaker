@@ -34,17 +34,20 @@
 #define PARSER_TIMEOUT 30000    // Timeout in msecs for output & result parsers.
 
 
-// Model view mode; plain-text name & ID.
-typedef std::tuple<std::string, int> view_mode;
+namespace model {
 
-
-// Predefined 3D model orientation
-struct orientation {
-    std::string name;       // Plain text name (e.g. "Buccal")
-    float rotx;             // Rotation along x axis
-    float roty;             // Rotation along y axis
+struct view_mode {
+    std::string name;                           // view mode plain text name
+    std::vector<std::pair<int,int>> shapes;     // pairs [shape index, data index]
 };
 
+struct orientation {
+    std::string name;                           // plain text name (e.g. "Buccal")
+    float rotx;                                 // rotation along x axis
+    float roty;                                 // rotation along y axis
+};
+
+}   // END namespace
 
 
 class Model : public QThread
@@ -89,7 +92,7 @@ public:
     //
 
     // Returns a modified version of the current mesh (e.g., colors added) for RENDER_MESH.
-    virtual Mesh& fill_mesh( Tooth& tooth )         { return tooth.get_mesh(); }
+    virtual Mesh& fill_mesh( Tooth& tooth ) { return tooth.get_mesh(); }
 
     // Default RGBA image filler for RENDER_PIXEL.
     virtual void fill_image( Tooth *tooth, float *img );
@@ -114,12 +117,12 @@ public:
     int getStepSize()                       { return stepSize; }
 
     // Enable/disable 'Show mesh' checkbox in the GUI.
-    void setShowMeshAccess( bool state )    { _enable_show_mesh = state; }
-    bool getShowMeshAccess()                { return _enable_show_mesh; }
+    void setShowMeshAccess( bool state )    { m_enableShowMesh = state; }
+    bool getShowMeshAccess()                { return m_enableShowMesh; }
 
     // Set the status of 'Show mesh' in the GUI.
-    void setShowMesh( bool state )          { _show_mesh = state; }
-    bool getShowMesh()                      { return _show_mesh; }
+    void setShowMesh( bool state )          { m_showMesh = state; }
+    bool getShowMesh()                      { return m_showMesh; }
 
     // Deletes the temporary folder and everything in it.
     void workDirCleanUp();
@@ -139,28 +142,28 @@ public:
     //
 
     // Set interface XML file name.
-    void setInterfaceXML( QString s )       { _interface_xml = s; }
-    QString getInterfaceXML()               { return _interface_xml; }
+    void setInterfaceXML( QString s )       { m_interfaceXML = s; }
+    QString getInterfaceXML()               { return m_interfaceXML; }
 
     // Set model plain text name
-    void setModelName( std::string s )      { _model_name = s;
+    void setModelName( std::string s )      { m_modelName = s;
                                               parameters->setModelName(s); }
-    std::string getModelName()              { return _model_name; }
+    std::string getModelName()              { return m_modelName; }
 
     // Returns model binary name for the current OS/platform, if applicable.
     QString getBinaryName()                 { return QString(modelBin.c_str()); }
 
     // Set parameter window background image file name.
-    void setBackgroundImage( const QString& f )         { _background_image = f; }
-    QString getBackgroundImage()                        { return _background_image; }
+    void setBackgroundImage( const QString& f )         { m_backgroundImage = f; }
+    QString getBackgroundImage()                        { return m_backgroundImage; }
 
     // Add a predefined orientation for model viewing.
-    void addOrientation( const orientation& o )         { _orientations.push_back(o); }
-    std::vector<orientation>& getOrientations()         { return _orientations; }
+    void addOrientation( const model::orientation& o )  { m_orientations.push_back(o); }
+    std::vector<model::orientation>& getOrientations()  { return m_orientations; }
 
     // Set default parameters file name.
-    void setExampleParameters( const std::string& s )   { _example_parameters = s; }
-    std::string getExampleParameters()                  { return _example_parameters; }
+    void setExampleParameters( const std::string& s )   { m_exampleParameters = s; }
+    std::string getExampleParameters()                  { return m_exampleParameters; }
 
     // Sets binary information: Binary file names and input/output formats.
     void setBinaryInfo( const QString&, const QString&, const QString&,
@@ -168,37 +171,37 @@ public:
                         const std::vector<QString>& );
 
     // Adds a view mode to the model.
-    void addViewMode( std::pair<std::string,std::string>& mode );
-    std::vector<std::string> *getViewModes()            { return &_view_modes; }
+    void addViewMode( const model::view_mode& mode )    { m_viewModes.push_back(mode); }
+    const std::vector<model::view_mode>& getViewModes() { return m_viewModes; }
 
 
 
 private:
     // Interface XML file.
-    QString _interface_xml;
+    QString m_interfaceXML;
 
     // Parameter window background image file name.
-    QString _background_image;
+    QString m_backgroundImage;
 
     // List of predefined orientations.
-    std::vector<orientation> _orientations;
+    std::vector<model::orientation> m_orientations;
 
     // Default parameters. XML key: <DefaultParameters>
-    std::string _example_parameters;
+    std::string m_exampleParameters;
 
     // List of view modes. XML key: <ViewMode>
-    std::vector<std::string> _view_modes;
+    std::vector<model::view_mode> m_viewModes;
 
     // Model plain text name. XML key: <Name>
-    std::string _model_name;
+    std::string m_modelName;
 
     // Parsers executed at the user-defined export folder. No input arguments.
     // XML key: <ResultParser>
-    std::vector<QString> _result_parsers;
+    std::vector<QString> m_resultParsers;
 
     // Control panel settings.
-    bool _enable_show_mesh;         // true if 'Show mesh' accessible.
-    bool _show_mesh;                // 'Show mesh' status, if applicable.
+    bool m_enableShowMesh;         // true if 'Show mesh' accessible.
+    bool m_showMesh;                // 'Show mesh' status, if applicable.
 
 
 

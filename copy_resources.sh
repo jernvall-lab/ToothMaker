@@ -12,16 +12,13 @@
 #
 platform=`uname`
 RESOURCES=""
-BINPATH=""
 LIBTYPE=""
 if [ "$platform" == "Darwin" ]; then
     RESOURCES='interface/ToothMaker.app/Contents/Resources/'
-    BINPATH='mac/32'
     LIBTYPE='.dylib'
 fi
 if [ "$platform" == "Linux" ]; then
     RESOURCES='interface/Resources/'
-    BINPATH='linux/32'
     LIBTYPE='.so'
 fi
 

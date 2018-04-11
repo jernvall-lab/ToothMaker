@@ -14,10 +14,10 @@
 
 
 
-Model::Model() : _example_parameters(""),
-                 _model_name(""),
-                 _enable_show_mesh(true),
-                 _show_mesh(false)
+Model::Model() : m_exampleParameters(""),
+                 m_modelName(""),
+                 m_enableShowMesh(true),
+                 m_showMesh(false)
 {
     // protected members
     modelBin = "";
@@ -99,14 +99,13 @@ void Model::fill_image( Tooth *tooth, float *img )
  */
 void Model::setParameters(Parameters *par)
 {
-    auto names = par->getParNames();
-    if (names == NULL)
+    if (par == nullptr)
         return;
 
-    for (size_t i=0; i<names->size(); i++) {
-        parameters->setParameter(names->at(i), par->getParValues()->at(i));
-    }
-    for (size_t i=0; i<par->getKeywords()->size(); i++) {
+    for (auto& p : par->getParameters())
+        parameters->setParameterValue( p.name, p.value );
+
+     for (size_t i=0; i<par->getKeywords()->size(); i++) {
         std::string key = par->getKeywords()->at(i);
         std::string value = par->getKey(key);
         parameters->setKey(key, value);
@@ -193,7 +192,7 @@ int Model::runResultParsers( const QString export_folder )
     QDir::setCurrent( export_folder );
     QProcess process;
 
-    for (auto& parser : _result_parsers) {
+    for (auto& parser : m_resultParsers) {
         QString cmd = "";
         QStringList blist = parser.split(".");
         if (blist.size() > 1 && blist.at(1) == "py") {
@@ -235,7 +234,7 @@ void Model::setBinaryInfo( const QString& bin, const QString& in_style,
     inputStyle = in_style;
     outputStyle = out_style;
     outputParsers = output_parsers;
-    _result_parsers = result_parsers;
+    m_resultParsers = result_parsers;
 
     // Set the render mode according to the given output style.
     // Defaults to RENDER_MESH for PLY and Hexa output styles.
@@ -247,16 +246,4 @@ void Model::setBinaryInfo( const QString& bin, const QString& in_style,
     if (outputStyle == "Humppa") {    // Legacy mode; don't use!
         renderMode = RENDER_HUMPPA;
     }
-}
-
-
-
-/**
- * @brief Adds a view mode to the model.
- * @param mode     A pair of strings; name and type.
- */
-void Model::addViewMode( std::pair<std::string,std::string>& mode )
-{
-    // TODO: Make use of mode type.
-    _view_modes.push_back(mode.first);
 }

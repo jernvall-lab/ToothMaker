@@ -1,5 +1,4 @@
-#ifndef CONTROLPANEL_H
-#define CONTROLPANEL_H
+#pragma once
 
 #include <QtGlobal>
 #if QT_VERSION >= 0x050000
@@ -52,12 +51,12 @@ class ControlPanel : public QWidget
         void setViewThreshold(double);
         void setnIter(int);
 
-        void setOrientations( const std::vector<orientation>& );
+        void setOrientations( const std::vector<model::orientation>& );
         void showCellConnections(bool, bool);
         void enableRunButton(int);
         void enableModelList(int);
         void enableHistory(int);
-        void setViewModeBox(std::vector<std::string> *, int);
+        void setViewModeBox(const std::vector<model::view_mode>& , int);
         int getnIter();
 
     private slots:
@@ -128,8 +127,6 @@ class ControlPanel : public QWidget
         QString runStatus;          // Run button text & status indicator.
         int currentRunIndex;        // History entry number.
         int nIter;                  // Number of iterations.
-        QTimer* sliderTimer;      // Timer for checking development slider.
+        QTimer* sliderTimer;        // Timer for checking development slider.
         bool sliderUpdate;         // True if user inacting with devel. slider.
 };
-
-#endif

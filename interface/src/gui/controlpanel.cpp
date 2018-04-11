@@ -8,8 +8,7 @@
  *  cleaning would not be totally unwarrented.
  */
 
-#include <gui/controlpanel.h>
-#include <model.h>
+#include "gui/controlpanel.h"
 
 
 /**
@@ -444,14 +443,13 @@ int ControlPanel::getSliderValue()
 void ControlPanel::handleRunButton()
 {
     if (!QString::compare(runStatus, "Run")) {
-        if (nIter>0) {  // Nothing to do if nIter=0.
-            runStatus="Halt";
-            if (DEBUG_MODE) fprintf(stderr, "emit startModel()\n");
+        if (nIter > 0) {
+            runStatus = "Halt";
             emit startModel(nIter);
         }
     }
     else if (!QString::compare(runStatus, "Halt")) {
-        runStatus="Run";
+        runStatus = "Run";
         emit killModel();
     }
     else {}
@@ -636,7 +634,7 @@ bool ControlPanel::eventFilter(QObject *, QEvent *event)
  * @brief Enables Orientation drop menu and fills it.
  * @param names     String vector containing the names.
  */
-void ControlPanel::setOrientations( const std::vector<orientation>& orient )
+void ControlPanel::setOrientations( const std::vector<model::orientation>& orient )
 {
     orientations->blockSignals(true);   // Block signaling while updating.
 
@@ -711,18 +709,15 @@ void ControlPanel::enableHistory(int i)
  * @param viewModes    Pointer to view mode names string vector.
  * @param viewmode     Value of the menu to be set.
  */
-void ControlPanel::setViewModeBox( std::vector<std::string> *viewModes,
+void ControlPanel::setViewModeBox( const std::vector<model::view_mode>& modes,
                                    int viewmode )
 {
     disconnect( viewMode, SIGNAL(currentIndexChanged(int)), this,
                 SLOT(changeViewMode(int)) );
     viewMode->clear();
-    if (viewModes==NULL) return;
 
-    for (uint16_t i=0; i<viewModes->size(); i++) {
-        viewMode->addItem(viewModes->at(i).c_str());
-    }
-
+    for (auto& m : modes)
+        viewMode->addItem( m.name.c_str() );
     viewMode->setCurrentIndex(viewmode);
     changeViewMode(viewmode);
 

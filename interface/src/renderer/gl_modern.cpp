@@ -9,7 +9,6 @@
 
 #include <iostream>
 #include <fstream>
-#include <string>
 
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
@@ -17,7 +16,6 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "glcore.h"             // PAN_SENSITIVITY
 #include "gl_modern.h"
 #include "morphomaker.h"        // SQUARE_WIN_SIZE
 
@@ -83,7 +81,7 @@ void glcore::Shader_log( const std::string& name, GLuint& shader )
  * @param mesh
  * @param tri_color_data
  */
-void glcore::Set_color_data( Mesh* mesh, std::vector<vertex_color>& tri_color_data )
+void glcore::Set_color_data( Mesh* mesh, std::vector<mesh::vertex_color>& tri_color_data )
 {
     auto& colors = mesh->get_vertex_colors();
     auto& tris = mesh->get_triangle_indices();
@@ -124,14 +122,14 @@ void glcore::Set_vertex_data( Mesh* mesh, std::vector<GLfloat>& tri_data,
     for ( uint32_t i=0; i<tris.size(); i=i+3 ) {
         uint32_t nodes[] = { tris.at(i), tris.at(i+1), tris.at(i+2) };
 
-        vertex p[] = { vertices.at(nodes[0]),
-                       vertices.at(nodes[1]),
-                       vertices.at(nodes[2]) };
-        vertex v1 = p[0]-p[2];
-        vertex v2 = p[1]-p[2];
+        mesh::vertex p[] = { vertices.at(nodes[0]),
+                             vertices.at(nodes[1]),
+                             vertices.at(nodes[2]) };
+        mesh::vertex v1 = p[0]-p[2];
+        mesh::vertex v2 = p[1]-p[2];
 
         // Compute normal from vectors v1, v2 (cross product).
-        vertex n;
+        mesh::vertex n;
         n.x = v1.y*v2.z - v1.z*v2.y;
         n.y = v1.z*v2.x - v1.x*v2.z;
         n.z = v1.x*v2.y - v1.y*v2.x;
@@ -152,15 +150,15 @@ void glcore::Set_vertex_data( Mesh* mesh, std::vector<GLfloat>& tri_data,
  * @param x         Draw area width in pixels.
  * @param y         Draw area height in pixels.
  */
-void glcore::Draw_mesh( GLObject *obj, int x, int y )
+void glcore::Draw_mesh( GLObject& obj, int x, int y )
 {
-    if ( obj->mesh == NULL ) return;
+    if ( obj.mesh == nullptr ) return;
 
     GLfloat aspect = ((GLfloat)x/y);
 
     // Camera view.
-    GLfloat zoom[] = { -20.0f*aspect*obj->zoomMultip, 20.0f*aspect*obj->zoomMultip,
-                       -20.0f*obj->zoomMultip, 20.0f*obj->zoomMultip };
+    GLfloat zoom[] = { -20.0f*aspect*obj.zoomMultip, 20.0f*aspect*obj.zoomMultip,
+                       -20.0f*obj.zoomMultip, 20.0f*obj.zoomMultip };
     glm::mat4 camera = glm::ortho( zoom[0], zoom[1],            // left, right
                                    zoom[2], zoom[3],            // bottom, top
                                    -200.0f, 200.0f );           // zNear, zFar
@@ -172,65 +170,65 @@ void glcore::Draw_mesh( GLObject *obj, int x, int y )
 
     // Object scaling.
     glm::mat4 scale;
-    // scale = glm::scale(scale, glm::vec3( 1.0/obj->zoomMultip ));
+    // scale = glm::scale(scale, glm::vec3( 1.0/obj.zoomMultip ));
 
     // Object translation.
-    if ( obj->mouse2Down ) {
-        GLdouble sensitivity = obj->zoomMultip * SQUARE_WIN_SIZE /
+    if ( obj.mouse2Down ) {
+        GLdouble sensitivity = obj.zoomMultip * SQUARE_WIN_SIZE /
                                (PAN_SENSITIVITY * (GLdouble)y);
-        obj->viewPosY -= obj->deltaX * sensitivity;
-        obj->viewPosX -= obj->deltaY * sensitivity;
+        obj.viewPosY -= obj.deltaX * sensitivity;
+        obj.viewPosX -= obj.deltaY * sensitivity;
     }
     glm::mat4 translate;
     translate = glm::translate( translate,
-                                glm::vec3(obj->viewPosY, obj->viewPosX, 0.0) );
+                                glm::vec3(obj.viewPosY, obj.viewPosX, 0.0) );
 
     // Object rotation.
-    if ( obj->mouse1Down ) {
-        obj->rtriY -= obj->deltaY;
-        obj->rtriX += obj->deltaX;
+    if ( obj.mouse1Down ) {
+        obj.rtriY -= obj.deltaY;
+        obj.rtriX += obj.deltaX;
     }
     glm::mat4 rotate;
-    rotate = glm::rotate( rotate, glm::radians((GLfloat)obj->rtriY),
+    rotate = glm::rotate( rotate, glm::radians((GLfloat)obj.rtriY),
                           glm::vec3(1.0f, 0.0f, 0.0f) );
-    rotate = glm::rotate( rotate, glm::radians((GLfloat)obj->rtriX),
+    rotate = glm::rotate( rotate, glm::radians((GLfloat)obj.rtriX),
                           glm::vec3(0.0f, 0.0f, 1.0f) );
 
     // Model view matrix.
     glm::mat4 model = translate*rotate*scale;
 
     // Send camera & model to shaders.
-    GLint loc = glGetUniformLocation( obj->shader_program, "camera" );
+    GLint loc = glGetUniformLocation( obj.shader_program, "camera" );
     glUniformMatrix4fv( loc, 1, GL_FALSE, glm::value_ptr(camera) );
-    loc = glGetUniformLocation( obj->shader_program, "model" );
+    loc = glGetUniformLocation( obj.shader_program, "model" );
     glUniformMatrix4fv( loc, 1, GL_FALSE, glm::value_ptr(model) );
 
     // Compute normal matrix. In GLSL >= 1.3 this can be done in shader,
     // but GLSL 1.2 doesn't offer inverse() nor transpose() methods.
     glm::mat3 normal_matrix = glm::inverseTranspose( glm::mat3(model) );
-    loc = glGetUniformLocation( obj->shader_program, "normal_matrix" );
+    loc = glGetUniformLocation( obj.shader_program, "normal_matrix" );
     glUniformMatrix3fv( loc, 1, GL_FALSE, glm::value_ptr(normal_matrix) );
 
     // Draw filled polygons.
     glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-    GLint wireframe = glGetUniformLocation( obj->shader_program, "wireframe" );
+    GLint wireframe = glGetUniformLocation( obj.shader_program, "wireframe" );
     glUniform1f(wireframe, false);
 
     // Draw triangles.
-    auto& tris = obj->mesh->get_triangle_indices();
-    glBindVertexArray(obj->vao);
+    auto& tris = obj.mesh->get_triangle_indices();
+    glBindVertexArray(obj.vao);
     glDrawElements( GL_TRIANGLES, tris.size(), GL_UNSIGNED_INT, 0 );
 
     // Draw polygon edges in black if requested.
-    if ( obj->polygonFill ) {
+    if ( obj.polygonFill ) {
         glUniform1f(wireframe, true);
-        GLint uniColor = glGetUniformLocation( obj->shader_program, "edge_color" );
+        GLint uniColor = glGetUniformLocation( obj.shader_program, "edge_color" );
         glUniform3f( uniColor, 0.0f, 0.0f, 0.0f );
         glLineWidth(1);
         glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
 
         // Triangle edges.
-        glBindVertexArray(obj->vao);
+        glBindVertexArray(obj.vao);
         glDrawElements( GL_TRIANGLES, tris.size(), GL_UNSIGNED_INT, 0 );
     }
 }

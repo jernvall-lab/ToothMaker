@@ -67,214 +67,185 @@
 <Parameters>
     <Parameter>
         <Name>Egr</Name>
-        <Button>260,35</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,35</Position>
         <Description>Epithelial proliferation rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Mgr</Name>
-        <Button>230,325</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>230,325</Position>
         <Description>Mesenchymal proliferation rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Rep</Name>
-        <Button>260,170</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,170</Position>
         <Description>Young's modulus (stiffness).</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Swi</Name>
-        <Button>185,457</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>185,457</Position>
         <Description>Distance from 0 where the borders are defined.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Adh</Name>
-        <Button>260,145</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,145</Position>
         <Description>Traction between neighbours.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     
     <Parameter>
         <Name>Act</Name>
-        <Button>33,230</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,230</Position>
         <Description>Activator auto-activation.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Inh</Name>
-        <Button>33,430</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,430</Position>
         <Description>Inhibition of activator.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Not2</Name>
         <Value>0.0</Value>
-        <Button>33,380</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,380</Position>
         <Description>Nothing (ectodin in mouse).</Description>
         <Hidden>True</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Sec</Name>
-        <Button>33,130</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,130</Position>
         <Description>Growth factor secretion rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Not3</Name>
         <Value>0.0</Value>
-        <Button>33,135</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,135</Position>
         <Description>Nothing.</Description>
         <Hidden>True</Hidden>
     </Parameter>
     
     <Parameter>
         <Name>Da</Name>
-        <Button>33,255</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,255</Position>
         <Description>Activator diffusion rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Di</Name>
-        <Button>33,455</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,455</Position>
         <Description>Inhibitor diffusion rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Ds</Name>
-        <Button>33,155</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,155</Position>
         <Description>Growth factor diffusion rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Not4</Name>
     	<Value>0.0</Value>
-        <Button>33,160</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,160</Position>
         <Description>Nothing (ectodin diffusion).</Description>
         <Hidden>True</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Int</Name>
-        <Button>33,405</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,405</Position>
         <Description>Initial inhibitor threshold.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     
     <Parameter>
         <Name>Set</Name>
-        <Button>33,105</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,105</Position>
         <Description>Growth factor threshold.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Boy</Name>
-        <Button>230,375</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>230,375</Position>
         <Description>Mesenchyme mechanic resistance.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Dff</Name>
-        <Button>260,105</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,105</Position>
         <Description>Differentiation rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Bgr</Name>
-        <Button>230,350</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>230,350</Position>
         <Description>Border growth, amount of mesenchyme in anterior-posterior.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Abi</Name>
-        <Button>260,235</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,235</Position>
         <Description>Anterior bias.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     
     <Parameter>
         <Name>Pbi</Name>
-        <Button>260,260</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,260</Position>
         <Description>Posterior bias.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Lbi</Name>
         <Value>1.0</Value>
-        <Button>33,305</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,305</Position>
         <Description>Lingual bias.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Bbi</Name>
         <Value>1.0</Value>
-        <Button>33,280</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,280</Position>
         <Description>Buccal bias.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Rad</Name>
-        <Button>270,432</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>270,432</Position>
         <Description>Radius of initial conditions.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Deg</Name>
-        <Button>33,30</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,30</Position>
         <Description>Protein degradation rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     
     <Parameter>
         <Name>Dgr</Name>
-        <Button>260,80</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,80</Position>
         <Description>Downward vector of growth.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Ntr</Name>
-        <Button>260,195</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,195</Position>
         <Description>Mechanical traction from the borders to the nucleus.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Bwi</Name>
-        <Button>325,457</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>325,457</Position>
         <Description>Width of border.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
         <Parameter>
         <Name>Ina</Name>
-        <Button>33,330</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,330</Position>
         <Description>Initial activator concentration.</Description>
         <Hidden>False</Hidden>
     </Parameter>

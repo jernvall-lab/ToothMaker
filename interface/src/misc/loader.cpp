@@ -10,7 +10,6 @@
 #include <QDir>
 #include <QLibrary>
 
-#include "model.h"
 #include "misc/binaryhandler.h"
 #include "misc/loader.h"
 #include "utils/readxml.h"

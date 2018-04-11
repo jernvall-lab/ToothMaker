@@ -1,6 +1,6 @@
 #pragma once
 
-#define MMAKER_VERSION "0.6.4"
+#define MMAKER_VERSION "0.6.5"
 // #define MMAKER_VERSION "0.6.4dev (build: " MMAKER_BUILD ")"
 
 // Defines program name; controls output file names etc.

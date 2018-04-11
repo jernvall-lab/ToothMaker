@@ -9,7 +9,6 @@
 #include <cmath>
 #include <vector>
 
-#include "tooth.h"
 #include "utils/writedata.h"
 #include "morphomaker.h"
 
@@ -21,7 +20,7 @@ namespace {
  * @param cellIndex             Vertex.
  * @param connectedCells_clean  Vertex neighbours.
  */
-void _get_connected_cells( Tooth& tooth, int cellIndex,
+void get_connected_cells_( Tooth& tooth, int cellIndex,
                            std::vector<int> *connectedCells_clean )
 {
     uint16_t i;
@@ -88,7 +87,7 @@ void _get_connected_cells( Tooth& tooth, int cellIndex,
  * @param vertIndex     Vertex containing the node.
  * @return              Indices of the cells containing the node.
  */
-int *_get_cells_with_node(Tooth& tooth, int nodeCell, int vertIndex)
+int *get_cells_with_node_(Tooth& tooth, int nodeCell, int vertIndex)
 {
     float epsilon = 0.0001;         // for comparing floating point values.
 
@@ -135,7 +134,7 @@ int _is_border_cell(Tooth& tooth, int i)
     auto& shapes = tooth.get_cell_shapes();
 
     for (uint16_t j=0; j<shapes.at(i).size(); j++) {
-        int *cellsWithNode = _get_cells_with_node(tooth, i,j);
+        int *cellsWithNode = get_cells_with_node_(tooth, i,j);
         if (cellsWithNode[2]==-1) {
             free(cellsWithNode);
             return j;
@@ -198,7 +197,7 @@ void morphomaker::Export_local_maxima( Tooth& tooth, std::string outfile,
         double cellZ = vertices.at(i).z;
 
         connected.clear();
-        _get_connected_cells(tooth, i, &connected);
+        get_connected_cells_(tooth, i, &connected);
 
         for (uint16_t j=0; j<connected.size(); j++) {
             if (std::fabs(vertices.at( connected.at(j) ).z - cellZ) < epsilon) {

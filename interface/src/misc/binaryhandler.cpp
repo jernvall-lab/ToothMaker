@@ -19,21 +19,21 @@
 #include <QTime>
 #include <QDebug>
 
-#include <misc/binaryhandler.h>
-#include <utils/writeparameters.h>
-#include <readdata.h>
-#include <morphomaker.h>
+#include "misc/binaryhandler.h"
+#include "utils/writeparameters.h"
+#include "readdata.h"
+#include "morphomaker.h"
 
 
 BinaryHandler::BinaryHandler() : Model()
 {
-    connect(&_process, SIGNAL(finished(int)), this, SLOT(_binary_finished()));
-    connect(&_process, SIGNAL(error(QProcess::ProcessError)), this,
-            SLOT(_binary_error(QProcess::ProcessError)));
-    connect(&_process, SIGNAL(started()), this, SLOT(start()));
+    connect(&m_process, SIGNAL(finished(int)), this, SLOT(binaryFinished_()));
+    connect(&m_process, SIGNAL(error(QProcess::ProcessError)), this,
+            SLOT(binaryError_(QProcess::ProcessError)));
+    connect(&m_process, SIGNAL(started()), this, SLOT(start()));
 
-    _id = 0;
-    _toothLife = NULL;
+    m_id = 0;
+    m_toothLife = NULL;
 }
 
 
@@ -57,23 +57,23 @@ int BinaryHandler::init_model(const QString& temp_path, const int max_cores,
                               const int step_size, const int id)
 {
     (void)max_cores;
-    _binary = QString(modelBin.c_str());
-    _id = id;
-    _toothLife = &tlife;
+    m_binary = QString(modelBin.c_str());
+    m_id = id;
+    m_toothLife = &tlife;
     systemTempPath = temp_path;
 
-    _set_temp_env(temp_path);
+    setTempEnv_(temp_path);
 
     QDir qdir;
     qdir.setCurrent(temp_path);
-    QString run_folder = QString::number(_id);
+    QString run_folder = QString::number(m_id);
     qdir.mkdir(run_folder);
     qdir.setCurrent(run_folder);
 
     QString parfile;
     QTextStream str;
     str.setString(&parfile);
-    str << temp_path << "/" << run_folder << "/mpar_" << _id << ".txt";
+    str << temp_path << "/" << run_folder << "/mpar_" << m_id << ".txt";
     int rv = morphomaker::Export_parameters( parameters, parfile.toStdString(),
                                              inputStyle );
     if (rv) {
@@ -85,8 +85,8 @@ int BinaryHandler::init_model(const QString& temp_path, const int max_cores,
     // Can't send the parameter file with the full path to the binary,
     // as some programs have difficulties with long arguments.
     parfile = "";
-    str << "mpar_" << _id << ".txt";
-    _set_bin_settings( parfile, num_iter, step_size );
+    str << "mpar_" << m_id << ".txt";
+    setBinSettings_( parfile, num_iter, step_size );
 
     return 0;
 }
@@ -99,15 +99,15 @@ int BinaryHandler::init_model(const QString& temp_path, const int max_cores,
  */
 int BinaryHandler::start_model()
 {
-    if (_process.state() != QProcess::NotRunning) {
+    if (m_process.state() != QProcess::NotRunning) {
         return -1;
     }
 
     retval = 0;
-    _process.setProcessChannelMode( QProcess::ForwardedChannels );
-    _killed_by_user = false;
-    qDebug().nospace() << "Executing " << _cmd;
-    _process.start(_cmd);
+    m_process.setProcessChannelMode( QProcess::ForwardedChannels );
+    m_killedByUser = false;
+    qDebug().nospace() << "Executing " << m_cmd;
+    m_process.start(m_cmd);
 
     return time(NULL);
 }
@@ -119,26 +119,26 @@ int BinaryHandler::start_model()
  */
 void BinaryHandler::stop_model()
 {
-    if ( _process.state() == QProcess::NotRunning ) {
+    if ( m_process.state() == QProcess::NotRunning ) {
         return;
     }
 
-    _killed_by_user = true;
+    m_killedByUser = true;
 
-    qDebug().nospace() << "Asking " << _process.program() << " to exit.";
+    qDebug().nospace() << "Asking " << m_process.program() << " to exit.";
     int timeout = 100;
-    _process.terminate();
-    bool state = _process.waitForFinished( timeout );
+    m_process.terminate();
+    bool state = m_process.waitForFinished( timeout );
     if (state) {
-        qDebug() << _process.program() << "exited gracefully.";
+        qDebug() << m_process.program() << "exited gracefully.";
         return;
     }
 
-    qDebug().nospace() << _process.program() << " still running after "
+    qDebug().nospace() << m_process.program() << " still running after "
                        << timeout << "ms.";
-    _process.kill();
-    _process.waitForFinished(100);
-    qDebug().nospace() << "Killing " << _process.program() << ".";
+    m_process.kill();
+    m_process.waitForFinished(100);
+    qDebug().nospace() << "Killing " << m_process.program() << ".";
 }
 
 
@@ -168,8 +168,8 @@ Mesh& BinaryHandler::fill_mesh( Tooth& tooth )
     auto& cell_data = tooth.get_cell_data();    // Morphogen concentrations.
 
     for ( uint32_t i=0; i<colors.size(); i++ ) {
-        vertex_color color = { DEFAULT_TOOTH_COL, DEFAULT_TOOTH_COL,
-                               DEFAULT_TOOTH_COL, 1.0 };
+        mesh::vertex_color color = { DEFAULT_TOOTH_COL, DEFAULT_TOOTH_COL,
+                                     DEFAULT_TOOTH_COL, 1.0 };
 
         if ( view_mode == 0 ) {     // Mode: Shape only
         }
@@ -209,27 +209,23 @@ Mesh& BinaryHandler::fill_mesh( Tooth& tooth )
  * @param test_only     If true, only tests if the expected output file exists.
  * @return              Vector containing the output file name(s).
  */
-std::vector<std::string> BinaryHandler::_get_data_filenames( int step,
-                                                             bool test_only )
+std::vector<std::string> BinaryHandler::getDataFilenames_( int step,
+                                                           bool test_only )
 {
     std::vector<std::string> output_files;
-    QString run_id = QString::number( _toothLife->getID() );
+    QString run_id = QString::number( m_toothLife->getID() );
     QString run_path = systemTempPath + "/" + run_id + "/";
     QDir qdir(run_path);
 
     std::string ext = "";
-    if (outputStyle == "PLY" || outputStyle == "") {
+    if (outputStyle == "PLY" || outputStyle == "")
         ext = ".ply";
-    }
-    else if (outputStyle == "Matrix") {
+    else if (outputStyle == "Matrix")
         ext = ".txt";
-    }
-    else if (outputStyle == "Humppa") {
+    else if (outputStyle == "Humppa")
         ext = ".off";
-    }
-    else {
+    else
         return output_files;
-    }
 
     //
     // TODO: Imnplement control of output file names.
@@ -243,9 +239,8 @@ std::vector<std::string> BinaryHandler::_get_data_filenames( int step,
     filter << target;
     QFileInfoList files = qdir.entryInfoList( filter, QDir::Files );
 
-    if (files.size() == 0) {
+    if (files.size() == 0)
         return output_files;
-    }
 
     if (test_only) {
         for (auto file : files) {
@@ -307,14 +302,14 @@ std::vector<std::string> BinaryHandler::_get_data_filenames( int step,
  * @param stepTest
  * @return      0 if success (no error handling).
  */
-int BinaryHandler::_add_tooth(const int step_test)
+int BinaryHandler::addTooth_(const int step_test)
 {
     Tooth *tooth = new Tooth( renderMode );
 
     // Get the output file names, apply parsers:
-    auto output_files = _get_data_filenames( step_test, false );
+    auto output_files = getDataFilenames_( step_test, false );
     if (output_files.size() == 0) {
-        _toothLife->addTooth(tooth);
+        m_toothLife->addTooth(tooth);
         return 0;
     }
     std::string fname = output_files.at(0);     // Yes, this is on purpose...
@@ -334,14 +329,13 @@ int BinaryHandler::_add_tooth(const int step_test)
     }
     else if (outputStyle == "Humppa") {
         morphomaker::Read_OFF_file( fname, *tooth );
-        if (morphomaker::Read_Humppa_DAD_file( step_test, stepSize, _id,
-                                               *tooth )) {
-            // TODO: Add a warning.
+        if (morphomaker::Read_Humppa_DAD_file( step_test, stepSize, m_id, *tooth )) {
+            return -1;
         }
     }
     else {}
 
-    _toothLife->addTooth(tooth);
+    m_toothLife->addTooth(tooth);
 
     return 0;
 }
@@ -353,7 +347,7 @@ int BinaryHandler::_add_tooth(const int step_test)
  * @param temp_path     System temporary folder.
  * @return              0 if success.
  */
-int BinaryHandler::_set_temp_env(const QString& temp_path)
+int BinaryHandler::setTempEnv_(const QString& temp_path)
 {
     QDir qdir;
     qdir.setCurrent(temp_path);
@@ -401,38 +395,38 @@ int BinaryHandler::_set_temp_env(const QString& temp_path)
  * @param step_size     Step size.
  * @return      0 if success, else -1.
  */
-int BinaryHandler::_set_bin_settings(const QString& parfile, const int num_iter,
+int BinaryHandler::setBinSettings_(const QString& parfile, const int num_iter,
                                      const int step_size)
 {
-    QString fname = "progress_" + QString::number(_id) + ".txt";
+    QString fname = "progress_" + QString::number(m_id) + ".txt";
     if (outputStyle == "Humppa") {
-        fname = QString::number(_id) + "______progressbar.txt";
+        fname = QString::number(m_id) + "______progressbar.txt";
     }
-    _progress_file.setFileName(fname);
+    m_progressFile.setFileName(fname);
 
     QString path_style = "..\bin\\";
     #if defined(__linux__) || defined(__APPLE__)
     path_style = "../bin/";
     #endif
 
-    _cmd = "";
+    m_cmd = "";
     QTextStream str;
-    str.setString(&_cmd);
+    str.setString(&m_cmd);
 
     // Check if we're dealing with a Python script.
     // It is users responsibility to make sure Python is available!
-    QStringList blist = _binary.split(".");
+    QStringList blist = m_binary.split(".");
     if (blist.size() > 1 && blist.at(1) == "py") {
         str << "python ";
     }
 
-    str << path_style << _binary << " ";
+    str << path_style << m_binary << " ";
     if (inputStyle == "MorphoMaker" || inputStyle == "") {
-        str << "--param " << parfile << " --id " << _id << " --step "
+        str << "--param " << parfile << " --id " << m_id << " --step "
             << step_size << " --niter " << num_iter;
     }
     else if (inputStyle == "Humppa") {
-        str << parfile << " " << _id << " " << step_size << " "
+        str << parfile << " " << m_id << " " << step_size << " "
             << num_iter/step_size;
     }
     else {
@@ -441,7 +435,7 @@ int BinaryHandler::_set_bin_settings(const QString& parfile, const int num_iter,
         return -1;
     }    
 
-    if (DEBUG_MODE) fprintf(stderr, "cmd: %s\n", _cmd.toStdString().c_str());
+    if (DEBUG_MODE) fprintf(stderr, "cmd: %s\n", m_cmd.toStdString().c_str());
 
     return 0;
 }
@@ -456,7 +450,7 @@ int BinaryHandler::_set_bin_settings(const QString& parfile, const int num_iter,
  * @param trail_size        Number of extra white spaces on a progress file line.
  * @return                  Last number.
  */
-int BinaryHandler::_calc_progress( int size, std::vector<long>& cat,
+int BinaryHandler::calcProgress_( int size, std::vector<long>& cat,
                                    int trail_size )
 {
     // Find the correct category.
@@ -486,7 +480,7 @@ int BinaryHandler::_calc_progress( int size, std::vector<long>& cat,
  * including crash.
  *
  */
-void BinaryHandler::_binary_finished()
+void BinaryHandler::binaryFinished_()
 {
     // Wait till run() has returned, which means exec() has returned.
     wait();
@@ -498,31 +492,35 @@ void BinaryHandler::_binary_finished()
 /**
  * @brief Slot for process signal 'error()'.
  */
-void BinaryHandler::_binary_error(QProcess::ProcessError err)
+void BinaryHandler::binaryError_(QProcess::ProcessError err)
 {
-    if (_killed_by_user) {
+    if (m_killedByUser)
         return;
-    }
 
     char bin[256];
-    strcpy(bin, _binary.toStdString().c_str());
+    strcpy(bin, m_binary.toStdString().c_str());
 
     char msg[256], type[32] = "Fatal error:";
-    if (err==QProcess::FailedToStart) sprintf(msg, "%s Failed to start binary '%s'.", type, bin);
-    if (err==QProcess::Crashed) sprintf(msg, "%s Binary '%s' crashed.", type, bin);
-    if (err==QProcess::Timedout) strcat(msg, "Binary wait timeout.");
-    if (err==QProcess::WriteError) strcat(msg, "Cannot write process.");
-    if (err==QProcess::ReadError) strcat(msg, "Cannot read process.");
-    if (err==QProcess::UnknownError) strcat(msg, "Unknown error.");
+    if (err == QProcess::FailedToStart)
+        sprintf(msg, "%s Failed to start binary '%s'.", type, bin);
+    if (err == QProcess::Crashed)
+        sprintf(msg, "%s Binary '%s' crashed.", type, bin);
+    if (err == QProcess::Timedout)
+        strcat(msg, "Binary wait timeout.");
+    if (err == QProcess::WriteError)
+        strcat(msg, "Cannot write process.");
+    if (err == QProcess::ReadError)
+        strcat(msg, "Cannot read process.");
+    if (err == QProcess::UnknownError)
+        strcat(msg, "Unknown error.");
     retval = 1;
 
     qDebug() << msg;
     emit msgStatusBar(msg);
 
     // If the binary failed to start at all, _binary_finished() was never called.
-    if (err==QProcess::FailedToStart) {
-        _binary_finished();
-    }
+    if (err == QProcess::FailedToStart)
+        binaryFinished_();
 }
 
 
@@ -532,7 +530,7 @@ void BinaryHandler::_binary_error(QProcess::ProcessError err)
  */
 void BinaryHandler::run()
 {
-    // Pre-calculate the file size categories for _calc_progress.
+    // Pre-calculate the file size categories for calcProgress_.
     // Category n indicates the size of the progress files containing integers
     // in range [1, (10^n)-1].
     // NOTE: This assumes the newline character is 1 byte in size. Windows?
@@ -550,27 +548,27 @@ void BinaryHandler::run()
     int step_test = 1;
 
     // Process tracking loop.
-    while (_process.state()==QProcess::Running) {
+    while (m_process.state()==QProcess::Running) {
         msleep(UPDATE_INTERVAL);
 
         // Only test if the output files exist, don't run parsers:
-        auto output_files = _get_data_filenames( step_test, true );
+        auto output_files = getDataFilenames_( step_test, true );
         if (output_files.size() > 0) {
             // Reading the output file previous to the latest one, as the latest
             // might still be under writing:
-            _add_tooth(step_test-1);
+            addTooth_(step_test-1);
             step_test++;
         }
-        currentIter = _calc_progress(_progress_file.size(), cat, trail_size);
+        currentIter = calcProgress_(m_progressFile.size(), cat, trail_size);
     }
 
     // Get the rest of the result files still in the sequence.
     while (1) {
         msleep(UPDATE_INTERVAL);
 
-        _add_tooth(step_test-1);
-        // Again, just testing if the files exist; _add_tooth() actually reads.
-        auto output_files = _get_data_filenames( step_test, true );
+        addTooth_(step_test-1);
+        // Again, just testing if the files exist; addTooth_() actually reads.
+        auto output_files = getDataFilenames_( step_test, true );
         if (output_files.size() > 0) {
             step_test++;
         }

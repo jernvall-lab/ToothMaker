@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <morphomaker.h>
+#include "morphomaker.h"
 #include "glcore.h"
 #include "gl_modern.h"
 #include "gl_legacy.h"
@@ -30,43 +30,38 @@
  * @param obj       Pointer to a GLObject.
  * @return
  */
-int glcore::initGLObject(GLObject **obj)
+int glcore::initGLObject(GLObject& obj)
 {
     if (DEBUG_MODE) fprintf(stderr, "%s():\n", __FUNCTION__);
 
-    *obj = (GLObject*)malloc(sizeof(GLObject));
-    if (*obj==NULL) {
-        fprintf(stderr, "Error: Can't allocate memory for GLObject (%s()).\n",
-                __FUNCTION__);
-        return -1;
-    }
-    (*obj)->texName = 0;
-    (*obj)->framebuffer = 0;
-    (*obj)->renderbuffer[0] = 0;
-    (*obj)->renderbuffer[1] = 0;
+    obj.texName = 0;
+    obj.framebuffer = 0;
+    obj.renderbuffer[0] = 0;
+    obj.renderbuffer[1] = 0;
 
-    (*obj)->renderMode = 0;
-    (*obj)->viewMode = 0;
-    (*obj)->pixelDataHeight = 0;
-    (*obj)->pixelDataWidth = 0;
-    (*obj)->zoomMultip = 0;
-    (*obj)->fbo_dim[0] = 0;
-    (*obj)->fbo_dim[1] = 0;
 
-    (*obj)->rtriX = 0;
-    (*obj)->rtriY = 0;
-    (*obj)->deltaX = 0;
-    (*obj)->deltaY = 0;
-    (*obj)->zoomMultip = 1.0;
-    (*obj)->mouse1Down = 0;
-    (*obj)->mouse2Down = 0;
+    obj.renderMode = 0;
+    obj.viewMode = 0;
+    obj.pixelDataHeight = 0;
+    obj.pixelDataWidth = 0;
+    obj.zoomMultip = 0;
+    obj.fbo_dim[0] = 0;
+    obj.fbo_dim[1] = 0;
 
-    (*obj)->img = NULL;
-    (*obj)->scrimg = NULL;
-    (*obj)->polygonFill = 0;
+    obj.rtriX = 0;
+    obj.rtriY = 0;
+    obj.deltaX = 0;
+    obj.deltaY = 0;
+    obj.zoomMultip = 1.0;
+    obj.mouse1Down = 0;
+    obj.mouse2Down = 0;
 
-    (*obj)->mesh = NULL;
-    (*obj)->cell_data = NULL;
+    obj.img = nullptr;
+    obj.scrimg = nullptr;
+    obj.polygonFill = 0;
+
+    obj.mesh = nullptr;
+    obj.cell_data = nullptr;
 
     return 0;
 }
@@ -115,24 +110,24 @@ void glcore::gl_error( std::string file, int line ) {
  * @param obj       GLObject.
  * @param datatype  What to update; VERTICES and/or TEXTURES.
  */
-void glcore::uploadData( GLObject *obj, int datatype )
+void glcore::uploadData( GLObject& obj, int datatype )
 {
-    if ( obj->mesh == NULL ) return;
+    if ( obj.mesh == nullptr ) return;
 
     if (datatype & VERTICES) {
         // Get polygon vertex data with normals and the corresponding vertex
         // indices for polygons.
         std::vector<GLfloat> tri_data;
         std::vector<GLuint> tri_indices;
-        Set_vertex_data( obj->mesh, tri_data, tri_indices );
+        Set_vertex_data( obj.mesh, tri_data, tri_indices );
 
-        GLint vertex_attrib = glGetAttribLocation( obj->shader_program, "vertex" );
-        GLint normal_attrib = glGetAttribLocation( obj->shader_program, "normal" );
+        GLint vertex_attrib = glGetAttribLocation( obj.shader_program, "vertex" );
+        GLint normal_attrib = glGetAttribLocation( obj.shader_program, "normal" );
 
         // Triangles VAO.
-        glBindVertexArray(obj->vao);
+        glBindVertexArray(obj.vao);
 
-        glBindBuffer( GL_ARRAY_BUFFER, obj->vbo );
+        glBindBuffer( GL_ARRAY_BUFFER, obj.vbo );
         glBufferData( GL_ARRAY_BUFFER, tri_data.size()*sizeof(GLfloat),
                       &tri_data.front(), GL_DYNAMIC_DRAW );
 
@@ -140,7 +135,7 @@ void glcore::uploadData( GLObject *obj, int datatype )
         glVertexAttribPointer( vertex_attrib, 3, GL_FLOAT, GL_FALSE,
                                6*sizeof(GLfloat), 0 );
 
-        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, obj->ebo_tri );
+        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, obj.ebo_tri );
         glBufferData( GL_ELEMENT_ARRAY_BUFFER, tri_indices.size()*sizeof(GLuint),
                       &tri_indices.front(), GL_DYNAMIC_DRAW );
 
@@ -150,15 +145,15 @@ void glcore::uploadData( GLObject *obj, int datatype )
     }
 
     if (datatype & TEXTURES) {
-        std::vector<vertex_color> tri_color_data;
-        Set_color_data( obj->mesh, tri_color_data );
+        std::vector<mesh::vertex_color> tri_color_data;
+        Set_color_data( obj.mesh, tri_color_data );
 
-        glBindVertexArray(obj->vao);
-        glBindBuffer( GL_ARRAY_BUFFER, obj->cbo );
-        glBufferData( GL_ARRAY_BUFFER, tri_color_data.size()*sizeof(vertex_color),
+        glBindVertexArray(obj.vao);
+        glBindBuffer( GL_ARRAY_BUFFER, obj.cbo );
+        glBufferData( GL_ARRAY_BUFFER, tri_color_data.size()*sizeof(mesh::vertex_color),
                       &tri_color_data.front(), GL_DYNAMIC_DRAW );
 
-        GLint col_attrib = glGetAttribLocation( obj->shader_program, "color" );
+        GLint col_attrib = glGetAttribLocation( obj.shader_program, "color" );
         glEnableVertexAttribArray( col_attrib );
         glVertexAttribPointer( col_attrib, 4, GL_FLOAT, GL_FALSE, 0, 0 );
     }
@@ -171,30 +166,30 @@ void glcore::uploadData( GLObject *obj, int datatype )
  * @param obj       GLObject
  * @param type      PAINT_SCREEN or 0 to paint off-screen only
  */
-void glcore::paintGL(GLObject *obj, int type)
+void glcore::paintGL(GLObject& obj, int type)
 {
     // Draw into the off-screen framebuffer.
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, obj->framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, obj.framebuffer);
     glClearColor(0.0,0.0,0.0,1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     GLint view[4];
     glGetIntegerv(GL_VIEWPORT, view);
 
-    if (obj->renderMode == RENDER_PIXEL) {
+    if (obj.renderMode == RENDER_PIXEL) {
         PaintGL_2D(obj, (GLdouble)view[2]/view[3]);
     }
-    if (obj->renderMode == RENDER_HUMPPA) {
+    if (obj.renderMode == RENDER_HUMPPA) {
         PaintGL_RENDER_HUMPPA(obj, view[2], view[3]);
     }
-    if (obj->renderMode == RENDER_MESH) {
+    if (obj.renderMode == RENDER_MESH) {
         Draw_mesh( obj, view[2], view[3] );
     }
     glFlush();
 
     if (type & PAINT_SCREEN) {
         // Switch back to screen fb for drawing, read from off-screen fb
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, obj->framebuffer);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, obj.framebuffer);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
         glBlitFramebuffer(0, 0, view[2], view[3], 0, 0, view[2], view[3],
                           GL_COLOR_BUFFER_BIT, GL_NEAREST);
@@ -208,13 +203,13 @@ void glcore::paintGL(GLObject *obj, int type)
  * @param w         Width.
  * @param h         Height.
  */
-void glcore::resizeGL(GLObject* obj, int w, int h)
+void glcore::resizeGL(GLObject& obj, int w, int h)
 {
-    if (w > obj->fbo_dim[0]) {
-        w = obj->fbo_dim[0];
+    if (w > obj.fbo_dim[0]) {
+        w = obj.fbo_dim[0];
     }
-    if (h > obj->fbo_dim[1]) {
-        h = obj->fbo_dim[1];
+    if (h > obj.fbo_dim[1]) {
+        h = obj.fbo_dim[1];
     }
 
     glViewport( 0, 0, (GLsizei)w, (GLsizei)h );
@@ -229,10 +224,10 @@ void glcore::resizeGL(GLObject* obj, int w, int h)
  * @param obj               GLObject.
  */
 void glcore::setVisualData( std::vector<std::vector<float>>* cell_data,
-                            GLObject* obj, Mesh* m)
+                            GLObject& obj, Mesh* m)
 {
-    obj->cell_data = cell_data;
-    obj->mesh = m;
+    obj.cell_data = cell_data;
+    obj.mesh = m;
 }
 
 
@@ -243,10 +238,10 @@ void glcore::setVisualData( std::vector<std::vector<float>>* cell_data,
  * @param width         Width of the image.
  * @param obj           GLObject.
  */
-void glcore::setVisualData2D(int height, int width, GLObject *obj)
+void glcore::setVisualData2D(int height, int width, GLObject& obj)
 {
-    obj->pixelDataHeight = height;
-    obj->pixelDataWidth = width;
+    obj.pixelDataHeight = height;
+    obj.pixelDataWidth = width;
 }
 
 
@@ -430,14 +425,14 @@ int glcore::createGLContext()
  * @param shaders_path  Path to the shader files.
  * @return              0 if success, else -1.
  */
-int glcore::initializeGL( GLObject *obj, std::string shaders_path )
+int glcore::initializeGL( GLObject& obj, std::string shaders_path )
 {
     if (DEBUG_MODE) fprintf(stderr, "%s():\n", __FUNCTION__);
 
     // Setting the texture for 2D models:
     //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glGenTextures(1, &obj->texName);
-    glBindTexture(GL_TEXTURE_2D, obj->texName);
+    glGenTextures(1, &obj.texName);
+    glBindTexture(GL_TEXTURE_2D, obj.texName);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -454,43 +449,43 @@ int glcore::initializeGL( GLObject *obj, std::string shaders_path )
     }
 
     // NOTE: gl*Framebuffer* require OpenGL 3.0.
-    glGenRenderbuffers(2, obj->renderbuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, obj->renderbuffer[0]);  // For color.
+    glGenRenderbuffers(2, obj.renderbuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, obj.renderbuffer[0]);  // For color.
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, nSamples, GL_RGBA,
-                                     obj->fbo_dim[0], obj->fbo_dim[1]);
-    glBindRenderbuffer(GL_RENDERBUFFER, obj->renderbuffer[1]);  // For depth.
+                                     obj.fbo_dim[0], obj.fbo_dim[1]);
+    glBindRenderbuffer(GL_RENDERBUFFER, obj.renderbuffer[1]);  // For depth.
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, nSamples, GL_DEPTH_COMPONENT24,
-                                     obj->fbo_dim[0], obj->fbo_dim[1]);
-    glGenFramebuffers(1, &obj->framebuffer);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, obj->framebuffer);
+                                     obj.fbo_dim[0], obj.fbo_dim[1]);
+    glGenFramebuffers(1, &obj.framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, obj.framebuffer);
     glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
-                              obj->renderbuffer[0]);
+                              obj.renderbuffer[0]);
     glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,
-                              obj->renderbuffer[1]);
+                              obj.renderbuffer[1]);
     check_gl_error();
 
     // fbo & render buffers for screen captures.
     // Separate buffers required due to multisampling not being supported:
-    glGenRenderbuffers(2, obj->scrrender);
-    glBindRenderbuffer(GL_RENDERBUFFER, obj->scrrender[0]);  // For color.
+    glGenRenderbuffers(2, obj.scrrender);
+    glBindRenderbuffer(GL_RENDERBUFFER, obj.scrrender[0]);  // For color.
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, 0, GL_RGBA,
-                                     obj->fbo_dim[0], obj->fbo_dim[1]);
-    glBindRenderbuffer(GL_RENDERBUFFER, obj->scrrender[1]);  // For depth.
+                                     obj.fbo_dim[0], obj.fbo_dim[1]);
+    glBindRenderbuffer(GL_RENDERBUFFER, obj.scrrender[1]);  // For depth.
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, 0, GL_DEPTH_COMPONENT24,
-                                     obj->fbo_dim[0], obj->fbo_dim[1]);
-    glGenFramebuffers(1, &obj->scrfbo);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, obj->scrfbo);
+                                     obj.fbo_dim[0], obj.fbo_dim[1]);
+    glGenFramebuffers(1, &obj.scrfbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, obj.scrfbo);
     glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
-                              obj->scrrender[0]);
+                              obj.scrrender[0]);
     glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,
-                              obj->scrrender[1]);
+                              obj.scrrender[1]);
     check_gl_error();
 
     // Buffers for 3D stuff.
-    glGenBuffers(1, &obj->cbo);
-    glGenBuffers(1, &obj->ebo_tri);
-    glGenBuffers(1, &obj->vbo);
-    glGenVertexArrays(1, &obj->vao);
+    glGenBuffers(1, &obj.cbo);
+    glGenBuffers(1, &obj.ebo_tri);
+    glGenBuffers(1, &obj.vbo);
+    glGenVertexArrays(1, &obj.vao);
     check_gl_error();
 
     // Create and compile the vertex shader.
@@ -514,18 +509,18 @@ int glcore::initializeGL( GLObject *obj, std::string shaders_path )
     check_gl_error();
 
     // Link the vertex and fragment shaders into a shader program.
-    obj->shader_program = glCreateProgram();
-    glAttachShader( obj->shader_program, vertex_shader );
-    glAttachShader( obj->shader_program, fragment_shader );
+    obj.shader_program = glCreateProgram();
+    glAttachShader( obj.shader_program, vertex_shader );
+    glAttachShader( obj.shader_program, fragment_shader );
     // Only one output from framgent shader, so shouldn't need this:
     // glBindFragDataLocation(shaderProgram, 1, "gl_FragColor");
-    glLinkProgram( obj->shader_program );
+    glLinkProgram( obj.shader_program );
     check_gl_error();
 
     // Install the shader program as part of current rendering state.
     // NOTE: We will be swithing between the programmable and legacy fixed
     // function pipelines in setRenderMode() as needed.
-    glUseProgram( obj->shader_program );
+    glUseProgram( obj.shader_program );
     check_gl_error();
 
     return 0;
@@ -538,7 +533,7 @@ int glcore::initializeGL( GLObject *obj, std::string shaders_path )
  * @param mode          Render mode.
  * @param obj           GLObject.
  */
-void glcore::setRenderMode(int mode, GLObject *obj)
+void glcore::setRenderMode(int mode, GLObject& obj)
 {
     if (DEBUG_MODE) fprintf(stderr, "%s:%s(%d, ...)\n", __FILE__, __FUNCTION__, mode);
 
@@ -579,7 +574,7 @@ void glcore::setRenderMode(int mode, GLObject *obj)
 
     if (mode == RENDER_MESH) {
         // Enter programmable pipeline.
-        glUseProgram( obj->shader_program );
+        glUseProgram( obj.shader_program );
 
         glDisable(GL_CULL_FACE);
         glEnable(GL_DEPTH_TEST);
@@ -589,7 +584,7 @@ void glcore::setRenderMode(int mode, GLObject *obj)
         glDisable(GL_LIGHT0);
     }
 
-    obj->renderMode = mode;
+    obj.renderMode = mode;
 }
 
 
@@ -599,12 +594,12 @@ void glcore::setRenderMode(int mode, GLObject *obj)
  * @param n             Number of pixels.
  * @param obj           GLObject.
  */
-void glcore::setImageSize(int n, GLObject *obj)
+void glcore::setImageSize(int n, GLObject& obj)
 {
-    if (obj->img!=NULL) free(obj->img);
+    if (obj.img!=NULL) free(obj.img);
 
-    obj->img = (GLfloat*)malloc(n*4*sizeof(GLfloat));
-    if (obj->img==NULL) {
+    obj.img = (GLfloat*)malloc(n*4*sizeof(GLfloat));
+    if (obj.img==NULL) {
         fprintf(stderr, "Error: memory allocation failed (%s()).\n", __FUNCTION__);
         return;
     }
@@ -622,7 +617,7 @@ void glcore::setImageSize(int n, GLObject *obj)
  * @param w             Screenshot buffer width.
  * @param h             Screenshot buffer height.
  */
-void glcore::screenshotGL(GLObject *obj, int w, int h)
+void glcore::screenshotGL(GLObject& obj, int w, int h)
 {
     // Store the original view port dimensions.
     GLint view_old[4];
@@ -634,25 +629,25 @@ void glcore::screenshotGL(GLObject *obj, int w, int h)
     check_gl_error();
 
     // Read from off-screen buffer, write to screenshot buffer.
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, obj->framebuffer);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, obj->scrfbo);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, obj.framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, obj.scrfbo);
     glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     check_gl_error();
 
     // Allocate space for 4-component image buffer.
-    if (obj->scrimg != NULL) {
-        free(obj->scrimg);
+    if (obj.scrimg != NULL) {
+        free(obj.scrimg);
     }
-    obj->scrimg = (GLubyte*)malloc( w*h*4 );
-    if (obj->scrimg == NULL) {
+    obj.scrimg = (GLubyte*)malloc( w*h*4 );
+    if (obj.scrimg == NULL) {
         fprintf(stderr, "Error: memory allocation failed (%s()).\n", __FUNCTION__);
         return;
     }
 
     // Read from screenshot buffer, write to image buffer.
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, obj->scrfbo);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, obj.scrfbo);
     glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glReadPixels(0, 0, w, h, GL_BGRA, GL_UNSIGNED_BYTE, obj->scrimg);
+    glReadPixels(0, 0, w, h, GL_BGRA, GL_UNSIGNED_BYTE, obj.scrimg);
     glFinish();
     check_gl_error();
 

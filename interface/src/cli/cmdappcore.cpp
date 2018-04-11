@@ -16,12 +16,12 @@
 #include <iostream>
 #include <QDir>
 
-#include <cli/cmdappcore.h>
-#include <misc/binaryhandler.h>
-#include <utils/readparameters.h>
-#include <utils/readxml.h>
-#include <utils/writedata.h>
-#include <misc/loader.h>
+#include "cli/cmdappcore.h"
+#include "misc/binaryhandler.h"
+#include "utils/readparameters.h"
+#include "utils/readxml.h"
+#include "utils/writedata.h"
+#include "misc/loader.h"
 
 
 
@@ -49,7 +49,7 @@ CmdAppCore::CmdAppCore(int & argc, char ** argv) : QCoreApplication(argc, argv)
     QString tempPath = qdir->tempPath();
     char tmp[1024];
     int pid = (int)QCoreApplication::applicationPid();
-    sprintf(tmp, "%s/MorphoMaker_%d", tempPath.toStdString().c_str(), pid);
+    sprintf(tmp, "%s/%s_%d", tempPath.toStdString().c_str(), PROGRAM_NAME, pid);
     systemTempPath = tmp;
     if (!qdir->exists(QString(systemTempPath.c_str()))) {
         qdir->mkdir(QString(systemTempPath.c_str()));
@@ -126,7 +126,7 @@ void CmdAppCore::updateModel()
     //
 
     // List of recognized orientations (names + angles)
-    std::vector<orientation> orients = model->getOrientations();
+    std::vector<model::orientation> orients = model->getOrientations();
     // List of requested orientations (names only)
     std::vector<std::string>& req_orients = scanList->getOrientations();
 
@@ -261,6 +261,9 @@ int CmdAppCore::setModel(char *pfile)
 
     // Check the model presence & set model ID.
     QString file = runDir + "/" + QString(pfile);
+    // NOTE: Running Import_parameters() on an empty Parameters object only
+    // reads the keys words and values! The actual parameters are read later
+    // once we know the target model.
     Parameters par;
     morphomaker::Import_parameters(file.toStdString(), &par);
     std::string modelName = par.getKey(PARKEY_MODEL);
@@ -275,8 +278,9 @@ int CmdAppCore::setModel(char *pfile)
     }
 
     // Read model parameters from the par. file:
-    parameters = new Parameters();
-    morphomaker::Import_parameters(file.toStdString(), parameters);
+    morphomaker::Import_parameters(file.toStdString(),
+                                   models.at(modelId)->getParameters());
+    parameters = new Parameters(models.at(modelId)->getParameters());
 
     return 0;
 }

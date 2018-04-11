@@ -68,209 +68,181 @@
 <Parameters>
     <Parameter>
         <Name>Egr</Name>
-        <Button>260,35</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,35</Position>
         <Description>Epithelial proliferation rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Mgr</Name>
-        <Button>230,325</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>230,325</Position>
         <Description>Mesenchymal proliferation rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Rep</Name>
-        <Button>260,170</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,170</Position>
         <Description>Young's modulus (stiffness).</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Not</Name>
         <Value>0.0</Value>
-        <Button>280,115</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>280,115</Position>
         <Description>Nothing (in mouse it is the distance from 0 where the borders are defined).</Description>
         <Hidden>True</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Adh</Name>
-        <Button>260,145</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,145</Position>
         <Description>Traction between neighbours.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     
     <Parameter>
         <Name>Act</Name>
-        <Button>33,245</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,245</Position>
         <Description>BMP4 auto-activation.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Inh</Name>
-        <Button>33,380</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,380</Position>
         <Description>Inhibition of SHH over BMP4.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Not2</Name>
         <Value>0.0</Value>
-        <Button>33,380</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,380</Position>
         <Description>Nothing (ectodin in mouse).</Description>
         <Hidden>True</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Sec</Name>
-        <Button>33,135</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,135</Position>
         <Description>FGF4 secretion rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Not3</Name>
         <Value>0.0</Value>
-        <Button>33,135</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,135</Position>
         <Description>Nothing.</Description>
         <Hidden>True</Hidden>
     </Parameter>
     
     <Parameter>
         <Name>Da</Name>
-        <Button>33,270</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,270</Position>
         <Description>BMP4 diffusion rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Di</Name>
-        <Button>33,405</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,405</Position>
         <Description>SHH diffusion rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Ds</Name>
-        <Button>33,160</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,160</Position>
         <Description>FGF4 diffusion rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Not4</Name>
     	<Value>0.0</Value>
-        <Button>33,160</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,160</Position>
         <Description>Nothing (ectodin diffusion).</Description>
         <Hidden>True</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Int</Name>
-        <Button>33,355</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,355</Position>
         <Description>Initial (SHH) threshold.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     
     <Parameter>
         <Name>Set</Name>
-        <Button>33,110</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,110</Position>
         <Description>Secondary (FGF4) threshold.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Boy</Name>
-        <Button>230,375</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>230,375</Position>
         <Description>Mesenchyme mechanic resistance.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Dff</Name>
-        <Button>260,105</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,105</Position>
         <Description>Differentiation rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Bgr</Name>
-        <Button>230,350</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>230,350</Position>
         <Description>Border growth, amount of mesenchyme in anterior-posterior.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Abi</Name>
-        <Button>260,235</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,235</Position>
         <Description>Anterior bias.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     
     <Parameter>
         <Name>Pbi</Name>
-        <Button>260,260</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,260</Position>
         <Description>Posterior bias.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Bbi</Name>
         <Value>1.0</Value>
-        <Button>300,185</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>300,185</Position>
         <Description>Buccal bias.</Description>
         <Hidden>True</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Lbi</Name>
         <Value>1.0</Value>
-        <Button>300,260</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>300,260</Position>
         <Description>Lingual bias.</Description>
         <Hidden>True</Hidden>
     </Parameter>
     <Parameter>
         <Name>Rad</Name>
-        <Button>270,432</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>270,432</Position>
         <Description>Radius of initial conditions.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Deg</Name>
-        <Button>33,30</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>33,30</Position>
         <Description>Protein degradation rate.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     
     <Parameter>
         <Name>Dgr</Name>
-        <Button>260,80</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,80</Position>
         <Description>Downward vector of growth.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
     <Parameter>
         <Name>Ntr</Name>
-        <Button>260,195</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>260,195</Position>
         <Description>Mechanical traction from the borders to the nucleus.</Description>
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
         <Name>Bwi</Name>
         <Value>0.8</Value>
-        <Button>305,457</Button>
-        <ButtonWidth>67</ButtonWidth>
+        <Position>305,457</Position>
         <Description>Width of border.</Description>
         <Hidden>True</Hidden>
     </Parameter>       

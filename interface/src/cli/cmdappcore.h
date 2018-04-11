@@ -1,15 +1,15 @@
-#ifndef CMDAPPCORE_H
-#define CMDAPPCORE_H
+#pragma once
 
 #include <QCoreApplication>
-#include <cli/glengine.h>
-#include <readdata.h>
-#include <misc/scanlist.h>
-#include <parameters.h>
-#include <tooth.h>
-#include <toothlife.h>
-#include <model.h>
-#include <morphomaker.h>
+
+#include "cli/glengine.h"
+#include "readdata.h"
+#include "misc/scanlist.h"
+#include "parameters.h"
+#include "tooth.h"
+#include "toothlife.h"
+#include "model.h"
+#include "morphomaker.h"
 
 
 class CmdAppCore : public QCoreApplication
@@ -49,5 +49,3 @@ class CmdAppCore : public QCoreApplication
         // the program, and increases when files are saved etc.
         int fileIndex;
 };
-
-#endif // CMDAPPCORE_H

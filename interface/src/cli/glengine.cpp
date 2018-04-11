@@ -12,12 +12,12 @@ using namespace glcore;
 
 GLEngine::GLEngine()
 {
-    initGLObject(&obj);
-    obj->polygonFill = SHOW_MESH;
-    obj->viewPosX = 0.0;
-    obj->viewPosY = 0.0;
-    obj->viewMode = 0;
-    obj->viewThreshold = DEFAULT_VIEW_THRESH;
+    initGLObject(obj);
+    obj.polygonFill = SHOW_MESH;
+    obj.viewPosX = 0.0;
+    obj.viewPosY = 0.0;
+    obj.viewMode = 0;
+    obj.viewThreshold = DEFAULT_VIEW_THRESH;
 }
 
 
@@ -80,7 +80,7 @@ void GLEngine::setVisualData(ToothLife *toothlife, int step, Model *model)
     if (tooth->get_tooth_type() == RENDER_PIXEL) {
         auto dim = tooth->get_domain_dim();
         glcore::setImageSize(dim.first*dim.second, obj);
-        model->fill_image(tooth, obj->img);
+        model->fill_image(tooth, obj.img);
         glcore::setVisualData2D(dim.first, dim.second, obj);
     }
 }
@@ -97,44 +97,44 @@ void GLEngine::clearScreen()
 void GLEngine::setViewMode(int mode)
 {
     fprintf(stderr, "Rendering mode: %d\n", mode);
-    obj->viewMode = mode;
+    obj.viewMode = mode;
 }
 
 
 
 int GLEngine::getViewMode()
 {
-    return obj->viewMode;
+    return obj.viewMode;
 }
 
 
 
 void GLEngine::showConnections(int mode)
 {
-    obj->polygonFill = mode;
+    obj.polygonFill = mode;
 }
 
 
 
 void GLEngine::setViewOrientation( float rotx, float roty )
 {
-    obj->rtriX = rotx;
-    obj->rtriY = roty;
+    obj.rtriX = rotx;
+    obj.rtriY = roty;
 }
 
 
 
 void GLEngine::setViewThreshold(double val)
 {
-    obj->viewThreshold = val;
+    obj.viewThreshold = val;
 }
 
 
 
 QImage GLEngine::screenshotGL()
 {
-    glcore::screenshotGL( obj, obj->fbo_dim[0], obj->fbo_dim[1] );
-    QImage qimg = QImage( obj->scrimg, obj->fbo_dim[0], obj->fbo_dim[1],
+    glcore::screenshotGL( obj, obj.fbo_dim[0], obj.fbo_dim[1] );
+    QImage qimg = QImage( obj.scrimg, obj.fbo_dim[0], obj.fbo_dim[1],
                           QImage::Format_RGB32 );
     return qimg.mirrored(false, true);
 }
@@ -164,6 +164,6 @@ void GLEngine::setRenderMode(int mode)
  */
 void GLEngine::setScreenResolution(int w, int h)
 {
-    obj->fbo_dim[0] = w;
-    obj->fbo_dim[1] = h;
+    obj.fbo_dim[0] = w;
+    obj.fbo_dim[1] = h;
 }

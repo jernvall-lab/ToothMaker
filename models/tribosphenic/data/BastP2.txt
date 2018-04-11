@@ -4,7 +4,7 @@
 
 # Model name, view threshold, view mode, iterations.
 model==Tribosphenic tooth
-viewthresh==0.000000
+viewthresh==0.1
 viewmode==1
 iter==9000
 

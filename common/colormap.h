@@ -1,5 +1,4 @@
-#ifndef COLORMAP_H
-#define COLORMAP_H
+#pragma once
 
 #include <string>
 
@@ -12,6 +11,3 @@ struct Color {
 int Map_value( double, double, Color*, std::string type );
 
 }
-
-
-#endif

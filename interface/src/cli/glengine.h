@@ -1,5 +1,4 @@
-#ifndef GLEngine_H
-#define GLEngine_H
+#pragma once
 
 #if defined(__linux__)
 #define GL_GLEXT_PROTOTYPES 1
@@ -17,10 +16,11 @@
 #include <QtOpenGL>
 #include <QSizePolicy>
 #include <QGLFormat>
-#include <readdata.h>
-#include <toothlife.h>
-#include <model.h>
-#include <renderer/glcore.h>
+
+#include "readdata.h"
+#include "toothlife.h"
+#include "model.h"
+#include "renderer/glcore.h"
 
 #if defined(__linux__)
 #include <X11/Xlib.h>
@@ -62,8 +62,5 @@ class GLEngine
         void msgStatusBar(std::string);
 
     private:
-        GLObject *obj;
+        GLObject obj;
 };
-
-
-#endif

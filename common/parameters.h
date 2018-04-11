@@ -9,6 +9,9 @@
  *  keywords are reserved: 'model', 'viewthresh', 'viewmode'. These keywords
  *  are common to all models, thus no model parameter can be named any of those.
  *
+ *  Checkboxes are internally treated as floats such that values >0.5 indicate
+ *  checked, while values <=0.5 unchecked.
+ *
  *  NOTE: Current structure assumes that parameters proper are floating point
  *  numbers. Keywords are stored as strings, thus they may be anything.
  *
@@ -22,9 +25,19 @@
 #define PARKEY_VIEWTHRESH   "viewthresh"
 #define PARKEY_VIEWMODE     "viewmode"
 #define PARKEY_ITER         "iter"
+enum { PARTYPE_FIELD, PARTYPE_CHECKBOX };
 
 
-typedef std::vector<std::pair<int,int> > pvector;
+
+struct parameter {
+    std::string name;                   // name both in GUI and internally
+    std::string description;            // GUI parameter description
+    int type;                           // PARTYPE_FIELD or PARTYPE_CHECKBOX
+    std::pair<int, int> position;       // GUI coordinates
+    bool hidden;                        // GUI visibility
+    double value;                       // parameter value
+};
+
 
 
 class Parameters
@@ -39,74 +52,48 @@ public:
 
     ~Parameters()   {}
 
-    // Sets model parameter.
-    void setParameter( std::string name, double value );
-    double getParameter( std::string name );
+    // Adds a parameter or updates the value of an existing one.
+    void addParameter( parameter& );
 
-    // Return parameter values, names, notes.
-    std::vector<double> *getParValues()         { return &parValues; }
-    std::vector<std::string> *getParNames()     { return &parNames; }
-    std::vector<std::string> *getParNotes()     { return &parNotes; }
+    // Get a single parameter by name, or all parameters.
+    double getParameter( const std::string& name ) const;
+    std::vector<parameter>& getParameters()         { return m_parameters; }
+
+    // Sets the value of an existing parameter.
+    void setParameterValue( std::string, double );
 
     // Set model plain text name.
-    void setModelName( std::string& name )      { modelName = name; }
-    std::string getModelName()                  { return modelName; }
+    void setModelName( std::string& name )          { m_modelName = name; }
+    std::string getModelName()                      { return m_modelName; }
 
-    // Marks a parameter as hidden from the GUI.
-    void hideParameter( std::string name )      { hiddenParameters.push_back(name); }
-    bool isParameterHidden( std::string name );
+    // Set parameters object ID.
+    void setID( const std::string& s )              { m_id = s; }
+    std::string getID()                             { return m_id; }
 
-    // Returns hidden parameter names.
-    std::vector<std::string> *getHiddenParameters()     { return &hiddenParameters; }
-
-    // Sets parameters object ID.
-    void setID( std::string s )                 { id = s; }
-    std::string getID()                         { return id; }
-
-    // Sets a model key variable.
-    void setKey( std::string key, std::string value );
-    std::string getKey( std::string key );
+    // Set a model key variable.
+    void setKey( const std::string& key, const std::string& value );
+    std::string getKey( const std::string& key );
 
     // Returns list of model keywords.
-    std::vector<std::string> *getKeywords()     { return &keywords; }
+    std::vector<std::string>* getKeywords()         { return &m_keywords; }
 
     // Returns true if the given variable name is a keyword.
-    bool isKeyword( std::string name );
+    bool isKeyword( const std::string& name );
 
     // Adds a model input file (e.g., prepatterns).
-    void addModelFile(std::string file )        { modelFiles.push_back(file); }
+    void addModelFile( const std::string& file )    { m_modelFiles.push_back(file); }
     std::string getModelFile(int);
-
-    // Set button width in the GUI.
-    void setButtonWidth( const int width )      { buttonWidth.push_back(width); }
-    std::vector<int>& getButtonWidths()         { return buttonWidth; }
-
-    // Set parameter button position coordinates (x,y).
-    void setButtonLocation( const std::pair<int,int>& loc ) { buttonLoc.push_back(loc); }
-    pvector& getButtonLocations()                           { return buttonLoc; }
-
-    // Set parameter field position coordinates (x,y).
-    void setFieldLocation( const std::pair<int,int>& loc )  { fieldLoc.push_back(loc); }
-
-    // Assigns a note/description to a parameter button.
-    void setButtonNote( const std::string& note )           { parNotes.push_back(note); }
 
 
 
 private:
-    std::vector<std::string> modelFiles;        // Names of files passed to the model
-    std::vector<std::string> parNames;          // Paramter names
-    std::vector<std::string> parNotes;          // Parameter descriptions
-    std::vector<double> parValues;              // Parameter values
-    std::string modelName;                      // Model name
-    std::string viewmode;                       // Current model view mode
-    std::vector<std::string> hiddenParameters;  // Names parameters hidden from GUI
-    std::string id;                             // Unique model ID
+    std::vector<parameter>      m_parameters;
 
-    std::vector<std::string> keywords;          // Model keywords (e.g. model, iter)
-    std::vector<std::string> keyvalues;         // Keyword values
+    std::vector<std::string>    m_modelFiles;   // names of files passed to the model
+    std::string                 m_modelName;    // model name
+    std::string                 m_viewmode;     // current model view mode
+    std::string                 m_id;           // parameter object ID
 
-    pvector buttonLoc;                          // Parameter button locations in GUI
-    std::vector<int> buttonWidth;               // Button widths
-    pvector fieldLoc;                           // Parameter field locations in GUI
+    std::vector<std::string>    m_keywords;     // model keywords (e.g. model, iter)
+    std::vector<std::string>    m_keyvalues;    // keyword values
 };

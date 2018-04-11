@@ -8,13 +8,10 @@
  *
  */
 
-#include <string>
 #include <stdio.h>
 #include <QString>
 #include <QStringList>
 
-#include "parameters.h"
-#include "misc/scanlist.h"
 #include "utils/readparameters.h"
 
 
@@ -56,7 +53,7 @@ int morphomaker::Import_parameters(std::string file, Parameters *par)
                 par->setKey(list[0].toLower().toStdString(), list[1].toStdString());
             }
             else {
-                par->setParameter(list[0].toStdString(), list[1].toDouble());
+                par->setParameterValue( list[0].toStdString(), list[1].toDouble() );
             }
         }
     }

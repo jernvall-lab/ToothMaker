@@ -1,5 +1,4 @@
-#ifndef GLWIDGET_H
-#define GLWIDGET_H
+#pragma once
 
 #include <QtGui>
 #include <QGLWidget>
@@ -47,13 +46,11 @@ class GLWidget : public QGLWidget
         void setRotations(bool);
 
     signals:
-        void changeStepView(int);           // Current step changed.
-        void resetOrientation(int);         // Object has been rotated.
+        void changeStepView(int);           // Current view step changed.
+        void resetOrientation(int);         // Emitted when object has been rotated.
         void msgStatusBar(std::string);     // Write to status bar.
 
     private:
-        GLObject *obj;                      // See glcore.h for definition.
-        bool allowRotations;              // If false, only object panning allowed.
+        GLObject obj;                       // See glcore.h for definition.
+        bool allowRotations;                // If false, only object panning allowed.
 };
-
-#endif

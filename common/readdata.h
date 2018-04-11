@@ -1,5 +1,4 @@
-#ifndef READDATA_H
-#define READDATA_H
+#pragma once
 
 #include "tooth.h"
 
@@ -14,5 +13,3 @@ int Read_OFF_file(const std::string&, Tooth&);
 int Read_Humppa_DAD_file( int, int, int, Tooth& );
 
 }
-
-#endif

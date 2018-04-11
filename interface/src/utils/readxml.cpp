@@ -3,12 +3,14 @@
  * @brief Interface XML reader.
  */
 
+#include <iostream>
 #include <QLabel>
+#include <QCheckBox>
 #include <QFile>
 #include <QXmlStreamReader>
 
-#include <utils/readxml.h>
-#include <model.h>
+#include "utils/readxml.h"
+#include "model.h"
 
 
 namespace {
@@ -19,7 +21,7 @@ namespace {
  * @param m         Model object.
  * @return          0.
  */
-int _parse_general_info(QXmlStreamReader *xml, Model &m)
+int parse_general_info_(QXmlStreamReader *xml, Model &m)
 {
     QString key = xml->name().toString();
 
@@ -47,7 +49,7 @@ int _parse_general_info(QXmlStreamReader *xml, Model &m)
  * @param xml       XML-file object.
  * @return          0.
  */
-int _parse_binary_info(QXmlStreamReader *xml, Model &m)
+int parse_binary_info_(QXmlStreamReader *xml, Model &m)
 {
     QString key = xml->name().toString();
 
@@ -95,7 +97,7 @@ int _parse_binary_info(QXmlStreamReader *xml, Model &m)
     }
 
     m.setBinaryInfo( bin_info[0], bin_info[1], bin_info[2],
-                       output_parsers, result_parsers );
+                     output_parsers, result_parsers );
 
     return 0;
 }
@@ -107,13 +109,15 @@ int _parse_binary_info(QXmlStreamReader *xml, Model &m)
  * @return
  */
 
-int _parse_file_dialog(QXmlStreamReader *xml, ParameterWindow &pwin)
+int parse_file_dialog_(QXmlStreamReader *xml, ParameterWindow &pwin)
 {
+    QStringList list;
+    int buttonx=0, buttony=0, validButton;
+    int cnt=0;
     QString name;
-    int buttonx=0, buttony=0;
-    int validButton = 0;
 
-    int cnt = 0;
+    validButton=0;
+
     while (xml->tokenType() != QXmlStreamReader::EndElement || xml->name() != "FileDialog") {
         if (xml->tokenType() == QXmlStreamReader::StartElement) {
             if (xml->name() == "Name") {
@@ -123,7 +127,7 @@ int _parse_file_dialog(QXmlStreamReader *xml, ParameterWindow &pwin)
             }
             if (xml->name() == "Button") {
                 xml->readNext();
-                QStringList list = xml->text().toString().split(",");
+                list = xml->text().toString().split(",");
                 if (list.size() != 2) {
                     // TODO: Add a warning/error.
                     continue;
@@ -145,7 +149,7 @@ int _parse_file_dialog(QXmlStreamReader *xml, ParameterWindow &pwin)
     }
 
     if (validButton==2) {
-        pwin.add_file_dialog( name, buttonx, buttony );
+        pwin.addFileDialog( name, buttonx, buttony );
     }
 
     return 0;
@@ -154,30 +158,36 @@ int _parse_file_dialog(QXmlStreamReader *xml, ParameterWindow &pwin)
 
 /**
  * @brief Parse a model view mode.
- * @param xml
- * @param m
  * @return
  */
-int _parse_view_mode( QXmlStreamReader *xml, Model &m )
+int parse_view_mode_( QXmlStreamReader *xml, Model &m )
 {
-    std::pair<std::string,std::string> vmode("", "");
+    model::view_mode mode;
 
     while (xml->tokenType() != QXmlStreamReader::EndElement || xml->name() != "ViewMode") {
         if (xml->tokenType() == QXmlStreamReader::StartElement) {
+
             if (xml->name() == "Name") {
                 xml->readNext();
-                vmode.first = xml->text().toString().toStdString();
+                mode.name = xml->text().toString().toStdString();
+            }
+            if (xml->name() == "Shape") {
+                xml->readNext();
+                QStringList list = xml->text().toString().split(",");
+                if (list.size() != 2)
+                    continue;               // TODO: Add a warning/error.
+                mode.shapes.push_back( {list[0].toInt(), list[1].toInt()} );
             }
             if (xml->name() == "Content") {
                 xml->readNext();
-                vmode.second = xml->text().toString().toStdString();
+                mode.shapes.push_back( {xml->text().toString().toInt(), -1} );
             }
             xml->readNext();
         }
         xml->readNext();
     }
 
-    m.addViewMode(vmode);
+    m.addViewMode(mode);
 
     return 0;
 
@@ -188,9 +198,9 @@ int _parse_view_mode( QXmlStreamReader *xml, Model &m )
  * @brief Reads an orientation tag.
  * @return
  */
-int _parse_orientation( QXmlStreamReader *xml, Model& model )
+int parse_orientation_( QXmlStreamReader *xml, Model& model )
 {
-    orientation orient;
+    model::orientation orient;
     orient.name = "";
     orient.roty = 0.0;
     orient.rotx = 0.0;
@@ -208,10 +218,8 @@ int _parse_orientation( QXmlStreamReader *xml, Model& model )
             if (xml->name() == "Rotate") {
                 xml->readNext();
                 QStringList list = xml->text().toString().split(",");
-                if (list.size() != 2) {
-                    // TODO: Add a warning/error.
-                    continue;
-                }
+                if (list.size() != 2)
+                    continue;               // TODO: Add a warning/error.
                 orient.rotx = list.at(0).toFloat();
                 orient.roty = list.at(1).toFloat();
                 valid_orient++;
@@ -236,7 +244,7 @@ int _parse_orientation( QXmlStreamReader *xml, Model& model )
  * @param model     Model object
  * @return          0
  */
-int _parse_controls( QXmlStreamReader *xml, Model &model )
+int parse_controls_( QXmlStreamReader *xml, Model &model )
 {
     QString key = xml->name().toString();
 
@@ -253,10 +261,10 @@ int _parse_controls( QXmlStreamReader *xml, Model &model )
                 }
             }
             if (xml->name() == "ViewMode") {
-                _parse_view_mode(xml, model);
+                parse_view_mode_(xml, model);
             }
             if (xml->name() == "Orientation") {
-                _parse_orientation(xml, model);
+                parse_orientation_(xml, model);
             }
             if (xml->name() == "ParametersImage") {
                 xml->readNext();
@@ -278,55 +286,51 @@ int _parse_controls( QXmlStreamReader *xml, Model &model )
 
 /**
  * @brief Called by the XML reader for parsing a parameter.
- * - The order of parameters in XML files define the order in exported/model
- *   parameters files. This is required for the tooth models.
  *
- * @param xml   XML-file object.
- * @return      0 if OK, else -1.
+ *  The order of parameters in XML files defines the order in exported/model
+ *  parameters files, which is important for some models.
+ *
+ * @param xml       XML-file object.
+ * @param par_type  Parameter type: "Field"/"Parameter" or "CheckBox".
+ * @return          0 if OK, else -1.
  */
-int _parse_parameter(QXmlStreamReader *xml, Parameters& par)
+int parse_parameter_( QXmlStreamReader *xml, QString par_type, Parameters& par )
 {
-    QString name = "", note = "";
-    int buttonx=0, buttony=0, width=0, valuex=0, valuey=0;
+    QString name, note;
+    std::pair<int, int> position;
     bool hidden = true;
-    int validButton = 0;
     double value = 0.0;
 
-    int cnt=0;
-    while (xml->tokenType() != QXmlStreamReader::EndElement || xml->name() != "Parameter") {
+    int validItem = 0;
+    int cnt = 0;
+
+    while (xml->tokenType() != QXmlStreamReader::EndElement
+           || xml->name() != par_type) {
+
         if (xml->tokenType() == QXmlStreamReader::StartElement) {
             if (xml->name() == "Name") {
                 xml->readNext();
                 name = xml->text().toString();
-                validButton++;
+                validItem++;
             }
             if (xml->name() == "Value") {
                 xml->readNext();
                 value = xml->text().toString().toDouble();
             }
-            if (xml->name() == "Button") {
+            if (xml->name() == "Position") {
                 xml->readNext();
                 QStringList list = xml->text().toString().split(",");
                 if (list.size() != 2) {
                     // TODO: Add a warning/error.
                     continue;
                 }
-                buttonx = list.at(0).toInt();
-                buttony = list.at(1).toInt();
-                valuey = buttony;
-
-                validButton++;
-            }
-            if (xml->name() == "ButtonWidth") {
-                xml->readNext();
-                width = xml->text().toString().toInt();
-                valuex = buttonx+width-2;
-                validButton++;
+                position = { list.at(0).toInt(), list.at(1).toInt() };
+                validItem++;
             }
             if (xml->name() == "Description") {
                 xml->readNext();
                 note = xml->text().toString();
-                validButton++;
+                validItem++;
             }
             if (xml->name() == "Hidden") {
                 xml->readNext();
@@ -341,35 +345,30 @@ int _parse_parameter(QXmlStreamReader *xml, Parameters& par)
 
         cnt++;
         if (cnt>MAX_XML_COUNT) {
-            fprintf(stderr, "Error: Malformed XML file (MAX_XML_COUNT exceeded)\n");
+            std::cerr << "Error: Malformed XML file (MAX_XML_COUNT exceeded)."
+                      << std::endl;
             return -1;
         }
+
     }
 
     // If all required information is given, add the parameter with data to the
     // parameters object.
-    if (validButton==4) {
-        std::pair<int, int> pos;
-        pos.first = buttonx;
-        pos.second = buttony;
-        par.setButtonLocation(pos);
-        pos.first = valuex;
-        pos.second = valuey;
-        par.setFieldLocation(pos);
+    if (validItem == 3) {
+        int type = PARTYPE_FIELD;
+        if (par_type == "CheckBox")
+            type = PARTYPE_CHECKBOX;
 
-        par.setButtonWidth(width);
-        par.setButtonNote( note.toStdString() );
-
-        par.setParameter(name.toStdString(), value);
-        if (hidden) {
-            par.hideParameter(name.toStdString());
-        }
+        parameter p = { name.toStdString(), note.toStdString(), type,
+                        position, hidden, value };
+        par.addParameter(p);
     }
 
     return 0;
 }
 
 }
+
 
 
 /**
@@ -395,29 +394,31 @@ int morphomaker::Read_binary_definitions( const QString xmlfile, Model &m )
     while (!xml.atEnd()) {
         QXmlStreamReader::TokenType token = xml.readNext();
         if (token == QXmlStreamReader::StartElement) {
-            if (xml.name() == "Binary") {
-                if (_parse_binary_info(&xml, m)) {
+            auto name = xml.name();
+
+            if (name == "Binary") {
+                if (parse_binary_info_(&xml, m)) {
                     err=1;
                     break;
                 }
             }
-            if (xml.name() == "General") {
-                if (_parse_general_info(&xml, m)) {
+            if (name == "General") {
+                if (parse_general_info_(&xml, m)) {
                     err=1;
                     break;
                 }
             }
-            if (xml.name() == "Controls") {
-                if (_parse_controls(&xml, m)) {
+            if (name == "Controls") {
+                if (parse_controls_(&xml, m)) {
                     err=1;
                     break;
                 }
             }
-            if (xml.name() == "Parameters") {
+            if (name == "Parameters") {
                 continue;
             }
-            if (xml.name() == "Parameter") {
-                if (_parse_parameter(&xml, par)) {
+            if (name == "Parameter" || name == "Field" || name == "CheckBox") {
+                if (parse_parameter_(&xml, name.toString(), par)) {
                     err=1;
                     break;
                 }
@@ -468,7 +469,7 @@ int morphomaker::Read_GUI_definitions( const QString xmlfile, Model &m,
                 continue;
             }
             if (xml.name() == "FileDialog") {
-                if (_parse_file_dialog(&xml, pwin)) {
+                if (parse_file_dialog_(&xml, pwin)) {
                     err=1;
                     break;
                 }
@@ -476,7 +477,7 @@ int morphomaker::Read_GUI_definitions( const QString xmlfile, Model &m,
         }
     }
 
-    pwin.set_parameter_buttons(par);
+    pwin.setParameters(par);
 
     xml.clear();
     if (err) {

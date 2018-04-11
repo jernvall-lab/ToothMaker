@@ -176,7 +176,6 @@ unsigned long ScanList::getNofJobs(int comb)
 }
 
 
-
 /**
  * @brief Populates the scan queue based on a user-defined scan list.
  * - Linear and permutation scanning are treated separately.
@@ -242,10 +241,12 @@ int ScanList::populateScanQueue(std::string parlist, int calcPerm)
                 continue;
             }
             ScanItem* item = scanItems.at(j);
-            fprintf( output, "par: %s, val: %f\n", item->getParName().c_str(),
-                     (currSteps.at(j)*item->getStep())+item->getMinValue() );
-            par->setParameter( item->getParName(),
-                               (currSteps.at(j)*item->getStep())+item->getMinValue() );
+
+            std::string name = item->getParName();
+            double value = currSteps.at(j)*item->getStep() + item->getMinValue();
+            fprintf( output, "par: %s, val: %f\n", name.c_str(), value );
+            par->setParameterValue( name, value );
+
             if (!calcPerm && currSteps.at(j)>-1) {
                 break;
             }

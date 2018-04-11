@@ -10,8 +10,8 @@
 
 #include <iostream>
 #include <sstream>
-#include <gui/glwidget.h>
-#include <gui/controlpanel.h>   // Control panel dimensions for fbo allocation.
+#include "gui/glwidget.h"
+#include "gui/controlpanel.h"   // Control panel dimensions for fbo allocation.
 
 
 namespace {
@@ -24,16 +24,16 @@ namespace {
  * @param model     Current model object.
  * @param obj       GLObject.
  */
-void _update_textures( Tooth* tooth, Model* model, GLObject* obj )
+void update_textures_( Tooth* tooth, Model* model, GLObject& obj )
 {
     if (tooth->get_tooth_type() == RENDER_PIXEL) {
         auto dim = tooth->get_domain_dim();
         glcore::setImageSize( dim.first*dim.second, obj);
-        model->fill_image(tooth, obj->img);
+        model->fill_image(tooth, obj.img);
         glcore::setVisualData2D( dim.first, dim.second, obj );
     }
     else {
-        obj->mesh = &(model->fill_mesh( *tooth ));
+        obj.mesh = &(model->fill_mesh( *tooth ));
         glcore::uploadData( obj, TEXTURES );
     }
 }
@@ -57,12 +57,12 @@ GLWidget::GLWidget(const QGLFormat &format, QWidget *parent, QGLWidget *shareWid
     if (DEBUG_MODE) fprintf(stderr, "Double buffering: %d\n", doubleBuffer());
     setAutoBufferSwap(true);
 
-    glcore::initGLObject(&obj);
-    obj->polygonFill = SHOW_MESH;
-    obj->viewPosX = 0.0;
-    obj->viewPosY = 0.0;
-    obj->viewMode = 0;
-    obj->viewThreshold = DEFAULT_VIEW_THRESH;
+    glcore::initGLObject(obj);
+    obj.polygonFill = SHOW_MESH;
+    obj.viewPosX = 0.0;
+    obj.viewPosY = 0.0;
+    obj.viewMode = 0;
+    obj.viewThreshold = DEFAULT_VIEW_THRESH;
 }
 
 
@@ -103,11 +103,11 @@ void GLWidget::initializeGL()
     if (DEBUG_MODE) fprintf(stderr, "%s():\n", __FUNCTION__);
 
     QRect geom = QApplication::desktop()->screenGeometry();
-    obj->fbo_dim[0] = (geom.width() - SQUARE_WIN_SIZE) * FBO_MULTIPLIER;
-    obj->fbo_dim[1] = (geom.height() - CONTROLPANEL_HEIGHT) * FBO_MULTIPLIER;
+    obj.fbo_dim[0] = (geom.width() - SQUARE_WIN_SIZE) * FBO_MULTIPLIER;
+    obj.fbo_dim[1] = (geom.height() - CONTROLPANEL_HEIGHT) * FBO_MULTIPLIER;
 
-    std::cout << "Framebuffer size: " << obj->fbo_dim[0] << "x"
-              << obj->fbo_dim[1] << " (device-independent pixels " << geom.width()
+    std::cout << "Framebuffer size: " << obj.fbo_dim[0] << "x"
+              << obj.fbo_dim[1] << " (device-independent pixels " << geom.width()
               << "x" << geom.height() << ", multiplier " << FBO_MULTIPLIER
               << ", parameter window width " << SQUARE_WIN_SIZE << ")."
               << std::endl;
@@ -138,12 +138,12 @@ void GLWidget::resizeGL(int w, int h)
  */
 void GLWidget::mousePressEvent(QMouseEvent *event)
 {
-    if (event->button()==1) obj->mouse1Down=1;
-    if (event->button()==2) obj->mouse2Down=1;
-    obj->startX=event->x();
-    obj->startY=event->y();
-    obj->deltaX=0;
-    obj->deltaY=0;
+    if (event->button()==1) obj.mouse1Down=1;
+    if (event->button()==2) obj.mouse2Down=1;
+    obj.startX=event->x();
+    obj.startY=event->y();
+    obj.deltaX=0;
+    obj.deltaY=0;
 
     setFocus();
 }
@@ -156,8 +156,8 @@ void GLWidget::mousePressEvent(QMouseEvent *event)
  */
 void GLWidget::mouseReleaseEvent(QMouseEvent *event)
 {
-   if (event->button()==1) obj->mouse1Down=0;
-   if (event->button()==2) obj->mouse2Down=0;
+   if (event->button()==1) obj.mouse1Down=0;
+   if (event->button()==2) obj.mouse2Down=0;
 }
 
 
@@ -169,35 +169,35 @@ void GLWidget::mouseReleaseEvent(QMouseEvent *event)
 void GLWidget::mouseMoveEvent(QMouseEvent *event)
 {
     // Disable all mouse controls in 2D model view:
-    if (obj->renderMode == RENDER_PIXEL) return;
+    if (obj.renderMode == RENDER_PIXEL) return;
 
     // To have the object move at correct speed on hidpi displays, multiply the
     // deltas by the ratio between physical pixels and device-independent points.
-    obj->deltaX = (obj->startX - event->x()) * devicePixelRatio();
-    obj->deltaY = (obj->startY - event->y()) * devicePixelRatio();
+    obj.deltaX = (obj.startX - event->x()) * devicePixelRatio();
+    obj.deltaY = (obj.startY - event->y()) * devicePixelRatio();
 
     // Mouse button 1 rotates the object.
-    if (obj->mouse1Down) {
+    if (obj.mouse1Down) {
         if (allowRotations == false) {
-            obj->deltaX = 0;
-            obj->deltaY = 0;
+            obj.deltaX = 0;
+            obj.deltaY = 0;
         }
         emit resetOrientation(0);
         updateGL();
     }
 
     // Mouse button 2 pans the object.
-    if (obj->mouse2Down) {
+    if (obj.mouse2Down) {
         std::stringstream ss;
-        ss << "Position: (" << obj->viewPosX << ", " << obj->viewPosY << ")";
+        ss << "Position: (" << obj.viewPosX << ", " << obj.viewPosY << ")";
         emit msgStatusBar(ss.str());
         updateGL();
     }
 
-    obj->startX = event->x();
-    obj->startY = event->y();
-    obj->deltaX = 0;
-    obj->deltaY = 0;
+    obj.startX = event->x();
+    obj.startY = event->y();
+    obj.deltaX = 0;
+    obj.deltaY = 0;
 }
 
 
@@ -208,7 +208,7 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
  */
 void GLWidget::keyPressEvent(QKeyEvent *event)
 {
-    if (obj->renderMode == RENDER_PIXEL) {
+    if (obj.renderMode == RENDER_PIXEL) {
         return;   // Disable all orientation etc. controls in 2D model view.
     }
 
@@ -216,34 +216,34 @@ void GLWidget::keyPressEvent(QKeyEvent *event)
 
     // View orientations:
     if (event->key()==49) {
-        obj->zoomMultip=0.2;
-        ss << "Distance: " << obj->zoomMultip;
+        obj.zoomMultip=0.2;
+        ss << "Distance: " << obj.zoomMultip;
         emit msgStatusBar(ss.str());
     }
     if (event->key()==50) {
-        obj->zoomMultip=0.3;
-        ss << "Distance: " << obj->zoomMultip;
+        obj.zoomMultip=0.3;
+        ss << "Distance: " << obj.zoomMultip;
         emit msgStatusBar(ss.str());
     }
     if (event->key()==51) {
-        obj->zoomMultip=0.4;
-        ss << "Distance: " << obj->zoomMultip;
+        obj.zoomMultip=0.4;
+        ss << "Distance: " << obj.zoomMultip;
         emit msgStatusBar(ss.str());
     }
     if (event->key()==52) {
-        obj->zoomMultip=50.5;
-        ss << "Distance: " << obj->zoomMultip;
+        obj.zoomMultip=50.5;
+        ss << "Distance: " << obj.zoomMultip;
         emit msgStatusBar(ss.str());
     }
     if (event->key()==53) {
-        obj->zoomMultip=100.6;
-        ss << "Distance: " << obj->zoomMultip;
+        obj.zoomMultip=100.6;
+        ss << "Distance: " << obj.zoomMultip;
         emit msgStatusBar(ss.str());
     }
     if (event->key()==67) {  // Center object
-        obj->viewPosX=0.0;
-        obj->viewPosY=0.0;
-        ss << "Position: (" << obj->viewPosX << ", " << obj->viewPosY << ")";
+        obj.viewPosX=0.0;
+        obj.viewPosY=0.0;
+        ss << "Position: (" << obj.viewPosX << ", " << obj.viewPosY << ")";
         emit msgStatusBar(ss.str());
     }
     if (event->key()==16777234) {  // Left
@@ -253,13 +253,13 @@ void GLWidget::keyPressEvent(QKeyEvent *event)
         emit changeStepView(1);
     }
     if (event->key()==16777235) { // Up
-        obj->zoomMultip = obj->zoomMultip+0.01;
-        ss << "Distance: " << obj->zoomMultip;
+        obj.zoomMultip = obj.zoomMultip+0.01;
+        ss << "Distance: " << obj.zoomMultip;
         emit msgStatusBar(ss.str());
     }
     if (event->key()==16777237) { // Down
-        obj->zoomMultip = obj->zoomMultip-0.01;
-        ss << "Distance: " << obj->zoomMultip;
+        obj.zoomMultip = obj.zoomMultip-0.01;
+        ss << "Distance: " << obj.zoomMultip;
         emit msgStatusBar(ss.str());
     }
 
@@ -274,14 +274,14 @@ void GLWidget::keyPressEvent(QKeyEvent *event)
  */
 void GLWidget::wheelEvent(QWheelEvent *event)
 {
-    if (obj->renderMode==RENDER_PIXEL) return;   // Disable mouse scroll for 2D model view.
+    if (obj.renderMode==RENDER_PIXEL) return;   // Disable mouse scroll for 2D model view.
 
-    obj->zoomMultip = obj->zoomMultip + (float)event->delta()/WHEEL_SENSITIVITY;
-    if (obj->zoomMultip<ZOOM_MIN_MULTIP) obj->zoomMultip=ZOOM_MIN_MULTIP;
-    if (obj->zoomMultip>ZOOM_MAX_MULTIP) obj->zoomMultip=ZOOM_MAX_MULTIP;
+    obj.zoomMultip = obj.zoomMultip + (float)event->delta()/WHEEL_SENSITIVITY;
+    if (obj.zoomMultip<ZOOM_MIN_MULTIP) obj.zoomMultip=ZOOM_MIN_MULTIP;
+    if (obj.zoomMultip>ZOOM_MAX_MULTIP) obj.zoomMultip=ZOOM_MAX_MULTIP;
 
     std::stringstream ss;
-    ss << "Distance: " << obj->zoomMultip;
+    ss << "Distance: " << obj.zoomMultip;
     emit msgStatusBar(ss.str());
 
     updateGL();
@@ -311,7 +311,7 @@ void GLWidget::setVisualData(ToothLife *toothlife, int step, Model *model)
 {
     if (toothlife == NULL || toothlife->getTooth(step) == NULL) {
         glcore::setVisualData(NULL, obj, NULL);
-        obj->img = NULL;
+        obj.img = NULL;
         glcore::setVisualData2D(0, 0, obj);
         updateGL();
         return;
@@ -323,10 +323,10 @@ void GLWidget::setVisualData(ToothLife *toothlife, int step, Model *model)
         glcore::setVisualData( &(tooth->get_cell_data()), obj, &(tooth->get_mesh()) );
     }
     else if (tooth->get_tooth_type() == RENDER_PIXEL) {
-        _update_textures( tooth, model, obj );
+        update_textures_( tooth, model, obj );
     }
     else {
-        obj->mesh = &(model->fill_mesh( *tooth ));
+        obj.mesh = &(model->fill_mesh( *tooth ));
         glcore::uploadData(obj, VERTICES);
         glcore::uploadData(obj, TEXTURES);             // Vertex colors.
     }
@@ -341,10 +341,10 @@ void GLWidget::setVisualData(ToothLife *toothlife, int step, Model *model)
  */
 void GLWidget::clearScreen()
 {
-    obj->mesh = NULL;
-    obj->cell_data = NULL;
-    obj->pixelDataHeight = 0;
-    obj->pixelDataWidth = 0;
+    obj.mesh = NULL;
+    obj.cell_data = NULL;
+    obj.pixelDataHeight = 0;
+    obj.pixelDataWidth = 0;
 }
 
 
@@ -357,9 +357,9 @@ void GLWidget::setViewMode(int mode, Tooth* tooth, Model *model)
 {
     if (DEBUG_MODE) fprintf(stderr, "%s:%s(%d, ...)\n", __FILE__, __FUNCTION__, mode);
 
-    obj->viewMode = mode;
+    obj.viewMode = mode;
     if (tooth!=NULL) {
-        _update_textures( tooth, model, obj );
+        update_textures_( tooth, model, obj );
         updateGL();
     }
 }
@@ -374,9 +374,9 @@ void GLWidget::setViewThreshold(double val, Tooth* tooth, Model *model)
 {
     if (DEBUG_MODE) fprintf(stderr, "%s:%s(%lf)\n", __FILE__, __FUNCTION__, val);
 
-    obj->viewThreshold = val;
+    obj.viewThreshold = val;
     if (tooth!=NULL) {
-        _update_textures( tooth, model, obj );
+        update_textures_( tooth, model, obj );
         updateGL();
     }
 }
@@ -391,7 +391,7 @@ void GLWidget::showMesh(int mode)
 {
     if (DEBUG_MODE) printf("%s: %d\n", __FUNCTION__, mode);
 
-    obj->polygonFill = mode;
+    obj.polygonFill = mode;
     updateGL();
 }
 
@@ -404,8 +404,8 @@ void GLWidget::showMesh(int mode)
  */
 void GLWidget::setViewOrientation( float rotx, float roty )
 {
-    obj->rtriX = rotx;
-    obj->rtriY = roty;
+    obj.rtriX = rotx;
+    obj.rtriY = roty;
     updateGL();
 }
 
@@ -422,13 +422,13 @@ QImage GLWidget::screenshotGL()
     int h = height() * FBO_MULTIPLIER;
 
     // Max. resolution limited by fbo dimensions.
-    if (w > obj->fbo_dim[0] || h > obj->fbo_dim[1]) {
+    if (w > obj.fbo_dim[0] || h > obj.fbo_dim[1]) {
         w = width();
         h = height();
     }
 
     glcore::screenshotGL(obj, w, h);
-    QImage qimg = QImage(obj->scrimg, w, h, QImage::Format_RGB32);
+    QImage qimg = QImage(obj.scrimg, w, h, QImage::Format_RGB32);
 
     return qimg.mirrored(false, true);
 }
@@ -443,7 +443,7 @@ void GLWidget::setRenderMode(int mode)
 {
     if (DEBUG_MODE) fprintf(stderr, "%s:%s(%d)\n", __FILE__, __FUNCTION__, mode);
 
-    if (obj->renderMode != mode) {
+    if (obj.renderMode != mode) {
         clearScreen();
     }
     glcore::setRenderMode(mode, obj);
@@ -460,7 +460,7 @@ void GLWidget::setRotations(bool state)
     allowRotations = state;
 
     if (allowRotations == false) {
-        obj->rtriX = 0.0;
-        obj->rtriY = 0.0;
+        obj.rtriX = 0.0;
+        obj.rtriY = 0.0;
     }
 }

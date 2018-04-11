@@ -16,24 +16,14 @@
 #include <numeric>
 #include <ctime>
 
-#include <gui/hampu.h>
-#include <misc/binaryhandler.h>
-#include <utils/writeparameters.h>
-#include <utils/readparameters.h>
-#include <utils/writedata.h>
-#include <utils/readxml.h>
-#include <model.h>
-#include <misc/loader.h>
-
-
-
-/**
- * @brief Hampu constructor.
- * @param parent
- */
-Hampu::Hampu(QWidget *parent) : QMainWindow(parent)
-{
-}
+#include "gui/hampu.h"
+#include "misc/binaryhandler.h"
+#include "utils/writeparameters.h"
+#include "utils/readparameters.h"
+#include "utils/writedata.h"
+#include "utils/readxml.h"
+#include "model.h"
+#include "misc/loader.h"
 
 
 
@@ -82,7 +72,7 @@ int Hampu::init_GUI()
         Model* model = models.at(i);
         ParameterWindow* p = new ParameterWindow();
         morphomaker::Read_GUI_definitions( model->getInterfaceXML(), *model, *p );
-        p->set_model(model);
+        p->setModel(model);
         parameterWindows.push_back(p);
     }
 
@@ -174,10 +164,10 @@ int Hampu::init_GUI()
     }
 
     // Create menu bar items.
-    _set_menu_bar();
+    setMenuBar_();
 
     // Signals for communication between Hampu and the rest of the program.
-    _set_signals();
+    setSignals_();
 
     // Setting the default model with which the program starts.
     setModelSettings(DEFAULT_MODEL, 1);
@@ -368,7 +358,7 @@ void Hampu::Panel_History(int mode)
     controlPanel->setSliderValue(viewIntStep);
 
     setModelSettings( toothLife->getCurrentModel(), 0 );
-    _update_current_step_view(STATUSBAR_VERBOSE);
+    updateCurrentStepView_(STATUSBAR_VERBOSE);
 }
 
 
@@ -382,6 +372,9 @@ void Hampu::Panel_History(int mode)
 void Hampu::Panel_Import(std::string file)
 {
     // Find the model matching the one given in the parameters file.
+    // NOTE: Running Import_parameters() on an empty Parameters object only
+    // reads the keys words and values! The actual parameters are read later
+    // once we know the target model.
     Parameters par;
     morphomaker::Import_parameters(file, &par);
     std::string model = par.getKey(PARKEY_MODEL);
@@ -391,7 +384,6 @@ void Hampu::Panel_Import(std::string file)
         writeStatusBar(msg);
         return;
     }
-
     int modelFound = -1;
     for (uint32_t i=0; i<parameterWindows.size(); i++) {
         if (!model.compare( models.at(i)->getModelName()) ) {
@@ -399,7 +391,6 @@ void Hampu::Panel_Import(std::string file)
             break;
         }
     }
-
     if (modelFound < 0) {
         char msg[256];
         sprintf(msg, "Error: Unknown model name '%s' in the parameter file.",
@@ -408,7 +399,9 @@ void Hampu::Panel_Import(std::string file)
         return;
     }
 
-    models.at(modelFound)->setParameters(&par);
+    // Now read the model parameters:
+    morphomaker::Import_parameters( file,
+                                    models.at(currentModel)->getParameters() );
     currentHistory = controlPanel->addHistory(0);
     controlPanel->setSliderMinMax(0, 0);
     setModelSettings(modelFound, 0);
@@ -460,7 +453,7 @@ void Hampu::Panel_Development(int step)
         controlPanel->setSliderValue( toothLife->getLifeSize()-1 );
     }
 
-    _update_current_step_view(STATUSBAR_VERBOSE);
+    updateCurrentStepView_(STATUSBAR_VERBOSE);
     QApplication::processEvents();
 }
 
@@ -508,7 +501,7 @@ void Hampu::Panel_Run(int nIter)
     toothLifeWork->setParameters( model->getParameters() );
 
     // Clean the history if needed, push the current work into history.
-    while (toothHistory.size() > _get_max_history_size()) {
+    while (toothHistory.size() > getMaxHistorySize_()) {
         delete toothHistory.at(0);
         toothHistory.erase(toothHistory.begin());
         controlPanel->removeHistory(0);
@@ -569,7 +562,7 @@ void Hampu::Panel_FollowDevelopment(int mode)
             viewIntStep = 0;
         }
         controlPanel->setSliderValue(viewIntStep);
-        _update_current_step_view(STATUSBAR_VERBOSE);
+        updateCurrentStepView_(STATUSBAR_VERBOSE);
     }
     else {
         followDevelopment = 0;
@@ -692,7 +685,7 @@ void Hampu::startParameterScan()
 
     controlPanel->enableRunButton(0);
     controlPanel->enableHistory(0);
-    _scan_parameters();
+    scanParameters_();
 }
 
 
@@ -752,7 +745,7 @@ void Hampu::setModelSettings(int id, int useDefault)
     Model* model = models.at(currentModel);
 
     if (AUTO_IMPORT_EXAMPLES && useDefault) {
-        _import_example_parameters();
+        importExampleParameters_();
     }
 
     // Set the rendering mode for the model.
@@ -829,7 +822,7 @@ int Hampu::exportModelData( int step, int datatype, QString export_folder )
 
         for (auto& i : steps) {
             viewIntStep = i;
-            _update_current_step_view(STATUSBAR_QUIET);
+            updateCurrentStepView_(STATUSBAR_QUIET);
             controlPanel->setSliderValue(viewIntStep);
 
             // This keeps the interface alive while exporting images.
@@ -843,7 +836,7 @@ int Hampu::exportModelData( int step, int datatype, QString export_folder )
                 qdir.mkdir(folder);
             }
 
-            std::vector<orientation> orientations;
+            std::vector<model::orientation> orientations;
             if (scanWindow->storeOrientations()) {
                 orientations = model->getOrientations();
             }
@@ -1078,7 +1071,7 @@ void Hampu::updateModel()
         writeStatusBar(msg);
 
         // Calls next set of parameters for scanning.
-        _scan_parameters();
+        scanParameters_();
     }
 }
 
@@ -1110,7 +1103,7 @@ void Hampu::viewIntSteps(int dir)
 
     if (lastStep != viewIntStep) {
         controlPanel->setSliderValue(viewIntStep);
-        _update_current_step_view(STATUSBAR_VERBOSE);
+        updateCurrentStepView_(STATUSBAR_VERBOSE);
     }
 }
 
@@ -1125,7 +1118,7 @@ void Hampu::viewIntSteps(int dir)
 /**
  * @brief Set signaling between different interface components.
  */
-void Hampu::_set_signals()
+void Hampu::setSignals_()
 {
     // Needed for threaded signaling to work.
     qRegisterMetaType<std::string>("std::string");
@@ -1193,7 +1186,7 @@ void Hampu::_set_signals()
 /**
  * @brief Set menu bar.
  */
-void Hampu::_set_menu_bar()
+void Hampu::setMenuBar_()
 {
     // File menu.
     QMenu *file = new QMenu("File");
@@ -1233,7 +1226,7 @@ void Hampu::_set_menu_bar()
  *
  * @param quiet     1=Write to status bar, 0=Be quiet.
  */
-void Hampu::_update_current_step_view(int quiet)
+void Hampu::updateCurrentStepView_(int quiet)
 {
     setVisualData();
 
@@ -1274,7 +1267,7 @@ void Hampu::_update_current_step_view(int quiet)
  *
  * TODO: Use the scanning functionality from CmdAppCore.
  */
-void Hampu::_scan_parameters()
+void Hampu::scanParameters_()
 {
     scanning=1;
 
@@ -1298,7 +1291,7 @@ void Hampu::_scan_parameters()
 /**
  * @brief Reads default parameter values for the current model.
  */
-void Hampu::_import_example_parameters()
+void Hampu::importExampleParameters_()
 {
     QDir qdir(QCoreApplication::applicationDirPath());
     qdir.cd(RESOURCES);
@@ -1321,7 +1314,7 @@ void Hampu::_import_example_parameters()
  *
  * @return  Max. history size.
  */
-unsigned int Hampu::_get_max_history_size()
+unsigned int Hampu::getMaxHistorySize_()
 {
     if (!scanning) {
         return (unsigned int)MAX_HISTORY_SIZE;

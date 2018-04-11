@@ -1,5 +1,4 @@
-#ifndef SCANWINDOW_H
-#define SCANWINDOW_H
+#pragma once
 
 #include <QWidget>
 #include <QDialog>
@@ -78,6 +77,3 @@ class ScanWindow : public QDialog
         void paintEvent(QPaintEvent*);
         QPushButton *createButton(int, int, const QString &, const char *);
 };
-
-
-#endif // SCANWINDOW_H

@@ -2,11 +2,16 @@
  * @class ParameterWindow
  * @brief Constructs model GUIs.
  *
- * - Constructs the parameter window, enables/disables control panel features.
+ * Constructs the parameter window, enables/disables control panel features.
+ *
  */
 
+#include <iostream>
+
 #include "gui/parameterwindow.h"
+#include "parameters.h"
 #include "utils/readxml.h"
+
 
 
 /**
@@ -38,7 +43,7 @@ ParameterWindow::~ParameterWindow()
  * @brief Prepares model interface.
  * @param m     Model object.
  */
-void ParameterWindow::set_model(Model *m)
+void ParameterWindow::setModel(Model *m)
 {
     model = m;
 }
@@ -46,97 +51,120 @@ void ParameterWindow::set_model(Model *m)
 
 
 /**
- * @brief Places parameter buttons & value fields to the current parameter window.
+ * @brief Places parameter buttons/value fields and checkboxes to the current
+ *        parameter window.
  * @param par       Parameters object.
  */
-void ParameterWindow::set_parameter_buttons( Parameters &par )
+void ParameterWindow::setParameters( Parameters& par )
 {
-    pvector& buttons = par.getButtonLocations();
-    std::vector<int>& widths = par.getButtonWidths();
-    std::vector<std::string>* names = par.getParNames();
-    std::vector<std::string>* notes = par.getParNotes();
+    auto& parameters = par.getParameters();
 
-    if (buttons.size()!=names->size() || buttons.size()!=notes->size() ||
-        buttons.size()!=widths.size()) {
-        // TODO: Add some warning message.
-        return;
-    }
+    size_t n = parameters.size();
+    fileLabels_.resize(n);
+    valueFields_.resize(n);
+    checkboxes_.resize(n);
+    buttons_.resize(n);
 
-    for (uint32_t i=0; i<names->size(); i++) {
-        auto name = names->at(i);
-        auto note = notes->at(i);
-        buttonNames.push_back( name.c_str() );
-        buttonNotes.push_back( note.c_str() );
-        bool hidden = par.isParameterHidden(name);
+    for (size_t i=0; i<parameters.size(); i++) {
+        auto& p = parameters.at(i);
 
-        auto x = buttons.at(i).first;
-        auto y = buttons.at(i).second;
-        createButton( x, y, buttonNames.size()-1, widths.at(i), !hidden );
+        names_.push_back( p.name.c_str() );
+        notes_.push_back( p.description.c_str() );
+        int x = p.position.first;
+        int y = p.position.second;
 
-        // Set button field at a fixed position to the right of the button.
-        x = x + widths.at(i);
-        addValueField( x, y, !hidden );
+        if (p.type == PARTYPE_FIELD) {
+            // Button widths based on text length.
+            // TODO: These should be defined in the header or so.
+            int button_width = 65;
+            if (p.name.length() > 5)
+                button_width = 6 * p.name.length() + 35;
+
+            createButton_( x, y + BUTTON_V_PADDING, i, button_width, !p.hidden );
+            x = x + button_width + FIELD_H_PADDING;
+            addValueField_( x, y + FIELD_V_PADDING, i, !p.hidden );
+        }
+        if (p.type == PARTYPE_CHECKBOX)
+            addCheckbox_( QString::fromStdString(p.name), x, y, i );
     }
 }
 
 
 
-void ParameterWindow::add_file_dialog( QString& name, int buttonx, int buttony )
+/**
+ * @brief Creates a file import dialog.
+ * @param name  plain text name
+ * @param x     position x
+ * @param y     position y
+ * @param i     parameter index
+ */
+void ParameterWindow::addFileDialog( QString& name, int x, int y )
 {
     QPushButton *button = new QPushButton(name, this);
     connect(button, SIGNAL(clicked()), this, SLOT(importFile()));
-    button->move(buttonx, buttony);
+    button->move(x, y);
     button->setFixedWidth(80);
 
     QLabel *prepat = new QLabel(this);
-    fileLabels.push_back(prepat);
-    int frameStyle = 0;
-    prepat->setFrameStyle(frameStyle);
-    prepat->move(buttonx+10, buttony+30);
+    fileLabels_.push_back(prepat);
+    prepat->setFrameStyle(0);
+    prepat->move(x+10, y+30);
     prepat->setFixedWidth(145);
 }
 
 
 
 /**
- * @brief Updates parameter values in value fields.
+ * @brief Adds a checkbox to position (x,y), connects the signals.
+ * @param name  plain text name
+ * @param x     position x
+ * @param y     position y
+ * @param i     parameter index
+ */
+void ParameterWindow::addCheckbox_( QString text, int x, int y, int i )
+{
+    QCheckBox* checkbox = new QCheckBox(text, this);
+    checkbox->move(x, y);
+    checkboxes_[i] = checkbox;
+
+    QSignalMapper *signalMapper = new QSignalMapper(this);
+    signalMapper->setMapping( checkbox, i );
+    connect( checkbox, SIGNAL(stateChanged(int)), signalMapper, SLOT(map()) );
+    connect( signalMapper, SIGNAL(mapped(int)), this, SLOT(checkbox_state(int)) );
+}
+
+
+
+/**
+ * @brief Updates parameter value fields and checkbox states.
  */
 void ParameterWindow::updateButtonValues()
 {
-    char val[64];
-    int pos;
+    auto& parameters = model->getParameters()->getParameters();
 
-    if (buttonNames.size()>0) {
-        Parameters *par = model->getParameters();
-        for (int i=0; i<buttonNames.size(); i++) {
-            // TODO: .12 should be taken from PARAM_PREC. How?
-            sprintf( val, "%.12lf",
-                     par->getParameter(buttonNames.at(i).toStdString()) );
+    for (size_t i=0; i<parameters.size(); i++) {
+        auto& p = parameters.at(i);
+
+        if (p.type == PARTYPE_FIELD) {
+            // TODO: .12 should be taken from PARAM_PREC
+            char val[64];
+            sprintf( val, "%.12lf", p.value );
 
             // Remove trailing zeros:
-            pos = strlen(val)-1;
+            int pos = strlen(val)-1;
             while (val[pos] == '0') pos--;
             if (val[pos]=='.') val[pos+2] = '\0';
             else val[pos+1] = '\0';
 
-            valueFields.at(i)->setText(val);
-            valueFields.at(i)->setCursorPosition(0);
+            valueFields_.at(i)->setText(val);
+            valueFields_.at(i)->setCursorPosition(0);
         }
-    }
-    else {
-        std::vector<double> *values = model->getParameters()->getParValues();
-        for (int i=0; i<(int)valueFields.size(); i++) {
-            // TODO: .12 should be taken from PARAM_PREC. How?
-            sprintf(val, "%.12lf", values->at(i));
 
-            // Remove trailing zeros:
-            pos = strlen(val)-1;
-            while (val[pos] == '0') pos--;
-            if (val[pos]=='.') val[pos+2] = '\0';
-            else val[pos+1] = '\0';
-
-            valueFields.at(i)->setText(val);
-            valueFields.at(i)->setCursorPosition(0);
+        if (p.type == PARTYPE_CHECKBOX) {
+            if (p.value > 0.5)
+                checkboxes_.at(i)->setCheckState( Qt::Checked );
+            else
+                checkboxes_.at(i)->setCheckState( Qt::Unchecked );
         }
     }
 }
@@ -145,12 +173,30 @@ void ParameterWindow::updateButtonValues()
 
 /**
  * @brief Slot, connects value fields to parameter values.
- * @param i     parameter index.
+ * @param i     Parameter index.
  */
 void ParameterWindow::setParValue(int i)
 {
-    model->getParameters()->setParameter(buttonNames.at(i).toStdString(),
-                                         valueFields.at(i)->text().toDouble());
+    auto name = names_.at(i).toStdString();
+    double value = valueFields_.at(i)->text().toDouble();
+    model->getParameters()->setParameterValue( name, value );
+
+    emit parameter_changed();
+}
+
+
+
+/**
+ * @brief Slot, toggle checkbox state.
+ * @param i     Checkbox vector index
+ */
+void ParameterWindow::checkbox_state( int i )
+{
+    auto name = names_.at(i).toStdString();
+    double value = checkboxes_.at(i)->isChecked() ? 1.0 : 0.0;
+    model->getParameters()->setParameterValue( name, value );
+
+    emit parameter_changed();
 }
 
 
@@ -163,19 +209,20 @@ void ParameterWindow::infoBox(int i)
 {
     QMessageBox msg;
 
-    if (buttonNames.size()>0) {
+    if (buttonNames.size() > 0) {
         msg.setText(buttonNames.at(i));
         msg.setInformativeText(buttonNotes.at(i));
         msg.exec();
+        return;
     }
-    else {
-        std::vector<std::string> *names = model->getParameters()->getParNames();
-        std::vector<std::string> *notes = model->getParameters()->getParNotes();
 
-        msg.setText(QString(names->at(i).c_str()));
-        msg.setInformativeText(QString(notes->at(i).c_str()));
-        msg.exec();
-    }
+    auto& p = model->getParameters()->getParameters();
+    auto name = p.at(i).name.c_str();
+    auto notes = p.at(i).description.c_str();
+
+    msg.setText( QString(name) );
+    msg.setInformativeText( QString(notes) );
+    msg.exec();
 }
 
 
@@ -195,74 +242,8 @@ void ParameterWindow::importFile()
         modelFiles.push_back( fname.toStdString() );
         model->getParameters()->addModelFile( fname.toStdString() );
         QFileInfo fileInfo( fname );
-        fileLabels.at(0)->setText( fileInfo.fileName() );
+        fileLabels_.at(0)->setText( fileInfo.fileName() );
     }
-}
-
-
-
-/**
- * @brief Adds a parameter value field to (x,y).
- * @param x         x loc.
- * @param y         y loc.
- * @param show      show/hide value field.
- */
-void ParameterWindow::addValueField(int x, int y, bool show)
-{
-    QLineEdit *field = new QLineEdit("0.0", this);
-    field->setStyleSheet("QLineEdit{background-color: rgba(100%, 100%, 100%, 0%); border: 1px solid black}");
-    field->move(x, y+FIELD_PADDING);
-    field->setFixedWidth(77);
-
-    QValidator *validator = new QDoubleValidator(0.0, PARAM_MAX, PARAM_PREC, this);
-    validator->setLocale(QLocale("C"));
-    field->setValidator(validator);
-
-    valueFields.push_back(field);
-
-    QSignalMapper *signalMapper = new QSignalMapper(this);
-    signalMapper->setMapping(field, valueFields.size()-1);
-    connect(field, SIGNAL(textChanged(const QString &)), signalMapper, SLOT(map()));
-    connect(signalMapper, SIGNAL(mapped(int)), this, SLOT(setParValue(int)));
-
-    if (!show) field->hide();
-}
-
-
-
-/**
- * @brief Creates a parameter button at (x,y).
- * @param x         x position
- * @param y         y position
- * @param i         parameter index.
- * @param width     button width.
- * @param show      show/hide button.
- */
-void ParameterWindow::createButton(int x, int y, int i, int width, bool show)
-{
-    QString name;
-    if (buttonNames.size()>i) {
-        name = buttonNames.at(i);
-    }
-    else {
-        name = QString( model->getParameters()->getParNames()->at(i).c_str() );
-    }
-
-    QPushButton *button;
-    if (show)
-        button  = new QPushButton(name, this);
-    else
-        button = new QPushButton(name);
-
-    button->move(x,y);
-    button->setFixedWidth(width);
-    buttons.push_back(button);
-
-    // Mapping parameter buttons to corresponding value slots.
-    QSignalMapper *signalMapper = new QSignalMapper(this);
-    signalMapper->setMapping(button, i);
-    connect(button, SIGNAL(clicked()), signalMapper, SLOT(map()));
-    connect(signalMapper, SIGNAL(mapped(int)), this, SLOT(infoBox(int)));
 }
 
 
@@ -281,4 +262,66 @@ void ParameterWindow::paintEvent(QPaintEvent*)
     pixmap.load(source);
     QPainter p(this);
     p.drawPixmap(0,0,pixmap);
+}
+
+
+
+/**
+ * @brief Adds a parameter value field to position (x,y).
+ * @param x         position x
+ * @param y         position y
+ * @param i         parameter index
+ * @param show      show/hide value field.
+ */
+void ParameterWindow::addValueField_(int x, int y, int i, bool show)
+{
+    QLineEdit *field = new QLineEdit("0.0", this);
+    field->setStyleSheet("QLineEdit{background-color: rgba(100%, 100%, 100%, 0%); "
+                         "border: 1px solid black}");
+    field->move(x, y);
+    field->setFixedWidth(77);
+
+    QValidator *validator = new QDoubleValidator(0.0, PARAM_MAX, PARAM_PREC, this);
+    validator->setLocale(QLocale("C"));
+    field->setValidator(validator);
+    valueFields_[i] = field;
+
+    QSignalMapper *signalMapper = new QSignalMapper(this);
+    signalMapper->setMapping(field, i);
+    connect(field, SIGNAL(textChanged(const QString &)), signalMapper, SLOT(map()));
+    connect(signalMapper, SIGNAL(mapped(int)), this, SLOT(setParValue(int)));
+
+    if (!show)
+        field->hide();
+}
+
+
+
+/**
+ * @brief Creates a parameter button at (x,y).
+ * @param x         x position
+ * @param y         y position
+ * @param i         parameter index.
+ * @param width     button width.
+ * @param show      show/hide button.
+ */
+void ParameterWindow::createButton_(int x, int y, int i, int width, bool show)
+{
+    QString name = names_.at(i);
+
+    QPushButton *button;
+    if (show)
+        button  = new QPushButton(name, this);
+    else
+        button = new QPushButton(name);
+
+    button->move(x,y);
+    button->setFixedWidth(width);
+    buttons_[i] = button;
+
+    // Mapping parameter buttons to corresponding value slots.
+    QSignalMapper *signalMapper = new QSignalMapper(this);
+    signalMapper->setMapping(button, i);
+    connect(button, SIGNAL(clicked()), signalMapper, SLOT(map()));
+    connect(signalMapper, SIGNAL(mapped(int)), this, SLOT(infoBox(int)));
 }
