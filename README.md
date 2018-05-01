@@ -1,6 +1,6 @@
 # ToothMaker
 
-ToothMaker is a graphical user interface for a computational tooth model that was created in Jernvall Lab (University of Helsinki) in 2010 for simulating triconodont tooth morphology [[1]](#references), then extended in 2014 for tribosphenic morphologies [[2]](#references) and used in later studies [[3, 4]](#references).
+ToothMaker is a graphical user interface for a computational tooth model that was created in Jernvall Lab (University of Helsinki) in 2010 for simulating triconodont tooth morphology [[1]](#references), then extended in 2014 for tribosphenic morphologies [[2]](#references) and used in later studies [[3, 4]](#references). *The OSX binary is available above (click ToothMaker_064_mac.tar.gz and select download)*
 
 <p align="center">
   <img src="examples/ToothMaker_064.png" width="75%">
@@ -56,7 +56,7 @@ Parameters: [hybrid_2018.txt](examples/hybrid_2018.txt)
 
 [3] Renvoisé, E. et al. 2017. Mechanical constraint from growing jaw facilitates mammalian dental diversity. Proceedings of the National Academy of Sciences, 114, 9403-9408.
 
-[4] Savriama, Y. et al. Phenotypic limits of mammalian hybridization (manuscript).
+[4] Savriama, Y. et al. Bracketing phenotypic limits of mammalian hybridization (manuscript).
 
 ## Build instructions
 
