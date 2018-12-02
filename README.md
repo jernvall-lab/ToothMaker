@@ -30,7 +30,7 @@ Vole molar, occlusal                         | Vole molar, lingual
 
 Parameters: [vole_2017.txt](examples/vole_2017.txt)
 
-### Savriama et al. (2018, manuscript)
+### Savriama et al. (2018)
 
 Ringed seal P2, occlusal                         | Ringed seal P2, lingual
 :---------------------------------------------:|:-------------------------------------------:
@@ -58,7 +58,8 @@ Parameters: [hybrid_2018.txt](examples/hybrid_2018.txt)
 
 [3] Renvoisé, E. et al. 2017. Mechanical constraint from growing jaw facilitates mammalian dental diversity. Proceedings of the National Academy of Sciences, 114, 9403-9408.
 
-[4] Savriama, Y. et al. Bracketing phenotypic limits of mammalian hybridization (manuscript).
+[4] Savriama, Y. et al. 2018. Bracketing phenogenotypic limits of mammalian hybridization. Royal Society Open Science, 5, 180903.
+http://dx.doi.org/10.1098/rsos.180903.
 
 ## Build instructions
 
