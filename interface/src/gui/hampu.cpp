@@ -1200,7 +1200,7 @@ void Hampu::setMenuBar_()
                      QKeySequence(Qt::CTRL + Qt::Key_D));
     tools->addAction("Export images", this, SLOT(Tools_ExportImages()),
                      QKeySequence(Qt::CTRL + Qt::Key_I));
-    tools->addAction("Take screenhot", this, SLOT(screenshotWidget()),
+    tools->addAction("Take screenshot", this, SLOT(screenshotWidget()),
                      QKeySequence(Qt::CTRL + Qt::Key_S));
     tools->addAction("Scan parameters", this, SLOT(Tools_ScanParameters()),
                      QKeySequence(Qt::CTRL + Qt::Key_N));
