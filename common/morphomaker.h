@@ -1,6 +1,6 @@
 #pragma once
 
-#define MMAKER_VERSION "0.6.5"
+#define MMAKER_VERSION "0.6.6dev"
 // #define MMAKER_VERSION "0.6.4dev (build: " MMAKER_BUILD ")"
 
 // Defines program name; controls output file names etc.
@@ -53,7 +53,7 @@
 #define SQUARE_WIN_SIZE 495
 
 // Size of tooth history, i.e. number of ToothLife to be held in memory.
-#define MAX_HISTORY_SIZE 5
+#define MAX_HISTORY_SIZE 10
 
 // Default threshold for concentrations in model view.
 #define DEFAULT_VIEW_THRESH 0.5

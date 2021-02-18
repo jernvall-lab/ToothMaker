@@ -429,10 +429,6 @@ int morphomaker::Read_OFF_file(const std::string& fname, Tooth& tooth)
 /**
  * @brief Reads Hummpa .dad file.
  *
- * TODO: Currently assumes fixed length field separators. Using 64bit Humppa binaries
- *       increases the length of the field separator on some platforms, causing this
- *       function to fail, resulting in the loss of morphogen/vertex color data.
- *
  * @param step      Current step
  * @param stepsize  Step size
  * @param run_id    Model run id
@@ -442,103 +438,111 @@ int morphomaker::Read_OFF_file(const std::string& fname, Tooth& tooth)
 int morphomaker::Read_Humppa_DAD_file( int step, int stepsize, int run_id,
                                        Tooth& tooth)
 {
-    // Find the exact file name.
+    // Construct the file name, open for reading.
     QString target = QString::number(step*stepsize) + "*"
                      + QString::number(run_id) + "*.dad";
-    QStringList filter;
-    filter << target;
+    QStringList filter(target);
     QDir qdir("./");
     QFileInfoList files = qdir.entryInfoList( filter, QDir::Files );
-    if (files.size() == 0) {
+    if (files.size() == 0)
         return -1;
-    }
 
     char dadFileName[1024];
     strcpy( dadFileName, files.at(0).fileName().toStdString().c_str() );
-
     FILE* input = fopen(dadFileName, "r");
-    if (input==NULL) {
+    if (input == nullptr) {
         if (DEBUG_MODE) fprintf(stderr, "%s(): Can't open file '%s'. Aborted.\n",
                                 __FUNCTION__, dadFileName);
         return -1;
     }
 
-    char dataBegin[64];
-    int nvertices = tooth.get_mesh().get_vertices().size();
-    sprintf(dataBegin, " %d %d\n", stepsize, nvertices);
+    // A helper for converting given string 's' (which may contain extra white
+    // spaces) to an integer. Returns 0 if 's' consists of a non-integer.
+    auto str2int_ = []( std::string& s ) {
+        int i = !s.empty() && (s.find_first_not_of("0123456789") == std::string::npos);
+        return i ? std::atoi(s.c_str()) : 0;
+    };
 
-    uint32_t i=0, j=0;
-    int filePos=0, cnt=0;
-    QStringList list;
+    uint32_t filePos=0, cnt=0;
+    int col0 = stepsize;
     char tmp[256];
 
     while (!feof(input)) {
-        if (fgets(tmp, 255, input) == NULL) {
+        if (fgets(tmp, 255, input) == nullptr) {
             fclose(input);
             return -1;
         }
 
-        if (!strcmp(tmp, dataBegin) && filePos==4) {  // Found concentrations.
-            filePos=4;
-            cnt = 0;
-            break;
-        }
-        if (!strcmp(tmp, dataBegin) && filePos==3) {
-            filePos=4;
-            sprintf(dataBegin, " 4 %d\n", nvertices);
-            continue;
-        }
-        if (!strcmp(tmp, dataBegin) && filePos==2) {
-            filePos=3;
-            i=0;
-            sprintf(dataBegin, " 5 %d\n", nvertices);
-            continue;
-        }
-        if (!strcmp(tmp, dataBegin) && filePos==1) {  // Found begin of cell shapes.
-            filePos=2;
-            i=0;
-            continue;
-        }
-        if (!strcmp(tmp, dataBegin) && filePos==0) {
-            filePos=1;
-            continue;
+        // Figure out the current file/data position from the first two columns.
+        std::stringstream ss(tmp);
+        std::string cols[2];
+        ss >> cols[0] >> cols[1];
+
+        if (str2int_(cols[0]) == col0 &&
+            str2int_(cols[1]) == (int)tooth.get_mesh().get_vertices().size()) {
+            if (filePos == 4) {     // found 1st "4 [nvertices]"
+                filePos = 4;
+                break;
+            }
+            if (filePos == 3) {     // found 1st "5 [nvertices]" (concentrations)
+                filePos = 4;
+                col0 = 4;
+                cnt = 0;
+                continue;
+            }
+            if (filePos == 2) {     // found 3rd "[stepsize] [nvertices]"
+                filePos = 3;
+                col0 = 5;
+                continue;
+            }
+            if (filePos == 1) {     // found 2nd "[stepsize] [nvertices]" (cell shapes)
+                filePos = 2;
+                continue;
+            }
+            if (filePos == 0) {     // found 1st "[stepsize] [nvertices]"
+                filePos = 1;
+                continue;
+            }
         }
 
-        if (filePos==2) {  // Read cell shapes.
-            QString str = QString(tmp);
-            list = str.split(" ");
-            if (!list[2].compare("cell")) {
-                j=0;
-                i++;
+
+        if (filePos == 2) {     // read cell shapes
+            if (!cols[1].compare("cell")) {
+                cnt++;
                 continue;
             }
 
-            mesh::vertex vert = { list[1].toFloat(), list[2].toFloat(), list[3].toFloat() };
-            tooth.add_cell_shape( i-1, vert );
-            j++;
-        }
-
-        if (filePos==4) {  // Read cell data (concentrations).
-            char *pch;
-            j=0;
-            std::vector<float> data;
-
-            pch = strtok(tmp, " ");
-            while (pch != NULL && j<5) {
-                data.push_back( atof(pch) );
-                pch = strtok(NULL, " ");
-                j++;
+            ss.clear();
+            ss.str(tmp);
+            std::string str;
+            std::vector<float> data(3);
+            for (size_t i=0; i<data.size(); ++i) {
+                ss >> str;
+                data[i] = std::atof( str.c_str() );
             }
 
-            // Humppa's DAD file contains concentrations for the epith. cells + stack of
-            // 3 mesench. cells below each epith. cell. We only want to read the epith.
-            // concentrations.
-            if ( cnt%4 == 0 ) {
+            mesh::vertex vert = { data[0], data[1], data[2] };
+            tooth.add_cell_shape( cnt-1, vert );
+        }
+
+        if (filePos == 4) {     // read cell data (concentrations)
+            ss.clear();
+            ss.str(tmp);
+            std::string str;
+            std::vector<float> data(5);
+            for (size_t i=0; i<data.size(); ++i) {
+                ss >> str;
+                data[i] = std::atof( str.c_str() );
+            }
+
+            // Concentrations are given as four lines per epithelial cell, with
+            // first line for the epithelial concentration followed by mesenchymal
+            // concentrations for a stack of three cells. Only want to first line.
+            if (cnt%4 == 0) {
                 tooth.add_cell_data( data );
                 cnt = 0;
             }
             cnt++;
-            i++;
         }
     }
 

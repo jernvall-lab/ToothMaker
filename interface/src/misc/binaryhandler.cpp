@@ -530,6 +530,10 @@ void BinaryHandler::binaryError_(QProcess::ProcessError err)
  */
 void BinaryHandler::run()
 {
+
+    // Per-iteration progress tracking disabled; causes issues with Humppa's
+    // various incarnations which write the progress file differently.
+/*
     // Pre-calculate the file size categories for calcProgress_.
     // Category n indicates the size of the progress files containing integers
     // in range [1, (10^n)-1].
@@ -544,33 +548,38 @@ void BinaryHandler::run()
         l = l + (9 * pow(10,i) * (i+trail_size+2));
         cat.push_back(l);
     }
+*/
 
-    int step_test = 1;
+    int step = 0;   // simulation step currently being processed
 
     // Process tracking loop.
     while (m_process.state()==QProcess::Running) {
         msleep(UPDATE_INTERVAL);
 
-        // Only test if the output files exist, don't run parsers:
-        auto output_files = getDataFilenames_( step_test, true );
+        // Testing for the presence of the next step here, and then reading the
+        // current step only if the next already available. This to avoid reading
+        // files that are still being written.
+        auto output_files = getDataFilenames_( step+1, true );
         if (output_files.size() > 0) {
-            // Reading the output file previous to the latest one, as the latest
-            // might still be under writing:
-            addTooth_(step_test-1);
-            step_test++;
+            addTooth_(step);
+            step++;
         }
-        currentIter = calcProgress_(m_progressFile.size(), cat, trail_size);
+
+        // Per-step progress tracking:
+        currentIter = (step == 0) ? 0 : (step-1)*stepSize;
+        // Per-iteration progress tracking (see above):
+        // currentIter = calcProgress_(m_progressFile.size(), cat, trail_size);
     }
 
     // Get the rest of the result files still in the sequence.
     while (1) {
         msleep(UPDATE_INTERVAL);
 
-        addTooth_(step_test-1);
+        addTooth_(step);
         // Again, just testing if the files exist; addTooth_() actually reads.
-        auto output_files = getDataFilenames_( step_test, true );
+        auto output_files = getDataFilenames_( step+1, true );
         if (output_files.size() > 0) {
-            step_test++;
+            step++;
         }
         else {
             break;

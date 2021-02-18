@@ -129,7 +129,7 @@ int *get_cells_with_node_(Tooth& tooth, int nodeCell, int vertIndex)
  * @param i         Cell index.
  * @return          1 if border cell, else 0.
  */
-int _is_border_cell(Tooth& tooth, int i)
+int is_border_cell_(Tooth& tooth, int i)
 {
     auto& shapes = tooth.get_cell_shapes();
 
@@ -288,7 +288,7 @@ void morphomaker::Export_main_cusp_baseline( Tooth& tooth, std::string outfile,
     double cellX = 0.0;
 
     for (uint16_t i=0; i<vertices.size(); i++) {
-        if (_is_border_cell(tooth, i)>-1) {
+        if (is_border_cell_(tooth, i)>-1) {
             cellX = vertices.at(i).x;
             if (minDist>(cellX*cellX)) {
                 minDist=(cellX*cellX);
