@@ -78,7 +78,7 @@ int Hampu::init_GUI()
 
     // Create control panel, add the models to models menu.
     controlPanel = new ControlPanel(this, &models);
-    controlPanel->setSliderMinMax(0,0);
+    controlPanel->setSliderMinMax(0, 1);
     followDevelopment = FOLLOW_DEFAULT;
 
     // Create rendering window.
@@ -315,7 +315,7 @@ void Hampu::Panel_Model(int i)
     // Otherwise some settings from the new entry will be incorrectly transferred to
     // the previous
     currentHistory = controlPanel->addHistory(0);
-    controlPanel->setSliderMinMax(0, 0);
+    controlPanel->setSliderMinMax(0, 1);
     setModelSettings(i,1);
 
     char msg[256];
@@ -403,7 +403,7 @@ void Hampu::Panel_Import(std::string file)
     morphomaker::Import_parameters( file,
                                     models.at(currentModel)->getParameters() );
     currentHistory = controlPanel->addHistory(0);
-    controlPanel->setSliderMinMax(0, 0);
+    controlPanel->setSliderMinMax(0, 1);
     setModelSettings(modelFound, 0);
 
     std::stringstream ss;
