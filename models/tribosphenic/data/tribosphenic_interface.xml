@@ -9,7 +9,7 @@
     
 <Binary>
     <BinaryOSX>humppa_translate_mac_64bit</BinaryOSX>
-    <BinaryLinux>humppa_translate_linux</BinaryLinux>
+    <BinaryLinux>humppa_translate_linux_64bit</BinaryLinux>
     <BinaryWindows>humppa_translate.exe</BinaryWindows>
     <InputStyle>Humppa</InputStyle>
     <OutputStyle>Humppa</OutputStyle>
