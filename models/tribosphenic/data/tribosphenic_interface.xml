@@ -9,7 +9,7 @@
     
 <Binary>
     <BinaryOSX>humppa_translate_mac_64bit</BinaryOSX>
-    <BinaryLinux>humppa_translate_linux</BinaryLinux>
+    <BinaryLinux>humppa_translate_linux_64bit</BinaryLinux>
     <BinaryWindows>humppa_translate.exe</BinaryWindows>
     <InputStyle>Humppa</InputStyle>
     <OutputStyle>Humppa</OutputStyle>
@@ -19,7 +19,7 @@
 
 <Controls>
     <ModelStepsize>500</ModelStepsize>
-    <ParametersImage>bg_text_quadrate.png</ParametersImage>
+    <ParametersImage>bg_text_quadrate_070.png</ParametersImage>
     <CellConnections>Enable</CellConnections>
     <Orientation>
         <Name>Occlusal</Name>
@@ -169,7 +169,7 @@
     </Parameter>    
     <Parameter>
         <Name>Boy</Name>
-        <Position>230,375</Position>
+        <Position>230,400</Position>
         <Description>Mesenchyme mechanic resistance.</Description>
         <Hidden>False</Hidden>
     </Parameter>
@@ -181,7 +181,7 @@
     </Parameter>    
     <Parameter>
         <Name>Bgr</Name>
-        <Position>230,350</Position>
+        <Position>230,375</Position>
         <Description>Border growth, amount of mesenchyme in anterior-posterior.</Description>
         <Hidden>False</Hidden>
     </Parameter>
@@ -214,7 +214,7 @@
     </Parameter>
     <Parameter>
         <Name>Rad</Name>
-        <Position>270,432</Position>
+        <Position>325,432</Position>
         <Description>Radius of initial conditions.</Description>
         <Hidden>False</Hidden>
     </Parameter>    
@@ -242,11 +242,17 @@
         <Position>325,457</Position>
         <Description>Width of border.</Description>
         <Hidden>False</Hidden>
-    </Parameter>    
-        <Parameter>
+    </Parameter>
+    <Parameter>
         <Name>Ina</Name>
         <Position>33,330</Position>
         <Description>Initial activator concentration.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>uMgr</Name>
+        <Position>230,350</Position>
+        <Description>Basal mesenchymal proliferation rate</Description>
         <Hidden>False</Hidden>
     </Parameter>
 </Parameters>
