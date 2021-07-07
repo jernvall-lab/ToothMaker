@@ -36,45 +36,47 @@ real*8, public, allocatable  :: marge(:,:,:)  ! internodes positions for each ce
 integer, public, allocatable :: vei(:,:)
 integer, public, allocatable :: knots(:)
 integer, public, allocatable :: nveins(:)
-real*8, public, allocatable  :: q2d(:,:)    ! quantitats que son 2d
-real*8, public, allocatable  :: q3d(:,:,:)    ! quantitats que son 3d act,inh,fgf,ect,p
+real*8, public, allocatable  :: q2d(:,:)      ! quantities that are 2d
+real*8, public, allocatable  :: q3d(:,:,:)    ! quantities that are 3d act,inh,fgf,ect,p
 real*8, public,allocatable   :: difq3d(:),difq2d(:)
 real*8, public, allocatable  :: hmalla(:,:),hvmalla(:,:)
 real*8, public, allocatable  :: px(:),py(:),pz(:)
 
-integer, public :: ncels   !numero de celules
-integer, public :: ncals   !numero de celules dins del radi real
-integer, public :: ncz     !number of depth z for the calculation of quantities
+integer, public :: ncels   ! number of cells
+integer, public :: ncals   ! number of cells within the real radius
+integer, public :: ncz     ! number of depth z for the calculation of quantities
 integer, parameter, public :: nvmax=30   !numero max de veins
 integer, public :: radi
 integer, public, parameter :: ng=5,ngg=4
 integer, public :: temps,npas
 real*8, public,  parameter :: la=1.      !distancia original entre node
 
-!parametres de veritat
-real*8, public :: ud,us   !umbral de diferenciacio
-real*8, public :: tacre 
-real*8, public :: tahor
-real*8, public :: acac
-real*8, public :: acec
-real*8, public :: acaca
-real*8, public :: ihac
-real*8, public :: ih
-real*8, public :: elas
-real*8, public :: tadi    ! width of bias! rate differentiation
-real*8, public :: crema    !taxa de diferenciacio
-real*8, public, parameter :: dmax=2.    !distanica maxima abans de fer un nou node
-real*8, public :: bip,bia,bil,bib   !biaixos posterior,anterior,lingual,bucal  pabl
-real*8, public :: ampl 
-real*8, public :: mu ! degradacio de fgf
-real*8, public :: tazmax ! sharpness maxima, indica com el epitli tira cap abaix si no tenim pressio del mesenkima
-                         ! no afecta molt amenys que no sigui molt baix, 100 es un bon valor
-real*8, public :: radibi ! promitjament
-real*8, public :: radibii !radi del centre on apliquem el biaix ap
-real*8, public :: fac
-real*8, public :: ina ! Initial activator concentration.
-real*8, public :: condme ! concentracio min per tenir creixement cap abaix
-real*8, public :: tadif ! concentracio min per tenir creixement cap abaix
+! true parameters
+real*8, public :: ud,us   ! differentiation threshold
+real*8, public :: tacre   ! Egr (epithelial proliferation rate)
+real*8, public :: tahor   ! Mgr (mesenchymal proliferation rate)
+real*8, public :: acac    ! Act (activator auto-activation)
+real*8, public :: acec    ! Not2 (ectodin in mouse - not in use)
+real*8, public :: acaca   ! Not3 (not int use)
+real*8, public :: ihac    ! Inh (inhibition of activator)
+real*8, public :: ih      ! Sec (growth factor secretion rate)
+real*8, public :: elas    ! Rep (Young's modulus, stiffnes)
+real*8, public :: tadi    ! Swi (distance from 0 where the borders are defined)
+real*8, public :: crema   ! Adh (traction between neighbors)
+real*8, public, parameter :: dmax=2.    ! maximum distance before making a new node
+real*8, public :: bip,bia,bil,bib   ! bias posterior, anterior, lingual, buccal pabl (NOTE: Abi, Pbi, Bbi, Lbi)
+real*8, public :: ampl    ! ??
+real*8, public :: mu      ! Deg (protein degradation rate)
+real*8, public :: tazmax  ! Dgr (sharpness maxima, indicates how the epithelium pulls down if we do not have pressure of the mesenchyme)
+                          ! it doesn't affect much unless it's very low, 100 is a good value
+real*8, public :: radibi  ! Ntr (mechanical traction from the borders to the nucleus)
+real*8, public :: radibii ! radius of the center where we apply the bias ap
+real*8, public :: fac     ! ??
+real*8, public :: ina     ! initial activator concentration
+real*8, public :: umgr    ! basal mesenchymal prolif. rate (independent of Sec level)
+real*8, public :: condme  ! ?? concentracio min per tenir creixement cap abaix
+real*8, public :: tadif   ! Bwi (width of border)
+
 !semiconstants
 real*8, public :: umelas
 integer, public :: maxcels
@@ -415,6 +417,8 @@ subroutine llegirparam
 777 close(1)
 end subroutine llegirparam
 
+
+
 subroutine calculmarges
   real*8 cont
   integer kl
@@ -474,12 +478,14 @@ subroutine calculmarges
   end do
 end subroutine calculmarges
 
+
+
 subroutine reaccio_difusio
-  real*8 pes(ncals,nvmax)         !area del contacte entre i i el vei(i,j)
+  real*8 pes(ncals,nvmax)   ! area of contact between i and neighbor (i, j)
   real*8 areap(ncals,nvmax)
   real*8 suma,areasota
-  real*8 hq3d(ncals,ncz,ng)
-  real*8 hq2d(ncals,ngg)
+  real*8 hq3d(ncals,ncz,ng) ! ncals = number of cells (within "real radius"), ncz = z depth, ng = 5 (constant)
+  real*8 hq2d(ncals,ngg)    ! ngg = 4 (constant)
   real*8 ux,uy,uz,dx,dy,dz,ua,ub,uc
   integer primer 
 
@@ -596,36 +602,37 @@ pes(i,j)=sqrt((marge(i,j,1)-marge(i,1,1))**2+(marge(i,j,2)-marge(i,1,2))**2+(mar
 !    q2d(:,i)=q2d(:,i)+delta*difq2d(i)*hq2d(:,i)
 !  end do
 
-  !REACCIO
+  ! REACTION
   hq3d=0.
   do i=1,ncels
 !    areasota=sum(areap(i,:))  ! ATENCIO no ho fem perque es concentracio (cal canviar si al dividir dividim la quantitat)
     if (q3d(i,1,1)>1) then
       if (i>=ncils) knots(i)=1 
     end if
-    a=acac*q3d(i,1,1)-q3d(i,1,4)
+    
+    a = acac*q3d(i,1,1) - q3d(i,1,4)  ! acac = Act (activator auto-activation)
     if (a<0) a=0.
-    hq3d(i,1,1)=a/(1+ihac*q3d(i,1,2))-mu*q3d(i,1,1)
-    if (q2d(i,1)>us) then
-      hq3d(i,1,2)=q3d(i,1,1)*q2d(i,1)-mu*q3d(i,1,2)
+    hq3d(i,1,1) = a/(1+ihac*q3d(i,1,2)) - mu*q3d(i,1,1) ! Eq. (14) sans diffusion
+    if (q2d(i,1)>us) then     ! us = Int (initial inhibitor threshold)
+      hq3d(i,1,2) = q3d(i,1,1)*q2d(i,1) - mu*q3d(i,1,2) ! Eq. (17). NOTE: q2d <= 1.0
     else
       if (knots(i)==1) then
-        hq3d(i,1,2)=q3d(i,1,1)-mu*q3d(i,1,2)
+        hq3d(i,1,2) = q3d(i,1,1) - mu*q3d(i,1,2)        ! Eq. (17)
       end if
     end if
-    if (q2d(i,1)>ud) then
-      a=ih*q2d(i,1)-mu*q3d(i,1,3)
+    if (q2d(i,1)>ud) then     ! ud = Set (growth factor threshold)
+      a = ih*q2d(i,1) - mu*q3d(i,1,3)                   ! Eq. (18). NOTE: q2d <= 1.0
       if(a<0.) a=0.
-      hq3d(i,1,3)=a
+      hq3d(i,1,3) = a
     else
       if (knots(i)>ud) then
-        a=ih-mu*q3d(i,1,3)
+        a = ih - mu*q3d(i,1,3) ! Eq. (18). ih = Sec (growth factor secretion rate)
         if(a<0.) a=0.
-        hq3d(i,1,3)=a
+        hq3d(i,1,3) = a
       end if
     end if
 
-      a=acec*q3d(i,1,1)-mu*q3d(i,1,4)-acaca*q3d(i,1,3)
+      a = acec*q3d(i,1,1) - mu*q3d(i,1,4) - acaca*q3d(i,1,3)  ! acec = Not2, acaca = Not3
       if(a<0.) a=0.
       hq3d(i,1,4)=a
 !    hq3d(i,1,:)=hq3d(i,1,:)*areasota
@@ -638,19 +645,23 @@ if (maxval(abs(hq3d(:,1,1:2)))>1D100) then ;
 !print *,"PANIC OVERFLOW" ; 
 panic=1 ; return ; end if
   do i=1,4 
-    q3d(:,1,i)=q3d(:,1,i)+delta*hq3d(:,1,i)
+    q3d(:,1,i) = q3d(:,1,i) + delta*hq3d(:,1,i)   ! explicit Euler method
   end do
 
   where(q3d<0.) q3d=0.  
 
 end subroutine reaccio_difusio
 
+
+
 subroutine diferenciacio
   do i=1,ncels
-    q2d(i,1)=q2d(i,1)+tadif*(q3d(i,1,3))
+    q2d(i,1) = q2d(i,1) + tadif*(q3d(i,1,3))    ! tadif = Bwi (width of border)
     if (q2d(i,1)>1.) q2d(i,1)=1.
   end do
 end subroutine diferenciacio
+
+
 
 subroutine empu
   real*8 ux,uy,uz,uux,uuy,uuz,ua,ub,uc,uuuz,uaa,ubb,uuux,uuuy,duux,duuy
@@ -677,16 +688,16 @@ subroutine empu
         aa=aa-uux*d ; bb=bb-uuy*d ; cc=cc-uuz*d
       end if
     end do
-    d=sqrt(aa**2+bb**2+cc**2)
+    d = sqrt(aa**2+bb**2+cc**2)
     if (d>0) then
 !      a=1!q3d(i,1,2) ; if (a>tadif) a=tadif
-      d=tacre/d
+      d = tacre/d
 !      d=d/(1+tadi*q3d(i,1,1)) 
-      a=1-q2d(i,1) ; if (a<0) a=0.
-      d=d*a
-      hmalla(i,1)=aa*d
-      hmalla(i,2)=bb*d
-      hmalla(i,3)=cc*d
+      a = 1-q2d(i,1) ; if (a<0) a=0.  ! q2d(i,1) = differentiation state
+      d = d*a
+      hmalla(i,1) = aa*d      ! Eq. (5). aa,bb,cc are x,y,z components of u_ij 
+      hmalla(i,2) = bb*d
+      hmalla(i,3) = cc*d
     end if
   end do
 
@@ -750,11 +761,11 @@ subroutine empu
 
     ! ames tenim la traccio cap abaix deguda a l'adhesio al mesenkima    
     d=sqrt(aa**2+bb**2)
-    if (d>0) then         
+    if (d>0) then
 !      a=tahor*q3d(i,1,3)  !biaix sobre el mesenkima
-      d=(d+tahor*q3d(i,1,3))/d
-      aa=aa*d  
-      bb=bb*d
+      d = (d + tahor*q3d(i,1,3) + umgr) / d   ! Eq. (12) + basal Mgr
+      aa = aa*d
+      bb = bb*d
     end if
     cc=tazmax
     d=sqrt(aa**2+bb**2+cc**2)
@@ -762,8 +773,8 @@ subroutine empu
 !      a=1-q2d(i,1) ; if (a<0) a=0.
       d=tacre/d
 !      d=d/(1+tadi*q3d(i,1,1))  
-      a=1-q2d(i,1) ; if (a<0) a=0.
-      d=d*a                          !aixo sembla estar repe i malament
+      a = 1-q2d(i,1) ; if (a<0) a=0.  ! q2d(i,1) = differentiation state
+      d=d*a                           !aixo sembla estar repe i malament
       hmalla(i,1)=aa*d
       hmalla(i,2)=bb*d
       hmalla(i,3)=cc*d
@@ -777,6 +788,8 @@ subroutine empu
   hvmalla=hmalla
 
 end subroutine empu
+
+
 
 subroutine stelate
   real*8 ax,ay
@@ -1730,8 +1743,8 @@ character*50, public :: fifr,fivr,fipr,fifw,fivw,fipw
 integer, public :: nom,map,fora,pass,passs,maptotal,is,maxll
 integer, parameter :: mamax=5000
 real*8,  public :: mallap(1000,3,mamax)  !atencio si ncels>1000 el sistema peta al llegir
-real*8,  public :: parap(31,mamax)
-character*50, public :: noms(31)
+real*8,  public :: parap(32,mamax)
+character*50, public :: noms(32)
 integer, public :: knotsp(1000,mamax)
 integer, public, allocatable :: veip(:,:,:)
 real*8, public,allocatable :: ma(:)
@@ -1805,7 +1818,7 @@ end subroutine guardamarges
 
 subroutine llegirparatxt
   character*50 cara
-  do i=3,31
+  do i=3,32
     read (2,*,END=666,ERR=777)  a,cara ; parap(i,map)=a ; noms(i)=cara !; print *,i,a,cara,"we" 
   end do
 5 format(5F13.6)
@@ -1820,7 +1833,7 @@ end subroutine llegirparatxt
 
 subroutine escriuparatxt
   character*50 cara
-  do i=3,31
+  do i=3,32
     a=parap(i,map)
     cara=noms(i)
     write (2,*)  a,cara 
@@ -1841,6 +1854,7 @@ print *,parap
 read (*,*)
   read (2,*,END=666,ERR=777)  parap(26:30,map)
   read (2,*,END=666,ERR=777)  parap(31,map)
+  read (2,*,END=666,ERR=777)  parap(32,map)
   5 format(5F13.6)
   return
 777 print *,"error de lectura para" ; fora=1 ; close(2) ; return
@@ -1887,6 +1901,8 @@ subroutine llegirveins
 666 print *,"fi de fitxer v"     ; fora=1 ; close(2) ; return
 end subroutine llegirveins
 
+
+
 subroutine agafarparap(imap)
 integer imap
   parap(1,imap)=temps ; parap(2,imap)=ncels        
@@ -1900,8 +1916,11 @@ integer imap
   parap(18+ng+ngg,imap)=mu     ; parap(19+ng+ngg,imap)=tazmax
   parap(20+ng+ngg,imap)=radibi ; parap(14+ng+1,imap)=tadif  ;
   parap(15+ng+1,imap)=fac ; parap(21+ng+ngg,imap)=radibii ; parap(12,imap)=ncals
-  ina=parap(22+ng+ngg,imap)
+  parap(22+ng+ngg,imap) = ina
+  parap(23+ng+ngg,imap) = umgr
 end subroutine agafarparap
+
+
 
 subroutine posarparap(imap)
 integer imap
@@ -1915,8 +1934,11 @@ integer imap
   radi=parap(17+ng+ngg,imap); mu=parap(18+ng+ngg,imap)  ; tazmax=parap(19+ng+ngg,imap)
   radibi=parap(20+ng+ngg,imap) ; tadif=parap(14+ng+1,imap) 
   fac=parap(15+ng+1,imap) ; radibii=parap(21+ng+ngg,imap) !!!!!!; ncals=parap(12,imap)
-  ina=parap(22+ng+ngg,imap)
+  ina = parap(22+ng+ngg,imap)
+  umgr = parap(23+ng+ngg,imap)
 end subroutine posarparap
+
+
 
 subroutine llegir
   character*50 cac
@@ -2240,7 +2262,7 @@ integer :: winid, menuid
 integer pa,nstep
 real*8    step
 integer   sstep,nt,pao
-real*8    parapo(31)
+real*8    parapo(32)
 character*12 cu,cd,ct,cq
 character*12 acu,acd,act,acq
 character*1 ccu,ccd,cct,ccq
