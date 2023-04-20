@@ -11,6 +11,7 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QSignalMapper>
+#include <QLineEdit>
 #include "misc/scanlist.h"
 
 
@@ -42,6 +43,7 @@ class ScanWindow : public QDialog
         int calcPermutations();
         int storeModelSteps();
         int storeOrientations();
+        int getTimeLimit()      { return timeLimitBox->text().toInt()*1000; } // ms -> seconds
 
     private slots:
         void selectStorageFolder();
@@ -68,6 +70,7 @@ class ScanWindow : public QDialog
         std::string printTextMsg, njobs_msg;
         bool tableSet;
         QCheckBox *combCheckbox, *exportCheckbox, *stepsCheckbox, *orientCheckbox;
+        QLineEdit *timeLimitBox;
         QPushButton *startButton;
 
         ScanItem *createScanItem(int);

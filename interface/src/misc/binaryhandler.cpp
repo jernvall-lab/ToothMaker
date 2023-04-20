@@ -32,6 +32,7 @@ BinaryHandler::BinaryHandler() : Model()
             SLOT(binaryError_(QProcess::ProcessError)));
     connect(&m_process, SIGNAL(started()), this, SLOT(start()));
 
+    m_timeLimit = -1;   // by default allowing the binary to run forever (-1)
     m_id = 0;
     m_toothLife = NULL;
 }
@@ -54,11 +55,12 @@ BinaryHandler::~BinaryHandler()
  */
 int BinaryHandler::init_model(const QString& temp_path, const int max_cores,
                               ToothLife& tlife, const int num_iter,
-                              const int step_size, const int id)
+                              const int step_size, const int id, const int timeLimit)
 {
     (void)max_cores;
     m_binary = QString(modelBin.c_str());
     m_id = id;
+    m_timeLimit = timeLimit;
     m_toothLife = &tlife;
     systemTempPath = temp_path;
 
@@ -95,7 +97,8 @@ int BinaryHandler::init_model(const QString& temp_path, const int max_cores,
 
 /**
  * @brief Call to start the model.
- * @return      Starting time or -1 if errors.
+ * @param timeLimit     Maximum run time in ms after which the binary will be killed.
+ * @return              Starting time or -1 if errors.
  */
 int BinaryHandler::start_model()
 {
@@ -108,6 +111,15 @@ int BinaryHandler::start_model()
     m_killedByUser = false;
     qDebug().nospace() << "Executing " << m_cmd;
     m_process.start(m_cmd);
+
+    m_killTimer.setInterval(m_timeLimit);
+    QObject::connect(&m_killTimer, &QTimer::timeout, [&]() {
+        if (m_process.state() == QProcess::Running) {
+            stop_model();
+        }
+    });
+    m_killTimer.start();
+
 
     return time(NULL);
 }

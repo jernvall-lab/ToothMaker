@@ -17,7 +17,6 @@
 #include <ctime>
 
 #include "gui/hampu.h"
-#include "misc/binaryhandler.h"
 #include "utils/writeparameters.h"
 #include "utils/readparameters.h"
 #include "utils/writedata.h"
@@ -64,6 +63,7 @@ int Hampu::init_GUI()
     scanning = 0;
     screenshotCounter = 0;
     runCounter = 0;
+    timeLimit = -1;     // -1 = no time limit
     parwidget = NULL;
 
     // Load all available models, creater parameter windows.
@@ -511,7 +511,7 @@ void Hampu::Panel_Run(int nIter)
 
     int stepsize = model->getStepSize();
     int rv = model->init_model( QString(tempPathMorpho.c_str()), 2,
-                                *toothLifeWork, nIter, stepsize, run_id );
+                                *toothLifeWork, nIter, stepsize, run_id, timeLimit );
     if (rv<0) {
         // Model initialization failed.
         ToothLife *toothLife = toothHistory.at(toothHistory.size()-1);
@@ -677,6 +677,7 @@ void Hampu::startParameterScan()
     std::string parfile = resfolder.toStdString() + "/parameters_base.txt";
     morphomaker::Export_parameters(baseParameters, parfile, PROGRAM_NAME);
 
+
     std::string joblist = resfolder.toStdString() + "/" + SCAN_LIST;
     scanList = scanWindow->getScanList();
     scanList->resetScanQueue();
@@ -697,6 +698,7 @@ void Hampu::startParameterScan()
 void Hampu::stopParameterScan()
 {
     scanning = 0;
+    timeLimit = -1;
     models.at(currentModel)->setParameters(baseParameters);
     // TODO: Do not call signals directly from the code.
     Panel_Stop();
@@ -1262,19 +1264,21 @@ void Hampu::updateCurrentStepView_(int quiet)
 
 /**
  * @brief Gets next scan parameters in GUI scanning.
- * - Initially called by startScanParameters(), then iteratively by
+ * - Initially called by startParameterScan(), then iteratively by
  *   updateModel().
  *
  * TODO: Use the scanning functionality from CmdAppCore.
  */
 void Hampu::scanParameters_()
 {
-    scanning=1;
+    scanning = 1;
+    timeLimit = scanWindow->getTimeLimit();
 
     Parameters *parameters = scanList->getNextScanJob();
     if (parameters==NULL) {
         // Scanning done (or failed for whatever reason).
         scanning = 0;
+        timeLimit = -1;
         scanWindow->updateScanStatus("Start");
         controlPanel->enableRunButton(1);
         controlPanel->enableHistory(1);

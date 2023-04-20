@@ -104,8 +104,9 @@ private:
     int followDevelopment;                  // 1 if 'Follow development' checked
     int viewIntStep;                        // Currently viewed step
     int timeStart;                          // Model start time
-    int screenshotCounter;                 // Screenshot image ID for file name
-    int runCounter;                        // Incremented at model model start.
+    int screenshotCounter;                  // Screenshot image ID for file name
+    int runCounter;                         // Incremented at model model start.
+    int timeLimit;                          // Time limit in seconds before killing the model.
 
     ScanList *scanList;                     // List of parameters to scan
     int scanning;                           // Scanning status (1=scanning, 0=not)

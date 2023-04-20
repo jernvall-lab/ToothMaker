@@ -3,6 +3,7 @@
  * @brief Parameter scanning window.
  */
 
+#include <iostream>
 #include "misc/scanlist.h"
 
 
@@ -191,6 +192,9 @@ int ScanList::populateScanQueue(std::string parlist, int calcPerm)
                 parlist.c_str());
         return -1;
     }
+
+    if (scanItems.size() == 0)
+        return 0;
 
     std::vector<int> nSteps;
     std::vector<int> currSteps;

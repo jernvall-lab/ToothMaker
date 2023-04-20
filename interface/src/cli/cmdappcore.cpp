@@ -220,7 +220,7 @@ void CmdAppCore::runModel()
     int stepsize = model->getStepSize();
 
     models.at(modelId)->init_model( QString(systemTempPath.c_str()), 1,
-                                    *toothLife, nIter, stepsize, time(NULL) );
+                                    *toothLife, nIter, stepsize, time(NULL), -1 );
     timeStart = model->start_model();
 }
 

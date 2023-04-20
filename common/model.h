@@ -75,7 +75,7 @@ public:
     // ncores    - max. number of CPU cores to use.
     // Returns model start time.
     virtual int init_model( const QString& temp_path, const int max_cores, ToothLife& tlife,
-                            const int num_iter, const int step_size, const int id )
+                            const int num_iter, const int step_size, const int id, const int timeLimit )
     {
         stepSize = step_size;
         nIter = num_iter;
@@ -83,6 +83,7 @@ public:
         (void)max_cores;
         (void)tlife;
         (void)id;
+        (void)timeLimit;
 
         return 0;
     }

@@ -3,6 +3,7 @@
  * @brief GUI for parameter scanning.
  */
 
+#include <QLineEdit>
 #include "gui/scanwindow.h"
 
 
@@ -70,20 +71,28 @@ ScanWindow::ScanWindow(QWidget *parent) : QDialog(parent)
     orientCheckbox->setChecked(false);
     //connect(stepsCheckbox, SIGNAL(stateChanged(int)), this, SLOT(exportIntSteps()));
 
-    createButton(393, 270, "Save to..", SLOT(selectStorageFolder()));
+    QLabel *ncomb = new QLabel("Number of jobs:", this);
+    ncomb->move(NJOBS_X-108, NJOBS_Y-50);
+
+    QLabel *labelThresh = new QLabel("Time limit per simulation\n(seconds; -1 = no limit):", this);
+    labelThresh->move(400,210);
+    timeLimitBox = new QLineEdit("-1", this);
+    timeLimitBox->move(400,248);
+    timeLimitBox->setFixedWidth(67);
+    timeLimitBox->setMaxLength(7);
+    QValidator *validator = new QIntValidator(-999999, 999999, this);
+    validator->setLocale(QLocale("C"));
+    timeLimitBox->setValidator(validator);
+
+    createButton(393, 300, "Save to..", SLOT(selectStorageFolder()));
     int frameStyle = QFrame::Sunken | QFrame::Panel;
     resLabel = new QLabel(this);
     resLabel->setFrameStyle(frameStyle);
-    resLabel->move(400, 305);
+    resLabel->move(400, 335);
     resLabel->setFixedWidth(200);
 
-    QLabel *ncomb = new QLabel("Number of jobs:", this);
-    ncomb->move(NJOBS_X-108, NJOBS_Y-13);
-
-    scanStatus="Start";
+    scanStatus = "Start";
     startButton = createButton(5, 365, scanStatus, SLOT(handleStartButton()));
-
-    //table = NULL;
 }
 
 
@@ -416,7 +425,7 @@ void ScanWindow::paintEvent(QPaintEvent*)
 {
     QPainter painter(this);
     painter.drawText(STATUS_BAR_X, STATUS_BAR_Y, printTextMsg.c_str());
-    painter.drawText(NJOBS_X, NJOBS_Y, njobs_msg.c_str());
+    painter.drawText(NJOBS_X, NJOBS_Y-37, njobs_msg.c_str());
 }
 
 
