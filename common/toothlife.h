@@ -10,6 +10,7 @@
  */
 
 #include <vector>
+#include <mutex>
 #include "tooth.h"
 #include "parameters.h"
 
@@ -46,11 +47,16 @@ public:
     Parameters *getParameters()             { return m_parameters; }
 
     // Add a tooth object.
-    void addTooth( Tooth *tooth )           { m_teeth.push_back(tooth); }
+    void addTooth( Tooth *tooth )
+    {
+        std::lock_guard<std::mutex> lock(m_mtx);
+        m_teeth.push_back(tooth);
+    }
 
     // Get a tooth object by index.
     Tooth *getTooth( int i )
     {
+        std::lock_guard<std::mutex> lock(m_mtx);
         if (i>=0 && i<(int)(m_teeth.size()))
             return m_teeth.at(i);
         return nullptr;
@@ -72,5 +78,5 @@ private:
     unsigned int m_currentModel;        // model index
     std::vector<Tooth*> m_teeth;        // vector of model states
     int m_id;                           // model run ID
-
+    std::mutex m_mtx;
 };
