@@ -1,6 +1,6 @@
 # ToothMaker
 
-ToothMaker is a graphical user interface for a computational tooth model that was created in Jernvall Lab (University of Helsinki) in 2010 for simulating triconodont tooth morphology [[1]](#references), then extended in 2014 for tribosphenic morphologies [[2]](#references) and used in later studies [[3, 4]](#references). 
+ToothMaker is a graphical user interface for a computational tooth model that was created in Jernvall Lab (University of Helsinki) in 2010 for simulating triconodont tooth morphology [[1]](#references), then extended in 2014 for tribosphenic morphologies [[2]](#references) and used in later studies [[3-6]](#references). 
 
 **Precompiled binaries for macOS and Linux can be downloaded from [releases](https://github.com/jernvall-lab/ToothMaker/releases).**
 
@@ -10,7 +10,7 @@ ToothMaker is a graphical user interface for a computational tooth model that wa
 
 ## Examples
 
-Some example morphologies from recent studies are shown below, with links to the associated parameter files. Red color indicates the presence of a growth factor produced at the enamel knots. See References for the corresponding manuscripts for more details.
+Some example morphologies from previous studies are shown below, with links to the associated parameter files. Red color indicates the presence of a growth factor produced at the enamel knots. See References for the corresponding manuscripts for more details.
 
 Parameter files can be imported into ToothMaker either via Import button, or by drag and drop.
 
@@ -60,6 +60,10 @@ Parameters: [hybrid_2018.txt](examples/hybrid_2018.txt)
 
 [4] Savriama, Y. et al. 2018. Bracketing phenogenotypic limits of mammalian hybridization. Royal Society Open Science, 5, 180903.
 http://dx.doi.org/10.1098/rsos.180903.
+
+[5] Couzens, A. M. et al. 2021. Developmental influence on evolutionary rates and the origin of placental mammal tooth complexity. Proceedings of the National Academy of Sciences, 118(23), e2019294118.
+
+[6] Christensen, M. M. et al. 2023. The developmental basis for scaling of mammalian tooth size. Proceedings of the National Academy of Sciences, 120(25), e2300374120.
 
 ## Build instructions
 
