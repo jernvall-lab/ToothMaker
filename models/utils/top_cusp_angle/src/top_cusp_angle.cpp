@@ -90,7 +90,7 @@ int get_individual_cusps( const Vector<double>& data, Vector<double>& cusps )
         }
         else {
             // Replace the initial cusp with the mean of joined maxima
-            cusps.back() = {sum[0]/n, sum[1]/n, sum[2]/n};
+            cusps.back() = std::vector<double>{sum[0]/n, sum[1]/n, sum[2]/n};
             // Add the new cusp to the array for distance computations
             cusps.push_back( cusp );
             sum = cusp;
