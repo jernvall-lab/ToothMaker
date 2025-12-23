@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <sstream>
 #include <iterator>
+#include <cstdint>
 
 #include "top_cusp_angle.h"
 
