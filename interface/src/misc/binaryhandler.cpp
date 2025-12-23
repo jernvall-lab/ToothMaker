@@ -110,7 +110,8 @@ int BinaryHandler::start_model()
     m_process.setProcessChannelMode( QProcess::ForwardedChannels );
     m_killedByUser = false;
     qDebug().nospace() << "Executing " << m_cmd;
-    m_process.start(m_cmd);
+    auto args = QProcess::splitCommand(m_cmd);
+    m_process.start(args.takeFirst(), args);
 
     m_killTimer.setInterval(m_timeLimit);
     QObject::connect(&m_killTimer, &QTimer::timeout, [&]() {
@@ -282,7 +283,8 @@ std::vector<std::string> BinaryHandler::getDataFilenames_( int step,
                           + parser_out;
 
             QProcess process;
-            process.start(cmd);
+            auto args = QProcess::splitCommand(cmd);
+            process.start(args.takeFirst(), args);
             if(!process.waitForFinished( PARSER_TIMEOUT )) {
                 // TODO: Add checks for other errors, e.g., does the parser exist.
                qDebug() << "Error: Parser" << parser << "failed to finish in"
@@ -509,26 +511,23 @@ void BinaryHandler::binaryError_(QProcess::ProcessError err)
     if (m_killedByUser)
         return;
 
-    char bin[256];
-    strcpy(bin, m_binary.toStdString().c_str());
-
-    char msg[256], type[32] = "Fatal error:";
+    QString msg = "Fatal error:";
     if (err == QProcess::FailedToStart)
-        sprintf(msg, "%s Failed to start binary '%s'.", type, bin);
-    if (err == QProcess::Crashed)
-        sprintf(msg, "%s Binary '%s' crashed.", type, bin);
-    if (err == QProcess::Timedout)
-        strcat(msg, "Binary wait timeout.");
-    if (err == QProcess::WriteError)
-        strcat(msg, "Cannot write process.");
-    if (err == QProcess::ReadError)
-        strcat(msg, "Cannot read process.");
-    if (err == QProcess::UnknownError)
-        strcat(msg, "Unknown error.");
+        msg = QString("Fatal error: Failed to start binary '%1'.").arg(m_binary);
+    else if (err == QProcess::Crashed)
+        msg = QString("Fatal error: Binary '%1' crashed.").arg(m_binary);
+    else if (err == QProcess::Timedout)
+        msg += " Binary wait timeout.";
+    else if (err == QProcess::WriteError)
+        msg += " Cannot write process.";
+    else if (err == QProcess::ReadError)
+        msg += " Cannot read process.";
+    else if (err == QProcess::UnknownError)
+        msg += " Unknown error.";
     retval = 1;
 
     qDebug() << msg;
-    emit msgStatusBar(msg);
+    emit msgStatusBar(msg.toStdString());
 
     // If the binary failed to start at all, _binary_finished() was never called.
     if (err == QProcess::FailedToStart)

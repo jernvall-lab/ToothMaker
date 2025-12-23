@@ -103,7 +103,7 @@ void replace_nlist_indices( Vector<int>& nlist )
         list.erase( it, list.end() );
         // Shift the rest one down
         std::transform( list.begin(), list.end(), list.begin(),
-                        std::bind2nd(std::minus<int>(), 1) );        
+                        [](int v){ return v - 1; } );        
     }
 }
 

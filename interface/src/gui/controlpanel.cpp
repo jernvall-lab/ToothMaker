@@ -536,10 +536,8 @@ void ControlPanel::changeOrientation(int val)
  */
 int ControlPanel::addHistory(int val)
 {
-    char dummy[256], runMsg[256];
-
-    sprintf(dummy, "--");
-    sprintf(runMsg, "#%d (Running)", currentRunIndex);
+    QString dummy = "--";
+    QString runMsg = QString("#%1 (Running)").arg(currentRunIndex);
 
     if (val==0) {
         // Add a dummy history for model change.
@@ -570,9 +568,7 @@ void ControlPanel::endHistory(int niter)
 {
     if (DEBUG_MODE) fprintf(stderr, "%s:%s(%d)\n", __FILE__, __FUNCTION__, niter);
 
-    char msg[256];
-
-    sprintf(msg, "#%d (no.iter. %d)", currentRunIndex, niter);
+    QString msg = QString("#%1 (no.iter. %2)").arg(currentRunIndex).arg(niter);
     history->setItemText(history->count()-1, msg);
     currentRunIndex++;
 }

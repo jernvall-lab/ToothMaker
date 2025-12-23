@@ -25,6 +25,9 @@ struct vertex_color {
 struct vertex {
     float x, y, z;
 
+    vertex() = default;
+    vertex(const vertex&) = default;
+
     vertex operator=(const vertex& w) {
         x = w.x;
         y = w.y;

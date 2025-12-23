@@ -73,12 +73,12 @@ The 2010 version of the model is included only for completeness. For all practic
 
 ### Requirements
 
-* Qt 5.x
-* GCC 4.8+ or Clang 3.8+ (support for C++11)
+* Qt 5.15+ (Qt 6 not yet supported)
+* GCC 7+ or Clang 5+ (C++11 support required)
 * GLEW, GLM (included in [/ext](ext/))
-* Mac OS X 10.6 or later, Ubuntu 14.04 or later, Windows 7 or later
-* Support for OpenGL 3.0
-* Support for 32 bit binaries (see [Notes](#notes))
+* macOS 10.13+, Ubuntu 20.04+, or Windows 10+
+* OpenGL 3.0 support
+* 32-bit binary support (see [Notes](#notes))
 
 ### Quickstart (macOS & Linux)
 

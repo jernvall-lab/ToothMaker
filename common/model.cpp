@@ -200,7 +200,8 @@ int Model::runResultParsers( const QString export_folder )
         }
 
         cmd = cmd + resources.path() + "/" + parser;
-        process.start(cmd);
+        auto args = QProcess::splitCommand(cmd);
+        process.start(args.takeFirst(), args);
         if(!process.waitForFinished( PARSER_TIMEOUT )) {
             // TODO: Add checks for other errors, e.g., does the parser exist.
            qDebug() << "Error: Parser" << parser << "failed to finish in"

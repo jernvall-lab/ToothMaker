@@ -81,6 +81,11 @@ void GLWidget::paintGL()
 {
     // With QOpenGLWidget, the default framebuffer is not 0 but a Qt-managed FBO
     glcore::paintGL(obj, PAINT_SCREEN, defaultFramebufferObject());
+
+    // Reset deltas after paint consumes them. This prevents stale deltas from
+    // causing continued motion when the mouse stops moving but repaints continue.
+    obj.deltaX = 0;
+    obj.deltaY = 0;
 }
 
 
@@ -173,6 +178,11 @@ void GLWidget::mouseReleaseEvent(QMouseEvent *event)
 {
    if (event->button()==1) obj.mouse1Down=0;
    if (event->button()==2) obj.mouse2Down=0;
+
+   // Reset deltas to prevent continued motion from stale values.
+   // (With QOpenGLWidget, update() is async so deltas persist between frames)
+   obj.deltaX = 0;
+   obj.deltaY = 0;
 }
 
 

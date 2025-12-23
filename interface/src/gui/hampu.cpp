@@ -126,7 +126,7 @@ int Hampu::init_GUI()
     }
 
     if (DEBUG_MODE) {
-        QList<QByteArray> exts = context->extensions().toList();
+        QList<QByteArray> exts = context->extensions().values();
         std::cerr << "QOpenGLContext creation: "
                   << context->isValid() << std::endl;
         std::cout << "Number of extensions retrieved: " << exts.size() << std::endl;
@@ -189,9 +189,8 @@ int Hampu::init_GUI()
     setAcceptDrops(true);
 
     // Print program version to the status bar.
-    char msg[1024];
-    sprintf(msg, "%s v%s", PROGRAM_NAME, MMAKER_VERSION);
-    writeStatusBar(msg);
+    QString msg = QString("%1 v%2").arg(PROGRAM_NAME).arg(MMAKER_VERSION);
+    writeStatusBar(msg.toStdString());
 
     if (DEBUG_MODE) fprintf(stderr, "*** %s:%s() END\n\n", __FILE__, __FUNCTION__);
 
@@ -217,8 +216,7 @@ void Hampu::Panel_ViewMode(int mode)
 {
     if (DEBUG_MODE) fprintf(stderr, "%s:%s(%d)\n", __FILE__, __FUNCTION__, mode);
 
-    char tmp[256];
-    sprintf(tmp, "%d", mode);
+    std::string tmp = std::to_string(mode);
 
     if (toothHistory.size()>currentHistory) {
         ToothLife *t = toothHistory.at(currentHistory);
@@ -246,8 +244,7 @@ void Hampu::Panel_ViewThreshold(double val)
 {
     if (DEBUG_MODE) fprintf(stderr, "%s:%s(%lf)\n", __FILE__, __FUNCTION__, val);
 
-    char tmp[256];
-    sprintf(tmp, "%lf", val);
+    std::string tmp = std::to_string(val);
 
     if (toothHistory.size()>currentHistory) {
         ToothLife *t = toothHistory.at(currentHistory);
@@ -314,10 +311,9 @@ void Hampu::Panel_Model(int i)
     controlPanel->setSliderMinMax(0, 1);
     setModelSettings(i,1);
 
-    char msg[256];
     Parameters* parameters = models.at(currentModel)->getParameters();
-    sprintf(msg, "Model: %s", parameters->getKey(PARKEY_MODEL).c_str());
-    writeStatusBar(msg);
+    QString msg = QString("Model: %1").arg(QString::fromStdString(parameters->getKey(PARKEY_MODEL)));
+    writeStatusBar(msg.toStdString());
 }
 
 
@@ -375,9 +371,7 @@ void Hampu::Panel_Import(std::string file)
     morphomaker::Import_parameters(file, &par);
     std::string model = par.getKey(PARKEY_MODEL);
     if (!model.compare("")) {
-        char msg[256];
-        sprintf(msg, "Error: Can't find tag 'model' in the parameter file.");
-        writeStatusBar(msg);
+        writeStatusBar("Error: Can't find tag 'model' in the parameter file.");
         return;
     }
     int modelFound = -1;
@@ -388,10 +382,8 @@ void Hampu::Panel_Import(std::string file)
         }
     }
     if (modelFound < 0) {
-        char msg[256];
-        sprintf(msg, "Error: Unknown model name '%s' in the parameter file.",
-                     model.c_str());
-        writeStatusBar(msg);
+        QString msg = QString("Error: Unknown model name '%1' in the parameter file.").arg(QString::fromStdString(model));
+        writeStatusBar(msg.toStdString());
         return;
     }
 
@@ -463,8 +455,7 @@ void Hampu::Panel_Development(int step)
  * @param val       Number of iterations.
  */
 void Hampu::Panel_Iterations(int val) {
-    char tmp[256];
-    sprintf(tmp, "%d", val);
+    std::string tmp = std::to_string(val);
     models.at(currentModel)->getParameters()->setKey(PARKEY_ITER, tmp);
 }
 
@@ -590,9 +581,7 @@ void Hampu::Tools_ExportObjects()
                                                        QDir::homePath());
     if (!folder.isEmpty() && toothHistory.size()>0) {
         exportModelData(-1, EXPORT_DATA, folder);
-        char msg[256];
-        sprintf(msg, "Data export complete.");
-        writeStatusBar(msg);
+        writeStatusBar("Data export complete.");
     }
 }
 
@@ -609,9 +598,8 @@ void Hampu::Tools_ExportImages()
 
     if (!folder.isEmpty() && toothHistory.size()>0) {
         int i = exportModelData(-1, EXPORT_SCREENSHOTS, folder);
-        char msg[256];
-        sprintf(msg, "Exported %d steps to %s.", i, folder.toStdString().c_str());
-        writeStatusBar(msg);
+        QString msg = QString("Exported %1 steps to %2.").arg(i).arg(folder);
+        writeStatusBar(msg.toStdString());
     }
 }
 
@@ -861,10 +849,9 @@ int Hampu::exportModelData( int step, int datatype, QString export_folder )
                 img.save(target);
             }
 
-            char msg[256];
             uint32_t steps = toothLife->getLifeSize();
-            sprintf(msg, "Taking screenshot %u/%u.", counter, steps);
-            writeStatusBar(msg);
+            QString msg = QString("Taking screenshot %1/%2.").arg(counter).arg(steps);
+            writeStatusBar(msg.toStdString());
             counter++;
         }
     }
@@ -872,9 +859,7 @@ int Hampu::exportModelData( int step, int datatype, QString export_folder )
     // All data files are always exported, regardless of whether a single or all
     // steps are requested.
     if (datatype & EXPORT_DATA) {
-        char msg[256];
-        sprintf(msg, "Exporting model data...");
-        writeStatusBar(msg);
+        writeStatusBar("Exporting model data...");
 
         QString folder = export_folder + "/" + DATA_SAVE_DIR;
         QDir qdir;
