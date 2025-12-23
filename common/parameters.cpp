@@ -1,6 +1,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <cstdint>
 #if !defined(__APPLE__)
 #include <malloc.h>
 #endif
