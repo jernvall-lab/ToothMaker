@@ -5,6 +5,11 @@
 #include <GL/gl.h>
 #include <GL/glext.h>
 #include <GL/glx.h>
+// X11 headers define 'None' as a macro which conflicts with Qt's QtWidgets
+// enums (e.g., QStyleOptionFrame::None). This wasn't an issue with the old
+// QGLWidget (QtOpenGL module), but QOpenGLWidget uses QtWidgets which has
+// many enum values named 'None'.
+#undef None
 #endif
 
 #if defined(__APPLE__)

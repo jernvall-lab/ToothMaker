@@ -311,7 +311,7 @@ int glcore::createGLContext()
     static glXCreateContextAttribsARBProc glXCreateContextAttribsARB = 0;
     static glXMakeContextCurrentARBProc glXMakeContextCurrentARB = 0;
 
-    static int visualAttribs[] = {None};
+    static int visualAttribs[] = {0};  // 0 is the GLX attrib list terminator (X11's None)
     int fbcount=0;
     GLXFBConfig* fbConfigs = glXChooseFBConfig(display, DefaultScreen(display),
                                                visualAttribs, &fbcount);
@@ -324,7 +324,7 @@ int glcore::createGLContext()
     int context_attribs[] = {
         GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
         GLX_CONTEXT_MINOR_VERSION_ARB, 0,
-        None
+        0  // Terminator
     };
 
     glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc)glXGetProcAddressARB((const GLubyte *) "glXCreateContextAttribsARB");
@@ -346,7 +346,7 @@ int glcore::createGLContext()
     int pbufferAttribs[] = {
         GLX_PBUFFER_WIDTH,  32,
         GLX_PBUFFER_HEIGHT, 32,
-        None
+        0  // Terminator
     };
     GLXPbuffer pbuffer = glXCreatePbuffer(display, fbConfigs[0], pbufferAttribs);
 

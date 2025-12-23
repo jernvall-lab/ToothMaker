@@ -4,6 +4,7 @@
  */
 
 #include <iostream>
+#include <cstdint>
 #include "misc/scanlist.h"
 
 
