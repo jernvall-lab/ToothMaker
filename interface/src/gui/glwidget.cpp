@@ -10,6 +10,8 @@
 
 #include <iostream>
 #include <sstream>
+#include <QScreen>
+#include <QGuiApplication>
 #include "gui/glwidget.h"
 #include "gui/controlpanel.h"   // Control panel dimensions for fbo allocation.
 
@@ -44,18 +46,13 @@ void update_textures_( Tooth* tooth, Model* model, GLObject& obj )
 
 /**
  * @brief Class constructor.
- * @param format        Context options.
  * @param parent
- * @param shareWidget
  */
-GLWidget::GLWidget(const QGLFormat &format, QWidget *parent, QGLWidget *shareWidget) :
-                   QGLWidget(format, parent, shareWidget)
+GLWidget::GLWidget(QWidget *parent) :
+                   QOpenGLWidget(parent)
 {
     setMinimumSize(SQUARE_WIN_SIZE,SQUARE_WIN_SIZE);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-
-    if (DEBUG_MODE) fprintf(stderr, "Double buffering: %d\n", doubleBuffer());
-    setAutoBufferSwap(true);
 
     glcore::initGLObject(obj);
     obj.polygonFill = SHOW_MESH;
@@ -63,6 +60,7 @@ GLWidget::GLWidget(const QGLFormat &format, QWidget *parent, QGLWidget *shareWid
     obj.viewPosY = 0.0;
     obj.viewMode = 0;
     obj.viewThreshold = DEFAULT_VIEW_THRESH;
+    allowRotations = true;
 }
 
 
@@ -81,7 +79,8 @@ GLWidget::~GLWidget()
  */
 void GLWidget::paintGL()
 {
-    glcore::paintGL(obj, PAINT_SCREEN);
+    // With QOpenGLWidget, the default framebuffer is not 0 but a Qt-managed FBO
+    glcore::paintGL(obj, PAINT_SCREEN, defaultFramebufferObject());
 }
 
 
@@ -102,7 +101,19 @@ void GLWidget::initializeGL()
 {
     if (DEBUG_MODE) fprintf(stderr, "%s():\n", __FUNCTION__);
 
-    QRect geom = QApplication::desktop()->screenGeometry();
+    initializeOpenGLFunctions();
+
+#if defined(_WIN32)
+    // Initialize GLEW for OpenGL extension loading on Windows
+    GLenum glewErr = glewInit();
+    if (glewErr != GLEW_OK) {
+        fprintf(stderr, "GLEW initialization failed: %s\n", glewGetErrorString(glewErr));
+        return;
+    }
+    if (DEBUG_MODE) fprintf(stderr, "GLEW initialized successfully.\n");
+#endif
+
+    QRect geom = QGuiApplication::primaryScreen()->geometry();
     obj.fbo_dim[0] = (geom.width() - SQUARE_WIN_SIZE) * FBO_MULTIPLIER;
     obj.fbo_dim[1] = (geom.height() - CONTROLPANEL_HEIGHT) * FBO_MULTIPLIER;
 
@@ -115,6 +126,10 @@ void GLWidget::initializeGL()
     QDir resources( QCoreApplication::applicationDirPath() );
     resources.cd( RESOURCES );
     glcore::initializeGL( obj, resources.path().toStdString() );
+
+    // Restore framebuffer to Qt's default FBO after glcore initialization
+    // (glcore leaves it bound to a custom FBO)
+    glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
 }
 
 
@@ -183,7 +198,7 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
             obj.deltaY = 0;
         }
         emit resetOrientation(0);
-        updateGL();
+        update();
     }
 
     // Mouse button 2 pans the object.
@@ -191,13 +206,13 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
         std::stringstream ss;
         ss << "Position: (" << obj.viewPosX << ", " << obj.viewPosY << ")";
         emit msgStatusBar(ss.str());
-        updateGL();
+        update();
     }
 
+    // Update start position for next incremental delta calculation.
+    // Don't reset deltaX/deltaY here - paintGL needs them and runs asynchronously.
     obj.startX = event->x();
     obj.startY = event->y();
-    obj.deltaX = 0;
-    obj.deltaY = 0;
 }
 
 
@@ -263,7 +278,7 @@ void GLWidget::keyPressEvent(QKeyEvent *event)
         emit msgStatusBar(ss.str());
     }
 
-    updateGL();
+    update();
 }
 
 
@@ -276,7 +291,7 @@ void GLWidget::wheelEvent(QWheelEvent *event)
 {
     if (obj.renderMode==RENDER_PIXEL) return;   // Disable mouse scroll for 2D model view.
 
-    obj.zoomMultip = obj.zoomMultip + (float)event->delta()/WHEEL_SENSITIVITY;
+    obj.zoomMultip = obj.zoomMultip + (float)event->angleDelta().y()/WHEEL_SENSITIVITY;
     if (obj.zoomMultip<ZOOM_MIN_MULTIP) obj.zoomMultip=ZOOM_MIN_MULTIP;
     if (obj.zoomMultip>ZOOM_MAX_MULTIP) obj.zoomMultip=ZOOM_MAX_MULTIP;
 
@@ -284,7 +299,7 @@ void GLWidget::wheelEvent(QWheelEvent *event)
     ss << "Distance: " << obj.zoomMultip;
     emit msgStatusBar(ss.str());
 
-    updateGL();
+    update();
 }
 
 
@@ -309,11 +324,14 @@ QSize GLWidget::sizeHint() const
  */
 void GLWidget::setVisualData(ToothLife *toothlife, int step, Model *model)
 {
+    makeCurrent();  // Required for QOpenGLWidget before GL calls
+
     if (toothlife == NULL || toothlife->getTooth(step) == NULL) {
         glcore::setVisualData(NULL, obj, NULL);
         obj.img = NULL;
         glcore::setVisualData2D(0, 0, obj);
-        updateGL();
+        doneCurrent();
+        update();
         return;
     }
 
@@ -331,7 +349,8 @@ void GLWidget::setVisualData(ToothLife *toothlife, int step, Model *model)
         glcore::uploadData(obj, TEXTURES);             // Vertex colors.
     }
 
-    updateGL();
+    doneCurrent();
+    update();
 }
 
 
@@ -359,8 +378,10 @@ void GLWidget::setViewMode(int mode, Tooth* tooth, Model *model)
 
     obj.viewMode = mode;
     if (tooth!=NULL) {
+        makeCurrent();
         update_textures_( tooth, model, obj );
-        updateGL();
+        doneCurrent();
+        update();
     }
 }
 
@@ -376,8 +397,10 @@ void GLWidget::setViewThreshold(double val, Tooth* tooth, Model *model)
 
     obj.viewThreshold = val;
     if (tooth!=NULL) {
+        makeCurrent();
         update_textures_( tooth, model, obj );
-        updateGL();
+        doneCurrent();
+        update();
     }
 }
 
@@ -392,7 +415,7 @@ void GLWidget::showMesh(int mode)
     if (DEBUG_MODE) printf("%s: %d\n", __FUNCTION__, mode);
 
     obj.polygonFill = mode;
-    updateGL();
+    update();
 }
 
 
@@ -406,7 +429,7 @@ void GLWidget::setViewOrientation( float rotx, float roty )
 {
     obj.rtriX = rotx;
     obj.rtriY = roty;
-    updateGL();
+    update();
 }
 
 
@@ -417,6 +440,8 @@ void GLWidget::setViewOrientation( float rotx, float roty )
  */
 QImage GLWidget::screenshotGL()
 {
+    makeCurrent();
+
     // Screenshot dimensions are set to twice the model view dimensions.
     int w = width() * FBO_MULTIPLIER;
     int h = height() * FBO_MULTIPLIER;
@@ -428,6 +453,11 @@ QImage GLWidget::screenshotGL()
     }
 
     glcore::screenshotGL(obj, w, h);
+
+    // Restore default framebuffer after screenshot
+    glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
+    doneCurrent();
+
     QImage qimg = QImage(obj.scrimg, w, h, QImage::Format_RGB32);
 
     return qimg.mirrored(false, true);
@@ -446,7 +476,9 @@ void GLWidget::setRenderMode(int mode)
     if (obj.renderMode != mode) {
         clearScreen();
     }
+    makeCurrent();
     glcore::setRenderMode(mode, obj);
+    doneCurrent();
 }
 
 

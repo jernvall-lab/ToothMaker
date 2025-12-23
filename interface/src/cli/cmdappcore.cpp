@@ -15,6 +15,7 @@
 #include <ctime>
 #include <iostream>
 #include <QDir>
+#include <QApplication>
 
 #include "cli/cmdappcore.h"
 #include "misc/binaryhandler.h"

@@ -82,27 +82,18 @@ int Hampu::init_GUI()
     followDevelopment = FOLLOW_DEFAULT;
 
     // Create rendering window.
-    QGLFormat glformat;
+    QSurfaceFormat glformat;
     glformat.setVersion( 2, 1 );
-    glformat.setProfile( QGLFormat::CompatibilityProfile );
-    // glformat.setProfile( QGLFormat::CoreProfile );
-    glformat.setDoubleBuffer(true);     // Double-buffering. Must be false for PPC Macs.
+    glformat.setProfile( QSurfaceFormat::CompatibilityProfile );
+    // glformat.setProfile( QSurfaceFormat::CoreProfile );
+    glformat.setSwapBehavior(QSurfaceFormat::DoubleBuffer);  // Double-buffering.
     glformat.setSwapInterval(0);        // Vertical sync. Must be disabled to prevent lag.
-    glformat.setDirectRendering(true);  // Hardware rendering.
+    QSurfaceFormat::setDefaultFormat(glformat);
 
-    glwidget = new GLWidget(glformat, this, 0);
-    if (!glwidget->context()->isValid()) {
-        char msg[] = {"Cannot create OpenGL context. System does not provide the required graphics capabilities."};
-        QMessageBox::critical(this, "Fatal error", msg);
-        qDebug() << "Fatal error:" << msg;
-        return -1;
-    }
-    glwidget->makeCurrent();
+    glwidget = new GLWidget(this);
 
     if (DEBUG_MODE) {
-        std::cout << "GLWidget creation: " << glwidget->context()->isValid() << std::endl;
-        // std::cout << "Current OpenGL profile: " << glformat.profile() << std::endl;
-        std::cout << "OpenGL version: " << glformat.majorVersion() << "."
+        std::cout << "OpenGL version requested: " << glformat.majorVersion() << "."
                   << glformat.minorVersion() << std::endl;
         std::cout << "Profile: " << glformat.profile() << std::endl;
     }
@@ -120,19 +111,24 @@ int Hampu::init_GUI()
     mainLayout->addWidget(controlPanel, 1, 0, 2, 0);
     centralWidget()->setLayout(mainLayout);
 
-    // Checking if required GL extensions available
-    // NOTE: QOpenGLContext requires >= Qt 5.0. As of MorphoMaker 0.5.3 this
-    // piece breaks the compatibility with Qt 4.8.
-    QOpenGLContext* context = glwidget->context()->contextHandle();
+    // Show the window to trigger OpenGL context creation
+    // QOpenGLWidget creates its context lazily when first shown
+    show();
+    glwidget->makeCurrent();
+
+    // Now check if the OpenGL context was created successfully
+    QOpenGLContext* context = glwidget->context();
     if ( context == NULL || !context->isValid() ) {
-        qDebug() << "Fatal error: Cannot create OpenGL context.";
+        char msg[] = {"Cannot create OpenGL context. System does not provide the required graphics capabilities."};
+        QMessageBox::critical(this, "Fatal error", msg);
+        qDebug() << "Fatal error:" << msg;
         return -1;
     }
 
     if (DEBUG_MODE) {
         QList<QByteArray> exts = context->extensions().toList();
         std::cerr << "QOpenGLContext creation: "
-                  << glwidget->context()->contextHandle()->isValid() << std::endl;
+                  << context->isValid() << std::endl;
         std::cout << "Number of extensions retrieved: " << exts.size() << std::endl;
         for (int i=0; i<exts.size(); ++i) {
             QString str(exts[i].constData());

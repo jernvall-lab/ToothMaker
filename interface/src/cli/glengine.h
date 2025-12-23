@@ -10,12 +10,15 @@
 #include <OpenGL/OpenGL.h>
 #endif
 
+#if defined(_WIN32)
+// GLEW must be included before other OpenGL headers
+#include <GL/glew.h>
+#include <windows.h>
+#include <GL/gl.h>
+#endif
+
 #include <QtGui>
-#include <QGLContext>
-#include <QtGui>
-#include <QtOpenGL>
 #include <QSizePolicy>
-#include <QGLFormat>
 
 #include "readdata.h"
 #include "toothlife.h"

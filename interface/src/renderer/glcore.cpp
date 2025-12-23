@@ -166,7 +166,7 @@ void glcore::uploadData( GLObject& obj, int datatype )
  * @param obj       GLObject
  * @param type      PAINT_SCREEN or 0 to paint off-screen only
  */
-void glcore::paintGL(GLObject& obj, int type)
+void glcore::paintGL(GLObject& obj, int type, GLuint defaultFBO)
 {
     // Draw into the off-screen framebuffer.
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, obj.framebuffer);
@@ -189,10 +189,14 @@ void glcore::paintGL(GLObject& obj, int type)
 
     if (type & PAINT_SCREEN) {
         // Switch back to screen fb for drawing, read from off-screen fb
+        // Note: With QOpenGLWidget, the default framebuffer is not 0 but a Qt-managed FBO
         glBindFramebuffer(GL_READ_FRAMEBUFFER, obj.framebuffer);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, defaultFBO);
         glBlitFramebuffer(0, 0, view[2], view[3], 0, 0, view[2], view[3],
                           GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+        // Restore framebuffer binding to default for Qt's widget compositing
+        glBindFramebuffer(GL_FRAMEBUFFER, defaultFBO);
     }
 }
 
@@ -366,54 +370,158 @@ int glcore::createGLContext()
 #elif defined(__APPLE__)
 /**
  * @brief Create GL context for off-screen rendering in OS X.
- * @return
+ * @return      0 OK, -1 Error
  */
 int glcore::createGLContext()
 {
     if (DEBUG_MODE) fprintf(stderr, "%s():\n", __FUNCTION__);
 
     CGLContextObj context;
-    CGLPixelFormatAttribute attributes[1] = {
-        // NOTE: kCGLOGLPVversion_Legacy is not supported in OS X 10.6.
-        // kCGLPFAOpenGLProfile, (CGLPixelFormatAttribute) kCGLOGLPVersion_Legacy,
-        // In OS X 'legacy' refers to v2.1 + Apple extras.
-        (CGLPixelFormatAttribute) 0
+    CGLPixelFormatAttribute attributes[] = {
+        kCGLPFAAccelerated,           // Hardware accelerated
+        kCGLPFAColorSize, (CGLPixelFormatAttribute)24,  // 24-bit color
+        kCGLPFADepthSize, (CGLPixelFormatAttribute)24,  // 24-bit depth buffer
+        kCGLPFAAllowOfflineRenderers, // Allow software fallback
+        (CGLPixelFormatAttribute) 0   // Terminator
     };
 
     CGLPixelFormatObj pix;
     CGLError errorCode;
     GLint num; // Number of possible pixel formats.
+
     errorCode = CGLChoosePixelFormat(attributes, &pix, &num);
-    // TODO: add error checking here
-    // Second parameter could be another context for object sharing.
+    if (errorCode != kCGLNoError || num == 0) {
+        fprintf(stderr, "Error: CGLChoosePixelFormat failed: %s\n",
+                CGLErrorString(errorCode));
+        return -1;
+    }
+
     errorCode = CGLCreateContext(pix, NULL, &context);
-    // TODO: add error checking here
     CGLDestroyPixelFormat(pix);
+    if (errorCode != kCGLNoError) {
+        fprintf(stderr, "Error: CGLCreateContext failed: %s\n",
+                CGLErrorString(errorCode));
+        return -1;
+    }
+
     errorCode = CGLSetCurrentContext(context);
+    if (errorCode != kCGLNoError) {
+        fprintf(stderr, "Error: CGLSetCurrentContext failed: %s\n",
+                CGLErrorString(errorCode));
+        CGLDestroyContext(context);
+        return -1;
+    }
 
     if (DEBUG_MODE) {
         fprintf(stderr, "System OpenGL version: %s\n",
                 (char*)glGetString(GL_VERSION));
         fprintf(stderr, "OpenGL context creation OK.\n");
-        if (errorCode) {
-            fprintf(stderr, "Error code: %d\n", errorCode);
-        }
     }
 
     return 0;
 }
 
 
+#elif defined(_WIN32)
+/**
+ * @brief Create GL context for off-screen rendering in Windows.
+ * @return      0 OK, -1 Error
+ */
+int glcore::createGLContext()
+{
+    if (DEBUG_MODE) fprintf(stderr, "%s():\n", __FUNCTION__);
+
+    // Create a dummy window for OpenGL context
+    WNDCLASS wc = {0};
+    wc.lpfnWndProc = DefWindowProc;
+    wc.hInstance = GetModuleHandle(NULL);
+    wc.lpszClassName = "GLContextClass";
+    RegisterClass(&wc);
+
+    HWND hwnd = CreateWindow(wc.lpszClassName, "GL Context", 0, 0, 0, 1, 1,
+                              NULL, NULL, wc.hInstance, NULL);
+    if (!hwnd) {
+        fprintf(stderr, "Error: Failed to create window for GL context.\n");
+        return -1;
+    }
+
+    HDC hdc = GetDC(hwnd);
+    if (!hdc) {
+        fprintf(stderr, "Error: Failed to get device context.\n");
+        DestroyWindow(hwnd);
+        return -1;
+    }
+
+    // Set pixel format
+    PIXELFORMATDESCRIPTOR pfd = {0};
+    pfd.nSize = sizeof(pfd);
+    pfd.nVersion = 1;
+    pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    pfd.iPixelType = PFD_TYPE_RGBA;
+    pfd.cColorBits = 32;
+    pfd.cDepthBits = 24;
+    pfd.iLayerType = PFD_MAIN_PLANE;
+
+    int pixelFormat = ChoosePixelFormat(hdc, &pfd);
+    if (!pixelFormat) {
+        fprintf(stderr, "Error: Failed to choose pixel format.\n");
+        ReleaseDC(hwnd, hdc);
+        DestroyWindow(hwnd);
+        return -1;
+    }
+
+    if (!SetPixelFormat(hdc, pixelFormat, &pfd)) {
+        fprintf(stderr, "Error: Failed to set pixel format.\n");
+        ReleaseDC(hwnd, hdc);
+        DestroyWindow(hwnd);
+        return -1;
+    }
+
+    // Create OpenGL context
+    HGLRC hglrc = wglCreateContext(hdc);
+    if (!hglrc) {
+        fprintf(stderr, "Error: Failed to create OpenGL context.\n");
+        ReleaseDC(hwnd, hdc);
+        DestroyWindow(hwnd);
+        return -1;
+    }
+
+    if (!wglMakeCurrent(hdc, hglrc)) {
+        fprintf(stderr, "Error: Failed to make OpenGL context current.\n");
+        wglDeleteContext(hglrc);
+        ReleaseDC(hwnd, hdc);
+        DestroyWindow(hwnd);
+        return -1;
+    }
+
+    // Initialize GLEW
+    GLenum glewErr = glewInit();
+    if (glewErr != GLEW_OK) {
+        fprintf(stderr, "Error: GLEW initialization failed: %s\n", glewGetErrorString(glewErr));
+        wglMakeCurrent(NULL, NULL);
+        wglDeleteContext(hglrc);
+        ReleaseDC(hwnd, hdc);
+        DestroyWindow(hwnd);
+        return -1;
+    }
+
+    if (DEBUG_MODE) {
+        fprintf(stderr, "System OpenGL version: %s\n", (char*)glGetString(GL_VERSION));
+        fprintf(stderr, "OpenGL context creation OK.\n");
+    }
+
+    return 0;
+}
+
 #else
 /**
- * @brief Dummy context creation for Windows.
- * - TODO: This needs to be implemented if batch mode is to be used in Windows.
- *
+ * @brief Dummy context creation for unknown platforms.
  * @return
  */
 int glcore::createGLContext()
 {
-    return 0;
+    fprintf(stderr, "Error: OpenGL context creation not implemented for this platform.\n");
+    return -1;
 }
 #endif
 

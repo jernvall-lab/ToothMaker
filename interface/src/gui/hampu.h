@@ -7,7 +7,7 @@
 #include <QGroupBox>
 #include <QProcess>
 #include <iostream>
-#include <QGLFormat>
+#include <QSurfaceFormat>
 #include <QDir>
 #include <QTimer>
 

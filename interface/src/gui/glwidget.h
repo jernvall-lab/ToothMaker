@@ -1,11 +1,10 @@
 #pragma once
 
 #include <QtGui>
-#include <QGLWidget>
-#include <QtGui>
-#include <QtOpenGL>
+#include <QOpenGLWidget>
+#include <QOpenGLFunctions>
 #include <QSizePolicy>
-#include <QGLFormat>
+#include <QSurfaceFormat>
 #include "tooth.h"
 #include "toothlife.h"
 #include "model.h"
@@ -17,12 +16,12 @@
 #define FBO_MULTIPLIER 2
 
 
-class GLWidget : public QGLWidget
+class GLWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
     Q_OBJECT
 
     public:
-        GLWidget(const QGLFormat &format, QWidget *parent=0, QGLWidget *shareWidget=0);
+        GLWidget(QWidget *parent=0);
         ~GLWidget();
 
         void paintGL();

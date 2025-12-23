@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT += core gui opengl
+QT += core gui widgets
 
 TARGET = ToothMaker
 TEMPLATE = app
@@ -88,7 +88,20 @@ QMAKE_FLAGS +=
 unix:!macx: QMAKE_LFLAGS += -rdynamic
 
 unix:!macx: LIBS += -lX11
-win32: LIBS += -lopengl32
+# Windows: Link OpenGL and GLEW
+win32 {
+    LIBS += -lopengl32 -lglew32
+    INCLUDEPATH += ../ext/GLEW/include
+}
+
+# On macOS, we need OpenGL framework but not the deprecated AGL framework
+# AGL was removed in newer macOS SDKs
+macx {
+    # Override Qt's OpenGL framework settings to exclude AGL
+    QMAKE_LIBS_OPENGL = -framework OpenGL
+    QMAKE_INCDIR_OPENGL = /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/OpenGL.framework/Headers
+    LIBS += -framework OpenGL
+}
 
 equals(OSX, "10.6") {
     include(../gcc-macports.pri)

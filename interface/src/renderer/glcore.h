@@ -16,6 +16,13 @@
 #define glGenVertexArrays glGenVertexArraysAPPLE
 #endif
 
+#if defined(_WIN32)
+// GLEW must be included before other OpenGL headers
+#include <GL/glew.h>
+#include <windows.h>
+#include <GL/gl.h>
+#endif
+
 #include "mesh.h"
 
 // Pan sensitivity. Larger value means less sensitive.
@@ -69,7 +76,7 @@ void gl_error( std::string file, int line );
 
 void uploadData(GLObject& obj, int datatype);
 
-void paintGL(GLObject& obj, int type);
+void paintGL(GLObject& obj, int type, GLuint defaultFBO = 0);
 
 void resizeGL(GLObject& obj, int w, int h);
 
