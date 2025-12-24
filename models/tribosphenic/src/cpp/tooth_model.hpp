@@ -195,6 +195,11 @@ public:
     void markBorderCells();                // Mark new border cells
     void increaseZDepth();                 // Increase z depth for quantities
     void runIteration(int numSteps);       // Main iteration loop
+
+    //=========================================================================
+    // Mesh generation
+    //=========================================================================
+    std::vector<std::array<int, 3>> getTriangles() const;  // Get triangle mesh from cell neighbors
 };
 
 // File I/O class (originally esclec module)

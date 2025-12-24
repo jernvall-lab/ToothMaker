@@ -452,37 +452,12 @@ void FileIO::saveAsOFF(std::ostream& out, const std::vector<std::array<int, MAX_
     // Calculate material values for coloring
     calculateMaterial();
 
-    // Count faces by finding triangles in the mesh
-    int numFaces = 0;
+    // Get triangles from model
+    auto triangles = model->getTriangles();
 
-    // First pass: count faces
-    for (int i = 0; i < model->numCells; i++) {
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
-            int ii = cellNeighbors[i][j];
-            if (ii == 0 || ii > model->numCells) continue;
-            ii--;
-
-            for (int k = 0; k < MAX_NEIGHBORS; k++) {
-                int iii = cellNeighbors[ii][k];
-                if (iii == 0 || iii > model->numCells || iii == i + 1) continue;
-                iii--;
-
-                for (int kk = 0; kk < MAX_NEIGHBORS; kk++) {
-                    int iiii = cellNeighbors[iii][kk];
-                    if (iiii == 0 || iiii > model->numCells) continue;
-
-                    if (iiii == i + 1) {
-                        // Triangle found
-                        numFaces++;
-                    }
-                }
-            }
-        }
-    }
-
-    // Write OFF header
+    // Write OFF header (output both orientations since triangles are not oriented)
     out << "COFF\n";
-    out << model->numCells << " " << numFaces << " " << model->numCells << "\n\n";
+    out << model->numCells << " " << triangles.size() * 2 << " " << model->numCells << "\n\n";
 
     // Write vertices with colors
     for (int i = 0; i < model->numCells; i++) {
@@ -496,27 +471,10 @@ void FileIO::saveAsOFF(std::ostream& out, const std::vector<std::array<int, MAX_
 
     out << "\n";
 
-    // Second pass: write faces
-    for (int i = 0; i < model->numCells; i++) {
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
-            int ii = cellNeighbors[i][j];
-            if (ii == 0 || ii > model->numCells) continue;
-
-            for (int k = 0; k < MAX_NEIGHBORS; k++) {
-                int iii = cellNeighbors[ii - 1][k];
-                if (iii == 0 || iii > model->numCells || iii == i + 1) continue;
-
-                for (int kk = 0; kk < MAX_NEIGHBORS; kk++) {
-                    int iiii = cellNeighbors[iii - 1][kk];
-                    if (iiii == 0 || iiii > model->numCells) continue;
-
-                    if (iiii == i + 1) {
-                        // Write triangle (0-based indices)
-                        out << "3 " << i << " " << (ii - 1) << " " << (iii - 1) << "\n";
-                    }
-                }
-            }
-        }
+    // Write faces (both orientations since triangles are not oriented)
+    for (const auto& tri : triangles) {
+        out << "3 " << tri[0] << " " << tri[1] << " " << tri[2] << "\n";
+        out << "3 " << tri[0] << " " << tri[2] << " " << tri[1] << "\n";
     }
 }
 
