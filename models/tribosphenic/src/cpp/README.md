@@ -60,16 +60,16 @@ The original Fortran code had two modules and a main program:
 
 ### Model Parameters
 
-| Fortran | C++ | Parameter | Description |
+| Fortran | C++ | GUI Param | Description |
 |---------|-----|-----------|-------------|
 | `ud` | `diffThresholdSet` | Set | Growth factor threshold |
 | `us` | `diffThresholdInt` | Int | Initial inhibitor threshold |
 | `tacre` | `epithelialGrowthRate` | Egr | Epithelial proliferation rate |
 | `tahor` | `mesenchymalGrowthRate` | Mgr | Mesenchymal proliferation rate |
-| `umgr` | `basalMesenchymalRate` | - | Basal Mgr (Sec-independent) |
+| `umgr` | `basalMesenchymalRate` | uMgr | Basal Mgr (Sec-independent) |
 | `acac` | `activatorAutoActivation` | Act | Activator auto-activation |
-| `acec` | `ectodinRate` | Not2 | Ectodin rate |
-| `acaca` | `not3Rate` | Not3 | Not3 rate |
+| `acec` | `ectodinRate` | Not2 | Ectodin rate (hidden) |
+| `acaca` | `not3Rate` | Not3 | Not3 rate (hidden) |
 | `ihac` | `activatorInhibition` | Inh | Inhibition of activator |
 | `ih` | `growthFactorSecretion` | Sec | Growth factor secretion rate |
 | `mu` | `degradationRate` | Deg | Protein degradation rate |
@@ -79,13 +79,31 @@ The original Fortran code had two modules and a main program:
 | `radibi` | `nucleusTraction` | Ntr | Border-to-nucleus traction |
 | `tazmax` | `sharpnessMax` | Dgr | Sharpness maxima |
 | `tadi` | `borderDistance` | Swi | Border definition distance |
-| `tadif` | `borderWidth` | Bwi | Width of border |
+| `tadif` | `borderWidth` | Dff | **Differentiation rate** (see note below) |
+| `difq2d(2)` | `diffusionCoeffs2D[1]` | Boy | **Buoyancy strength** (see note below) |
 | `bip` | `biasPosterior` | Pbi | Posterior bias |
 | `bia` | `biasAnterior` | Abi | Anterior bias |
 | `bil` | `biasLingual` | Lbi | Lingual bias |
 | `bib` | `biasBuccal` | Bbi | Buccal bias |
-| `radibii` | `biasCenterRadius` | - | AP bias center radius |
-| `fac` | `biasFactor` | - | Bias factor |
+| `radibii` | `biasCenterRadius` | Bwi* | AP bias center radius (see note below) |
+| `fac` | `biasFactor` | Bgr | Bias factor |
+
+#### Parameter Naming Confusion (IMPORTANT)
+
+The Fortran variable names are historically misleading and do not reflect actual functionality:
+
+1. **Boy (Buoyancy)**: The GUI parameter "Boy" controls `difq2d(2)` / `diffusionCoeffs2D[1]`.
+   Despite being named as a "diffusion coefficient", this variable is used in `stelate()` /
+   `calculateBuoyancy()` to control the stellate reticulum / buoyancy effect.
+
+2. **Dff (Differentiation)**: The GUI parameter "Dff" controls `tadif` / `borderWidth`.
+   Despite being named "border width" in the Fortran code, this variable is used in
+   `diferenciacio()` / `updateDifferentiation()` to control differentiation rate.
+
+3. **Bwi (Border Width)***: The GUI parameter "Bwi" at XML position 28 actually controls
+   `radibii` / `biasCenterRadius` (the radius where AP bias is applied), NOT border width.
+   This appears to be a historical mapping error in the XML interface definition.
+   The actual "border width" functionality is controlled by `tadi` / `borderDistance` (Swi).
 
 ### Cell Counts
 

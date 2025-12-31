@@ -277,6 +277,7 @@ void FileIO::storeParameters(int snapshotIdx) {
         parameterHistory[snapshotIdx][12 + j] = model->diffusionCoeffs3D[j];
     }
     // 2D diffusion coefficients: parap(18-21) = difq2d(1-4) -> C++ [17-20]
+    // NOTE: difq2d(2) at [18] is GUI "Boy" (buoyancy), not a diffusion coefficient!
     for (int j = 0; j < NUM_2D_QUANTITIES; j++) {
         parameterHistory[snapshotIdx][17 + j] = model->diffusionCoeffs2D[j];
     }
@@ -292,11 +293,11 @@ void FileIO::storeParameters(int snapshotIdx) {
     parameterHistory[snapshotIdx][26] = model->degradationRate;          // parap(27) = mu
     parameterHistory[snapshotIdx][27] = model->sharpnessMax;             // parap(28) = tazmax
     parameterHistory[snapshotIdx][28] = model->nucleusTraction;          // parap(29) = radibi
-    parameterHistory[snapshotIdx][19] = model->borderWidth;              // parap(20) = tadif (overlaps difq2d(3))
+    parameterHistory[snapshotIdx][19] = model->borderWidth;              // parap(20) = tadif - GUI "Dff" (differentiation rate!)
     parameterHistory[snapshotIdx][20] = model->biasFactor;               // parap(21) = fac (overlaps difq2d(4))
-    parameterHistory[snapshotIdx][29] = model->biasCenterRadius;         // parap(30) = radibii
+    parameterHistory[snapshotIdx][29] = model->biasCenterRadius;         // parap(30) = radibii - GUI "Bwi" maps here (XML error)
     parameterHistory[snapshotIdx][30] = model->initialActivator;         // parap(31) = ina
-    parameterHistory[snapshotIdx][31] = model->basalMesenchymalRate;     // parap(32) = umgr (Boy)
+    parameterHistory[snapshotIdx][31] = model->basalMesenchymalRate;     // parap(32) = umgr
 
     // Fortran agafarparap overwrites parap(12) with ncals at the end (line 1918)
     // This is intentional in the original code - ncals replaces acaca
@@ -325,6 +326,7 @@ void FileIO::loadParameters(int snapshotIdx) {
         model->diffusionCoeffs3D[j] = parameterHistory[snapshotIdx][12 + j];
     }
     // 2D diffusion coefficients: parap(18-21) = difq2d(1-4) -> C++ [17-20]
+    // NOTE: difq2d(2) at [18] is GUI "Boy" (buoyancy), not a diffusion coefficient!
     for (int j = 0; j < NUM_2D_QUANTITIES; j++) {
         model->diffusionCoeffs2D[j] = parameterHistory[snapshotIdx][17 + j];
     }
@@ -340,11 +342,11 @@ void FileIO::loadParameters(int snapshotIdx) {
     model->degradationRate = parameterHistory[snapshotIdx][26];             // parap(27) = mu
     model->sharpnessMax = parameterHistory[snapshotIdx][27];                // parap(28) = tazmax
     model->nucleusTraction = parameterHistory[snapshotIdx][28];             // parap(29) = radibi
-    model->borderWidth = parameterHistory[snapshotIdx][19];                 // parap(20) = tadif
+    model->borderWidth = parameterHistory[snapshotIdx][19];                 // parap(20) = tadif - GUI "Dff" (differentiation rate!)
     model->biasFactor = parameterHistory[snapshotIdx][20];                  // parap(21) = fac
-    model->biasCenterRadius = parameterHistory[snapshotIdx][29];            // parap(30) = radibii
+    model->biasCenterRadius = parameterHistory[snapshotIdx][29];            // parap(30) = radibii - GUI "Bwi" maps here (XML error)
     model->initialActivator = parameterHistory[snapshotIdx][30];            // parap(31) = ina
-    model->basalMesenchymalRate = parameterHistory[snapshotIdx][31];        // parap(32) = umgr (Boy)
+    model->basalMesenchymalRate = parameterHistory[snapshotIdx][31];        // parap(32) = umgr
 }
 
 void FileIO::readDataFile() {

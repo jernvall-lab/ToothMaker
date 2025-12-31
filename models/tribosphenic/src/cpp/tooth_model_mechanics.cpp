@@ -172,6 +172,7 @@ void ToothModel::calculateGrowthPushing() {
 
 void ToothModel::calculateBuoyancy() {
     // Stellate/buoyancy effect - pushes perpendicular to growth direction
+    // NOTE: diffusionCoeffs2D[1] is GUI "Boy" (buoyancy strength), not a diffusion coefficient!
     for (int i = 0; i < numCells; i++) {
         double ax = positionDeltas[i][0];
         double ay = positionDeltas[i][1];
@@ -186,6 +187,7 @@ void ToothModel::calculateBuoyancy() {
                 ay *= a;
 
                 double dd = std::sqrt(ax * ax + ay * ay + d * d);
+                // diffusionCoeffs2D[1] = GUI "Boy" parameter (buoyancy strength)
                 dd = diffusionCoeffs2D[1] * quantities3D[i][0][2] / dd;
 
                 if (dd > 0) {

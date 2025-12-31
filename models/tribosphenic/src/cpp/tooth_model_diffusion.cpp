@@ -263,7 +263,8 @@ void ToothModel::reactionDiffusion() {
 
 void ToothModel::updateDifferentiation() {
     for (int i = 0; i < numCells; i++) {
-        // borderWidth (Bwi) controls how fast differentiation responds to growth factor
+        // borderWidth is GUI "Dff" (differentiation rate) - controls response to growth factor
+        // NOTE: Variable name is misleading; this is NOT border width but differentiation rate!
         quantities2D[i][0] += borderWidth * quantities3D[i][0][2];
         if (quantities2D[i][0] > 1.0) {
             quantities2D[i][0] = 1.0;

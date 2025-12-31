@@ -67,6 +67,7 @@ public:
     std::vector<std::vector<std::array<double, NUM_3D_QUANTITIES>>> quantities3D;  // 3D quantities [cell][z][quantity]
     std::vector<double> diffusionCoeffs3D;    // Diffusion coefficients for 3D quantities
     std::vector<double> diffusionCoeffs2D;    // Diffusion coefficients for 2D quantities
+                                              // NOTE: [1] is Boy (buoyancy), not a diffusion coeff!
 
     //=========================================================================
     // Working arrays for position updates
@@ -119,13 +120,14 @@ public:
 
     // Border/bias parameters
     double borderDistance;           // Swi (tadi) - distance from 0 where borders are defined
-    double borderWidth;              // Bwi (tadif) - width of border
+    double borderWidth;              // Dff (tadif) - NOTE: Actually differentiation rate, not border width!
     double biasPosterior;            // Pbi (bip) - posterior bias
     double biasAnterior;             // Abi (bia) - anterior bias
     double biasLingual;              // Lbi (bil) - lingual bias
     double biasBuccal;               // Bbi (bib) - buccal bias
     double biasCenterRadius;         // radibii - radius of center where AP bias is applied
-    double biasFactor;               // fac - bias factor
+                                     // NOTE: GUI "Bwi" maps here due to XML position error
+    double biasFactor;               // Bgr (fac) - bias factor
 
     //=========================================================================
     // Implementation state variables
