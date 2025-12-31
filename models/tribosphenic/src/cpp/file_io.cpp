@@ -141,6 +141,139 @@ void FileIO::readParametersText(std::istream& in) {
     }
 }
 
+bool FileIO::isToothMakerFormat(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) return false;
+
+    std::string line;
+    while (std::getline(file, line)) {
+        // Skip empty lines and comments
+        if (line.empty() || line[0] == '#') continue;
+
+        // Check for ToothMaker format identifier: "model==Tribosphenic tooth"
+        // Case-insensitive for "model", case-sensitive for model name
+        size_t pos = line.find("==");
+        if (pos != std::string::npos) {
+            std::string key = line.substr(0, pos);
+            std::string value = line.substr(pos + 2);
+
+            // Convert key to lowercase for comparison
+            std::string keyLower = key;
+            for (char& c : keyLower) c = std::tolower(c);
+
+            if (keyLower == "model" && value == "Tribosphenic tooth") {
+                file.close();
+                return true;
+            }
+        }
+        // If first non-comment line doesn't match, it's humppa format
+        break;
+    }
+    file.close();
+    return false;
+}
+
+int FileIO::getParameterIndex(const std::string& name) {
+    // Map ToothMaker parameter names to parameterHistory indices
+    // Based on what loadParameters() expects at each index
+    // See README.md "Parameter Naming Confusion" section for details
+
+    // Convert to lowercase for case-insensitive comparison
+    std::string nameLower = name;
+    for (char& c : nameLower) c = std::tolower(c);
+
+    if (nameLower == "egr") return 2;
+    if (nameLower == "mgr") return 3;
+    if (nameLower == "rep") return 4;
+    if (nameLower == "swi") return 5;
+    if (nameLower == "adh") return 6;
+    if (nameLower == "act") return 7;
+    if (nameLower == "inh") return 8;
+    if (nameLower == "not2") return 9;
+    if (nameLower == "sec") return 10;
+    if (nameLower == "not3") return 11;
+    if (nameLower == "da") return 12;    // diffusionCoeffs3D[0]
+    if (nameLower == "di") return 13;    // diffusionCoeffs3D[1]
+    if (nameLower == "ds") return 14;    // diffusionCoeffs3D[2]
+    if (nameLower == "not4") return 15;  // diffusionCoeffs3D[3]
+    if (nameLower == "int") return 16;
+    if (nameLower == "set") return 17;
+    if (nameLower == "boy") return 18;   // diffusionCoeffs2D[1] - buoyancy
+    if (nameLower == "dff") return 19;   // borderWidth (misnaming) - actually differentiation rate
+    if (nameLower == "bgr") return 20;   // biasFactor
+    if (nameLower == "pbi") return 21;
+    if (nameLower == "abi") return 22;
+    if (nameLower == "bbi") return 23;
+    if (nameLower == "lbi") return 24;
+    if (nameLower == "rad") return 25;
+    if (nameLower == "deg") return 26;
+    if (nameLower == "dgr") return 27;
+    if (nameLower == "ntr") return 28;
+    if (nameLower == "bwi") return 29;   // biasCenterRadius (XML mapping issue, preserved)
+    if (nameLower == "ina") return 30;
+    if (nameLower == "umgr") return 31;  // basalMesenchymalRate
+
+    return -1;  // Unknown parameter
+}
+
+void FileIO::readParametersToothMaker(std::istream& in) {
+    // Initialize all parameters to zero
+    for (int i = 2; i <= 31; i++) {
+        parameterHistory[snapshotIndex][i] = 0.0;
+        parameterNames[i] = "";
+    }
+
+    // Set default parameter names (for writeParametersText compatibility)
+    parameterNames[2] = "Egr"; parameterNames[3] = "Mgr"; parameterNames[4] = "Rep";
+    parameterNames[5] = "Swi"; parameterNames[6] = "Adh"; parameterNames[7] = "Act";
+    parameterNames[8] = "Inh"; parameterNames[9] = "Not2"; parameterNames[10] = "Sec";
+    parameterNames[11] = "Not3"; parameterNames[12] = "Da"; parameterNames[13] = "Di";
+    parameterNames[14] = "Ds"; parameterNames[15] = "Not4"; parameterNames[16] = "Int";
+    parameterNames[17] = "Set"; parameterNames[18] = "Boy"; parameterNames[19] = "Dff";
+    parameterNames[20] = "Bgr"; parameterNames[21] = "Pbi"; parameterNames[22] = "Abi";
+    parameterNames[23] = "Bbi"; parameterNames[24] = "Lbi"; parameterNames[25] = "Rad";
+    parameterNames[26] = "Deg"; parameterNames[27] = "Dgr"; parameterNames[28] = "Ntr";
+    parameterNames[29] = "Bwi"; parameterNames[30] = "Ina"; parameterNames[31] = "uMgr";
+
+    std::string line;
+    while (std::getline(in, line)) {
+        // Skip empty lines and comments
+        if (line.empty() || line[0] == '#') continue;
+
+        // Parse name==value format
+        size_t pos = line.find("==");
+        if (pos == std::string::npos) continue;
+
+        std::string name = line.substr(0, pos);
+        std::string valueStr = line.substr(pos + 2);
+
+        // Trim whitespace from name and value
+        while (!name.empty() && std::isspace(name.back())) name.pop_back();
+        while (!valueStr.empty() && std::isspace(valueStr.front())) valueStr.erase(0, 1);
+
+        // Skip non-parameter keywords (model, viewthresh, viewmode, iter)
+        std::string nameLower = name;
+        for (char& c : nameLower) c = std::tolower(c);
+        if (nameLower == "model" || nameLower == "viewthresh" ||
+            nameLower == "viewmode" || nameLower == "iter") {
+            continue;
+        }
+
+        // Get parameter index and store value
+        int index = getParameterIndex(name);
+        if (index >= 0) {
+            try {
+                double value = std::stod(valueStr);
+                parameterHistory[snapshotIndex][index] = value;
+            } catch (const std::exception& e) {
+                std::cerr << "Warning: Could not parse value for parameter " << name << std::endl;
+            }
+        } else {
+            std::cerr << "Warning: Unknown parameter name: " << name << std::endl;
+        }
+    }
+}
+
 void FileIO::writeParametersText(std::ostream& out) {
     // Fortran writes parap(3:32), C++ uses [2:31] (inclusive)
     for (int i = 2; i <= 31; i++) {
@@ -438,6 +571,9 @@ void FileIO::readDataFile() {
 }
 
 void FileIO::readInitialParameters() {
+    // Detect file format and use appropriate reader
+    bool useToothMakerFormat = isToothMakerFormat(argInputFile);
+
     std::ifstream file(argInputFile);
     if (!file.is_open()) {
         std::cerr << "Error opening file: " << argInputFile << std::endl;
@@ -445,7 +581,13 @@ void FileIO::readInitialParameters() {
     }
 
     snapshotIndex = 0;
-    readParametersText(file);
+
+    if (useToothMakerFormat) {
+        readParametersToothMaker(file);
+    } else {
+        readParametersText(file);
+    }
+
     loadParameters(snapshotIndex);
     file.close();
 }

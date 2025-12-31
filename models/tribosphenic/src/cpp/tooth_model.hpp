@@ -245,7 +245,10 @@ public:
     //=========================================================================
     // Load functions
     //=========================================================================
-    void readParametersText(std::istream& in);
+    void readParametersText(std::istream& in);           // Humppa format (value name)
+    void readParametersToothMaker(std::istream& in);     // ToothMaker format (name==value)
+    bool isToothMakerFormat(const std::string& filename); // Detect file format
+    int getParameterIndex(const std::string& name);      // Map parameter name to index
     void writeParametersText(std::ostream& out);
     void readParametersBinary(std::istream& in);
     void readMorphology(std::istream& in);

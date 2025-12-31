@@ -1,4 +1,6 @@
 #
+# NOTE: This file is obsolete! Use the makefile instead to build.
+#
 # Compiles humppa with gfortran and updates the libquadmath search location to
 # the binary execution folder. libquadmath is included in ../bin/
 #

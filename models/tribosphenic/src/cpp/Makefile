@@ -47,13 +47,24 @@ debug: clean $(TARGET)
 clean:
 	rm -f $(OBJECTS) $(TARGET)
 
-# Run a test simulation
+# Run unit tests (compare output against reference files)
 test: $(TARGET)
-	@echo "Running test simulation..."
-	./$(TARGET) ../test/mpar_test.txt test_output 100 3
+	@../test/run_tests.sh
+
+# Regenerate reference files (use when intentionally changing output)
+test-update-reference: $(TARGET)
+	@echo "Regenerating reference files..."
+	@mkdir -p ../test/reference
+	@cd ../test && rm -rf tmp_ref && mkdir tmp_ref && cd tmp_ref && \
+		../../cpp/$(TARGET) ../mpar_1767210438.txt output.dad 900 10 >/dev/null && \
+		cp 9000_output.dad_.dad ../reference/9000_humppa.dad && \
+		../../cpp/$(TARGET) ../toothmaker_1767210438.txt output.dad 900 10 >/dev/null && \
+		cp 9000_output.dad_.dad ../reference/9000_toothmaker.dad && \
+		cd .. && rm -rf tmp_ref
+	@echo "Reference files updated."
 
 # Install (copy to parent directory)
 install: $(TARGET)
 	cp $(TARGET) ../
 
-.PHONY: all clean debug test install
+.PHONY: all clean debug test test-update-reference install

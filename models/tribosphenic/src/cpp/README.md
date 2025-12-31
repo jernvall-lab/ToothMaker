@@ -112,9 +112,11 @@ The Fortran variable names are historically misleading and do not reflect actual
 | `ncels` | `numCells` | Number of actual cells |
 | `ncals` | `numCellsTotal` | Total cells (including virtual boundary) |
 | `ncz` | `numZLevels` | Number of z-depth levels |
-| `ncils` | `numBorderCells` | Number of border cells |
+| `ncils` | `numBorderCells` | Number of border cells (see note below) |
 | `radi` | `radius` | Grid radius |
 | `temps` | `timeStep` | Current time step |
+
+**Note on `numBorderCells`**: Fortran initializes `ncils = (radi-1)*6 + 1`, while C++ uses `numBorderCells = (radius-1)*6` (without the +1). This is an intentional difference for 0-based indexing semantics. As a result, C++ `numBorderCells` will always be 1 less than Fortran `ncils`. This does not affect the simulation results - the cell connectivity and positions remain identical.
 
 ---
 
