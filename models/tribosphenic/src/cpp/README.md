@@ -2,8 +2,7 @@
 
 This C++ implementation is a port of the original Fortran 90 code (`humppa_translate.f90`) that simulates tooth development using reaction-diffusion and mechanical models.
 
-**Translation performed by:** Claude Opus 4.5 (Anthropic)
-**This README was also compiled by:** Claude Opus 4.5
+Translated with Claude Opus 4.5.
 
 ---
 
@@ -11,16 +10,16 @@ This C++ implementation is a port of the original Fortran 90 code (`humppa_trans
 
 | File | Lines | Description |
 |------|-------|-------------|
-| `tooth_model.hpp` | 268 | Header with class declarations and constants |
+| `tooth_model.hpp` | 278 | Header with class declarations and constants |
 | `tooth_model_core.cpp` | 361 | Constructor, initialization, grid setup |
-| `tooth_model_geometry.cpp` | 149 | Cell margin/shape calculations |
-| `tooth_model_diffusion.cpp` | 295 | Reaction-diffusion equations |
-| `tooth_model_mechanics.cpp` | 481 | Mechanical forces (growth, buoyancy, repulsion) |
+| `tooth_model_geometry.cpp` | 236 | Cell margin/shape calculations |
+| `tooth_model_diffusion.cpp` | 296 | Reaction-diffusion equations |
+| `tooth_model_mechanics.cpp` | 483 | Mechanical forces (growth, buoyancy, repulsion) |
 | `tooth_model_division.cpp` | 843 | Cell division algorithm |
 | `tooth_model_iteration.cpp` | 36 | Main iteration loop |
-| `file_io.cpp` | 561 | File I/O operations |
+| `file_io.cpp` | 663 | File I/O operations (humppa + ToothMaker formats) |
 | `main.cpp` | 104 | Command-line entry point |
-| `Makefile` | 59 | Build system |
+| `Makefile` | 70 | Build system |
 
 ---
 
@@ -166,7 +165,10 @@ The Fortran variable names are historically misleading and do not reflect actual
 | `guardaveins` | `saveNeighbors` | Save neighbor data |
 | `guardamarges` | `saveMargins` | Save margin data |
 | `guardaveinsoff` | `saveAsOFF` | Save as OFF mesh format |
-| `llegirparatxt` | `readParametersText` | Read parameters (text) |
+| `llegirparatxt` | `readParametersText` | Read parameters (humppa format) |
+| - | `readParametersToothMaker` | Read parameters (ToothMaker format) |
+| - | `isToothMakerFormat` | Auto-detect parameter file format |
+| - | `getParameterIndex` | Map parameter names to indices |
 | `escriuparatxt` | `writeParametersText` | Write parameters (text) |
 | `llegirpara` | `readParametersBinary` | Read parameters (binary) |
 | `llegirforma` | `readMorphology` | Read cell positions |
@@ -407,22 +409,50 @@ g++ -std=c++17 -O3 -march=native -flto -ffast-math -o humppa_cpp *.cpp
 ```
 
 This runs 1 step of 5000 iterations, producing:
-- `5000_output_.dad` - Full simulation data (binary format)
+- `5000_output_.dad` - Full simulation data
 - `5000_output_.off` - Mesh in OFF format (for visualization)
 - `5000_output_.txt` - Human-readable parameters
+
+### Parameter File Formats
+
+The program auto-detects the input format:
+
+**Humppa format** (original):
+```
+0.0255 Egr
+200 Mgr
+1 Rep
+...
+```
+
+**ToothMaker format** (GUI export):
+```
+model==Tribosphenic tooth
+Egr==0.0255
+Mgr==200
+Rep==1
+...
+```
 
 ---
 
 ## Testing
 
-To verify the C++ output matches the Fortran reference:
+Run the unit test suite from the parent directory:
 ```bash
-# Run C++ version
-./humppa_cpp test/mpar_1766290143.txt /tmp/cpp_out.dad 5000 1
-
-# Run Fortran version
-./humppa_translate_mac_64bit test/mpar_1766290143.txt /tmp/f90_out.dad 5000 1
-
-# Compare outputs
-diff /tmp/cpp_out.dad /tmp/f90_out.dad
+cd ..
+make test
 ```
+
+This runs 4 tests:
+1. **C++ with humppa format** - Compares output against reference
+2. **C++ with ToothMaker format** - Compares output against reference
+3. **Fortran vs C++ connectivity** - Verifies identical cell connectivity
+4. **Fortran vs C++ cell shapes** - Verifies geometry within tolerance (0.001)
+
+Test files are in `../test/`:
+- `mpar_no_umgr.txt` - Test parameters (humppa format)
+- `toothmaker_no_umgr.txt` - Test parameters (ToothMaker format)
+- `reference/` - Reference output files for comparison
+
+See `../README.md` for more details.
