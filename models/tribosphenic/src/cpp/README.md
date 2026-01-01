@@ -276,11 +276,9 @@ Fortran uses `0.044D1` format which equals `0.44` (the D1 means ×10^1). Several
 
 ### Minor Issues
 
-1. **Inefficient neighbor search** (`checkNonNeighborRepulsion`): O(n²) pairwise comparison for all cells. Acceptable for current cell counts (~1000) but will not scale to larger simulations.
+1. **Memory allocation pattern**: Arrays are resized incrementally rather than reserved with estimated capacity. For simulations with many divisions, this causes repeated reallocations and memory fragmentation.
 
-2. **Memory allocation pattern**: Arrays are resized incrementally rather than reserved with estimated capacity. For simulations with many divisions, this causes repeated reallocations and memory fragmentation.
-
-3. **Redundant array clearing**: Several functions clear arrays that were just allocated with default values (e.g., `fill(0.0)` after `resize(n, {0.0, ...})`). Minor performance overhead but indicates code that could be simplified.
+2. **Redundant array clearing**: Several functions clear arrays that were just allocated with default values (e.g., `fill(0.0)` after `resize(n, {0.0, ...})`). Minor performance overhead but indicates code that could be simplified.
 
 ---
 
@@ -346,7 +344,10 @@ The following dead code was identified and removed during cleanup:
 1. **Use spatial hashing for non-neighbor repulsion**
    - Replace O(n²) pairwise check with grid-based spatial hash
    - Cells only check neighbors in nearby grid cells
-   - ~100 lines, 5-10x speedup for large simulations
+   - ~100 lines, potential further speedup for very large simulations
+   - Note: `checkNonNeighborRepulsion()` has already been optimized with symmetric
+     early-exit checks, hash set for neighbor lookup, squared distance comparison,
+     and direct force accumulation (see C++ Optimizations section below)
 
 2. **Pre-allocate arrays with reserve()**
    - Estimate maximum cell count: `reserve(initialCells * 4)`
@@ -379,6 +380,28 @@ The following dead code was identified and removed during cleanup:
    - Reduce `TIME_DELTA` when changes are large (numerical stability)
    - Increase `TIME_DELTA` when changes are small (performance)
    - Requires convergence analysis, ~300 lines
+
+---
+
+## C++ Optimizations vs. Fortran
+
+The C++ port includes several performance optimizations not present in the original Fortran code:
+
+### `checkNonNeighborRepulsion()` (tooth_model_mechanics.cpp)
+
+This function checks if non-neighboring cells get too close and applies repulsion. It's the most expensive function in the simulation loop. The following optimizations were applied:
+
+1. **Symmetric early-exit checks**: The original Fortran only checked positive direction (`ux > 1.4`), missing early exit opportunities when cells are far apart in the negative direction. Changed to `ux > 1.4 || ux < -1.4` to skip ~50% more distant pairs.
+
+2. **Hash set for neighbor lookup**: Replaced O(30) linear scan through neighbor array with O(1) `std::unordered_set` lookup for each cell pair.
+
+3. **Squared distance comparison**: Compare `dSq < 1.96` before computing `sqrt()`. Only compute the square root when actually needed for force calculation.
+
+4. **Direct force accumulation**: Eliminated intermediate `pushForce` array. Forces are accumulated directly into `sumX/sumY/sumZ`, improving cache locality and removing allocation overhead.
+
+5. **Named constants**: Replaced magic number `1.4` with `distThreshold` and `distThresholdSq` for clarity.
+
+These optimizations maintain numerical compatibility with the Fortran output (within floating-point tolerance) while improving performance.
 
 ---
 
