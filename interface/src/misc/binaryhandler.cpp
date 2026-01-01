@@ -563,6 +563,10 @@ void BinaryHandler::run()
         currentIter = (step == 0) ? 0 : (step-1)*stepSize;
     }
 
+    // Exit if there was a crash.
+    if (retval != 0)
+        return;
+    
     // Get the rest of the result files still in the sequence.
     while (1) {
         msleep(UPDATE_INTERVAL);
