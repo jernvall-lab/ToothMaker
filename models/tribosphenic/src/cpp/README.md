@@ -254,6 +254,15 @@ Fortran uses `0.044D1` format which equals `0.44` (the D1 means ×10^1). Several
 - `0.005D1` = 0.05 (TIME_DELTA)
 - `0.05D1` = 0.5 (triangle area factor)
 
+### 6. OFF File Output
+
+The C++ `saveAsOFF()` function produces different output than the original Fortran `guardaveinsoff()`. The original Fortran-derived implementation had two problems:
+
+1. **Missing polygons**: The original algorithm left holes in the mesh surface
+2. **Non-oriented triangles**: Triangles had inconsistent winding order, causing rendering artifacts (back-face culling issues, incorrect lighting)
+
+The C++ version uses the `dad_to_polygons` algorithm instead, which fixes these issues. As a consequence, **each triangle is written twice with both orientations**. This doubles the polygon count but ensures correct rendering regardless of viewer orientation, since recovering correctly oriented triangles from the original data structure is non-trivial.
+
 ---
 
 ## Potential Issues in Current C++ Code
