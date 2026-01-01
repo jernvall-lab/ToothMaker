@@ -541,26 +541,6 @@ void BinaryHandler::binaryError_(QProcess::ProcessError err)
  */
 void BinaryHandler::run()
 {
-
-    // Per-iteration progress tracking disabled; causes issues with Humppa's
-    // various incarnations which write the progress file differently.
-/*
-    // Pre-calculate the file size categories for calcProgress_.
-    // Category n indicates the size of the progress files containing integers
-    // in range [1, (10^n)-1].
-    // NOTE: This assumes the newline character is 1 byte in size. Windows?
-    int trail_size = 0;
-    if (outputStyle == "Humppa") {
-        trail_size = 1;     // Humppa adds an extra white space to every line in progress file.
-    }
-    long l = 0;
-    std::vector<long> cat = {l};
-    for (int i=0; i<10; i++) {      // 10 is just a number 'large enough'.
-        l = l + (9 * pow(10,i) * (i+trail_size+2));
-        cat.push_back(l);
-    }
-*/
-
     int step = 0;   // simulation step currently being processed
 
     // Process tracking loop.
@@ -572,22 +552,28 @@ void BinaryHandler::run()
         // files that are still being written.
         auto output_files = getDataFilenames_( step+1, true );
         if (output_files.size() > 0) {
-            addTooth_(step);
-            step++;
+            // Only increment step if addTooth_ succeeds (returns 0).
+            // If it fails, we'll retry on the next iteration.
+            if (addTooth_(step) == 0) {
+                step++;
+            }
         }
 
         // Per-step progress tracking:
         currentIter = (step == 0) ? 0 : (step-1)*stepSize;
-        // Per-iteration progress tracking (see above):
-        // currentIter = calcProgress_(m_progressFile.size(), cat, trail_size);
     }
 
     // Get the rest of the result files still in the sequence.
     while (1) {
         msleep(UPDATE_INTERVAL);
 
-        addTooth_(step);
-        // Again, just testing if the files exist; addTooth_() actually reads.
+        // Only proceed if addTooth_ succeeds. If it fails (e.g., .dad file
+        // not yet written), retry on the next iteration.
+        if (addTooth_(step) != 0) {
+            continue;
+        }
+
+        // Check if next step exists; if so, increment and continue.
         auto output_files = getDataFilenames_( step+1, true );
         if (output_files.size() > 0) {
             step++;

@@ -442,7 +442,14 @@ void Hampu::Panel_Development(int step)
     }
 
     updateCurrentStepView_(STATUSBAR_VERBOSE);
-    QApplication::processEvents();
+
+    // Guard against re-entrancy from processEvents triggering more slider updates
+    static bool inProgress = false;
+    if (!inProgress) {
+        inProgress = true;
+        QApplication::processEvents();
+        inProgress = false;
+    }
 }
 
 

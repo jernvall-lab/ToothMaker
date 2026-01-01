@@ -45,7 +45,7 @@
 #define SHOW_MESH 1
 
 // Interval for updating the visuals in milliseconds.
-#define UPDATE_INTERVAL 4
+#define UPDATE_INTERVAL 10
 
 // Size of square main window objects (parameters widget, glwidget) in pixels.
 // 495 pixels is ideal when aiming for a total window width of 1024 pixels,
