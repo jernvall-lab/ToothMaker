@@ -2,6 +2,7 @@
 // Mechanical calculations: growth, buoyancy, repulsion, traction, position updates
 
 #include "tooth_model.hpp"
+#include <unordered_set>
 
 void ToothModel::calculateGrowthPushing() {
     // Reset deltas
@@ -287,71 +288,62 @@ void ToothModel::calculateNeighborRepulsion() {
 
 void ToothModel::checkNonNeighborRepulsion() {
     // Check if non-neighboring cells get too close
-    const int espai = 20;
-    std::vector<std::array<double, 3>> pushForce(espai);
+    constexpr double distThreshold = 1.4;
+    constexpr double distThresholdSq = distThreshold * distThreshold;
+
+    std::unordered_set<int> neighborSet;
+    neighborSet.reserve(MAX_NEIGHBORS);
 
     for (int i = 0; i < numCells; i++) {
         double ua = cellPositions[i][0];
         double ub = cellPositions[i][1];
         double uc = cellPositions[i][2];
 
-        for (auto& p : pushForce) p.fill(0.0);
-        int conta = 0;
+        // Build hash set of neighbors for O(1) lookup
+        neighborSet.clear();
+        for (int j = 0; j < MAX_NEIGHBORS; j++) {
+            if (neighbors[i][j] > 0) {
+                neighborSet.insert(neighbors[i][j]);
+            }
+        }
+
+        // Accumulate forces directly
+        double sumX = 0.0, sumY = 0.0, sumZ = 0.0;
 
         for (int ii = 0; ii < numCells; ii++) {
             if (ii == i) continue;
-
-            // Check if ii is already a neighbor
-            bool isNeighbor = false;
-            for (int j = 0; j < MAX_NEIGHBORS; j++) {
-                if (neighbors[i][j] == ii + 1) {
-                    isNeighbor = true;
-                    break;
-                }
-            }
-            if (isNeighbor) continue;
+            if (neighborSet.count(ii + 1)) continue;
 
             double ux = cellPositions[ii][0] - ua;
-            if (ux > 1.4) continue;
+            if (ux > distThreshold || ux < -distThreshold) continue;
             double uy = cellPositions[ii][1] - ub;
-            if (uy > 1.4) continue;
+            if (uy > distThreshold || uy < -distThreshold) continue;
             double uz = cellPositions[ii][2] - uc;
-            if (uz > 1.4) continue;
+            if (uz > distThreshold || uz < -distThreshold) continue;
 
             if (std::abs(ux) < 1e-15) ux = 0.0;
             if (std::abs(uy) < 1e-15) uy = 0.0;
             if (std::abs(uz) < 1e-15) uz = 0.0;
 
-            double d = std::sqrt(ux * ux + uy * uy + uz * uz);
+            double dSq = ux * ux + uy * uy + uz * uz;
 
-            if (d < 1.4) {
-                if (conta >= static_cast<int>(pushForce.size())) {
-                    pushForce.resize(pushForce.size() + 20);
-                }
+            if (dSq < distThresholdSq) {
+                // Only compute sqrt when we know we need it
+                double d = std::sqrt(dSq);
 
                 // Soft repulsion force that falls off with distance
-                // Use manual multiplication instead of std::pow for exact match with Fortran
                 double dp1 = d + 1.0;
                 double dp1_2 = dp1 * dp1;
                 double dp1_4 = dp1_2 * dp1_2;
                 double dp1_8 = dp1_4 * dp1_4;
                 double dd = 1.0 / dp1_8;
                 d = dd / d;
-                d = std::trunc(d * 1e8) * 1e-8;  // aint() in Fortran truncates
+                d = std::trunc(d * 1e8) * 1e-8;
 
-                pushForce[conta][0] = -ux * d;
-                pushForce[conta][1] = -uy * d;
-                pushForce[conta][2] = -uz * d;
-                conta++;
+                sumX -= ux * d;
+                sumY -= uy * d;
+                sumZ -= uz * d;
             }
-        }
-
-        // Sum forces (only iterate over actually used elements)
-        double sumX = 0.0, sumY = 0.0, sumZ = 0.0;
-        for (int j = 0; j < conta; j++) {
-            sumX += pushForce[j][0];
-            sumY += pushForce[j][1];
-            sumZ += pushForce[j][2];
         }
 
         double c = stiffness;
