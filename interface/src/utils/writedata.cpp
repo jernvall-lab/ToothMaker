@@ -166,14 +166,14 @@ void morphomaker::Export_local_maxima( Tooth& tooth, std::string outfile,
     // Check the existence of output file.
     std::string output_flag = "w";
     FILE* input = fopen(outfile.c_str(), "r");
-    if (input != NULL) {
+    if (input != nullptr) {
         output_flag = "a";
         fclose(input);
     }
 
     // If the output file exists, open for appending; else writing.
     FILE* output = fopen(outfile.c_str(), output_flag.c_str());
-    if (output == NULL) {
+    if (output == nullptr) {
         fprintf(stderr, "Error: Can't open file '%s' for writing.\n",
                 outfile.c_str());
         return;
@@ -261,14 +261,14 @@ void morphomaker::Export_main_cusp_baseline( Tooth& tooth, std::string outfile,
     // Check the existence of output file.
     std::string output_flag = "w";
     FILE* input = fopen(outfile.c_str(), "r");
-    if (input != NULL) {
+    if (input != nullptr) {
         output_flag = "a";
         fclose(input);
     }
 
     // If the output file exists, open for appending; else writing.
     FILE* output = fopen(outfile.c_str(), output_flag.c_str());
-    if (output == NULL) {
+    if (output == nullptr) {
         fprintf(stderr, "Error: Can't open file '%s' for writing.\n",
                 outfile.c_str());
         return;

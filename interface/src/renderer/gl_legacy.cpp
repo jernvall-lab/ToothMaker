@@ -52,7 +52,7 @@ void glcore::Vertex_color_RENDER_HUMPPA(int cell, GLObject& obj)
     GLfloat colorArr[4];
     float color;
 
-    if (obj.cell_data == NULL || obj.viewMode == 0) { // Mode: Shape only
+    if (obj.cell_data == nullptr || obj.viewMode == 0) { // Mode: Shape only
         colorArr[0] = DEFAULT_TOOTH_COL;
         colorArr[1] = DEFAULT_TOOTH_COL;
         colorArr[2] = DEFAULT_TOOTH_COL;
@@ -104,7 +104,7 @@ void glcore::Vertex_color_RENDER_HUMPPA(int cell, GLObject& obj)
  */
 void glcore::PaintGL_RENDER_HUMPPA(GLObject& obj, int x, int y)
 {
-    if (obj.mesh == NULL) return;
+    if (obj.mesh == nullptr) return;
 
     GLdouble aspect = ((GLdouble)x/y);
     glMatrixMode(GL_PROJECTION);

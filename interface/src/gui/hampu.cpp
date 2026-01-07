@@ -64,7 +64,7 @@ int Hampu::init_GUI()
     screenshotCounter = 0;
     runCounter = 0;
     timeLimit = -1;     // -1 = no time limit
-    parwidget = NULL;
+    parwidget = nullptr;
 
     // Load all available models, creater parameter windows.
     morphomaker::Load_models(models);
@@ -118,7 +118,7 @@ int Hampu::init_GUI()
 
     // Now check if the OpenGL context was created successfully
     QOpenGLContext* context = glwidget->context();
-    if ( context == NULL || !context->isValid() ) {
+    if ( context == nullptr || !context->isValid() ) {
         char msg[] = {"Cannot create OpenGL context. System does not provide the required graphics capabilities."};
         QMessageBox::critical(this, "Fatal error", msg);
         qDebug() << "Fatal error:" << msg;
@@ -478,7 +478,7 @@ void Hampu::Panel_Iterations(int val) {
 void Hampu::Panel_Run(int nIter)
 {
     Model* model = models.at(currentModel);
-    if (model == NULL) {
+    if (model == nullptr) {
         return;
     }
     glwidget->setRenderMode( model->getRenderMode() );
@@ -746,7 +746,7 @@ void Hampu::setModelSettings(int id, int useDefault)
     setVisualData();
 
     // Update parameter window.
-    if (parwidget != NULL) {
+    if (parwidget != nullptr) {
         parwidget->hide();
         mainLayout->removeWidget(parwidget);
     }
@@ -1233,7 +1233,7 @@ void Hampu::updateCurrentStepView_(int quiet)
     uint32_t n_vert = 0;
     uint32_t n_tri = 0;
     Tooth* tooth = toothLife->getTooth(viewIntStep);
-    if (tooth != NULL) {
+    if (tooth != nullptr) {
         Mesh& mesh = model->fill_mesh(*tooth);
         n_vert = mesh.get_vertices().size();
         n_tri = mesh.get_polygons().size();

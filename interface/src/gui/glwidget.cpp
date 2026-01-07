@@ -336,9 +336,9 @@ void GLWidget::setVisualData(ToothLife *toothlife, int step, Model *model)
 {
     makeCurrent();  // Required for QOpenGLWidget before GL calls
 
-    if (toothlife == NULL || toothlife->getTooth(step) == NULL) {
-        glcore::setVisualData(NULL, obj, NULL);
-        obj.img = NULL;
+    if (toothlife == nullptr || toothlife->getTooth(step) == nullptr) {
+        glcore::setVisualData(nullptr, obj, nullptr);
+        obj.img = nullptr;
         glcore::setVisualData2D(0, 0, obj);
         doneCurrent();
         update();
@@ -370,8 +370,8 @@ void GLWidget::setVisualData(ToothLife *toothlife, int step, Model *model)
  */
 void GLWidget::clearScreen()
 {
-    obj.mesh = NULL;
-    obj.cell_data = NULL;
+    obj.mesh = nullptr;
+    obj.cell_data = nullptr;
     obj.pixelDataHeight = 0;
     obj.pixelDataWidth = 0;
 }

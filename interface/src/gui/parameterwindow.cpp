@@ -22,7 +22,7 @@ ParameterWindow::ParameterWindow(QWidget *parent)
 {
     (void)parent;
 
-    model = NULL;
+    model = nullptr;
 
     setMinimumSize(SQUARE_WIN_SIZE,SQUARE_WIN_SIZE);
     setMaximumSize(SQUARE_WIN_SIZE,SQUARE_WIN_SIZE);

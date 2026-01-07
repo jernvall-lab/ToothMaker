@@ -143,7 +143,7 @@ QComboBox *ControlPanel::modelBox( std::vector<Model*> *models, int x, int y )
 {
     QComboBox *morpho = new QComboBox(this);
 
-    if (models != NULL) {
+    if (models != nullptr) {
         for (uint16_t i=0; i<models->size(); i++) {
             auto name = models->at(i)->getModelName();
             morpho->addItem( name.c_str() );

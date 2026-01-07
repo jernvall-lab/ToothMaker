@@ -45,7 +45,7 @@ class Parameters
 
 public:
     // Constructs Parameters with list of parameter names.
-    Parameters(std::vector<std::string>* names = NULL);
+    Parameters(std::vector<std::string>* names = nullptr);
 
     // Copy constructor.
     Parameters(Parameters *);

@@ -34,7 +34,7 @@ BinaryHandler::BinaryHandler() : Model()
 
     m_timeLimit = -1;   // by default allowing the binary to run forever (-1)
     m_id = 0;
-    m_toothLife = NULL;
+    m_toothLife = nullptr;
 }
 
 

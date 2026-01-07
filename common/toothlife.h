@@ -63,7 +63,11 @@ public:
     }
 
     // Return the number of tooth objects.
-    int getLifeSize()                       { return m_teeth.size(); }
+    int getLifeSize()
+    {
+        std::lock_guard<std::mutex> lock(m_mtx);
+        return m_teeth.size();
+    }
 
     // Get model index.
     int getCurrentModel()                   { return m_currentModel; }

@@ -16,7 +16,7 @@
  */
 Parameters::Parameters(std::vector<std::string> *names)
 {
-    if (names != NULL) {
+    if (names != nullptr) {
         for (uint32_t i=0; i<names->size(); i++) {
             parameter p = { names->at(i), "", 0, {}, false, 0.0 };
         }

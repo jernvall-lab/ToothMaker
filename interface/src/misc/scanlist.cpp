@@ -12,7 +12,7 @@ ScanList::ScanList()
 {
     currentScanItem = 0;
     viewMode = 0;
-    baseParameters = NULL;
+    baseParameters = nullptr;
 }
 
 
@@ -38,9 +38,9 @@ void ScanList::reset()
     itemValues.clear();
     resetScanQueue();
     currentScanItem=0;
-    if (baseParameters!=NULL) {
+    if (baseParameters!=nullptr) {
         delete baseParameters;
-        baseParameters = NULL;
+        baseParameters = nullptr;
     }
     viewMode = 0;
     orientations.clear();

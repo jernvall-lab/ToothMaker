@@ -29,7 +29,7 @@ int write_parameters_MorphoMaker_(Parameters *parameters, const char *outname)
     uint16_t i;
 
     FILE* output = fopen(outname, "w");
-    if (output == NULL) {
+    if (output == nullptr) {
         fprintf(stderr, "Error: Can't open file '%s' for writing.\n", outname);
         return -1;
     }
@@ -44,7 +44,7 @@ int write_parameters_MorphoMaker_(Parameters *parameters, const char *outname)
     fprintf(output, "\n");
 
     auto keywords = parameters->getKeywords();
-    if (keywords == NULL) {
+    if (keywords == nullptr) {
         fclose(output);
         return -1;
     }
@@ -84,7 +84,7 @@ int write_parameters_MorphoMaker_(Parameters *parameters, const char *outname)
 int write_parameters_Humppa_(Parameters *parameters, const char *outname)
 {
     FILE* output = fopen(outname, "w");
-    if (output == NULL) {
+    if (output == nullptr) {
         fprintf(stderr, "Error: Can't open file '%s' for writing.\n", outname);
         return -1;
     }
@@ -120,7 +120,7 @@ int write_parameters_Humppa_(Parameters *parameters, const char *outname)
 int morphomaker::Export_parameters(Parameters *par, const std::string file,
                                    const QString& format)
 {
-    if (par == NULL) {
+    if (par == nullptr) {
         return -1;
     }
 

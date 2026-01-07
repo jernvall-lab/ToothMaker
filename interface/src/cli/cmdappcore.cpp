@@ -46,14 +46,14 @@ CmdAppCore::CmdAppCore(int & argc, char ** argv) : QCoreApplication(argc, argv)
     runDir = QDir::currentPath();
 
     // Initializing temporary folder:
-    QDir *qdir = new QDir();
-    QString tempPath = qdir->tempPath();
+    QDir qdir;
+    QString tempPath = QDir::tempPath();
     char tmp[1024];
     int pid = (int)QCoreApplication::applicationPid();
     sprintf(tmp, "%s/%s_%d", tempPath.toStdString().c_str(), PROGRAM_NAME, pid);
     systemTempPath = tmp;
-    if (!qdir->exists(QString(systemTempPath.c_str()))) {
-        qdir->mkdir(QString(systemTempPath.c_str()));
+    if (!qdir.exists(QString(systemTempPath.c_str()))) {
+        qdir.mkdir(QString(systemTempPath.c_str()));
     }
     std::cout << "Temp. folder: " << systemTempPath << std::endl;
 
@@ -336,23 +336,23 @@ int CmdAppCore::startParameterScan(int niter, char *param, char *scanfile,
 
     // Create folders for storing model output:
     char tmp[1024];
-    QDir *qdir = new QDir();
+    QDir qdir;
     sprintf(tmp, "%s/%s", runDir.toStdString().c_str(), SSHOT_SAVE_DIR);
-    if (!qdir->exists(QString(tmp))) {
-        qdir->mkdir(QString(tmp));
+    if (!qdir.exists(QString(tmp))) {
+        qdir.mkdir(QString(tmp));
     }
     // For 3D models set separate folders for storing objects:
     if (models.at(modelId)->getRenderMode() == RENDER_HUMPPA) {
         sprintf(tmp, "%s/%s", runDir.toStdString().c_str(), DATA_SAVE_DIR);
-        if (!qdir->exists(QString(tmp))) {
-            qdir->mkdir(QString(tmp));
+        if (!qdir.exists(QString(tmp))) {
+            qdir.mkdir(QString(tmp));
         }
     }
 
     if (expImg) {
         sprintf(tmp, "%s/images", runDir.toStdString().c_str());
-        if (!qdir->exists(QString(tmp))) {
-            qdir->mkdir(QString(tmp));
+        if (!qdir.exists(QString(tmp))) {
+            qdir.mkdir(QString(tmp));
         }
         progressTimer = new QTimer(this);
         progressTimer->setInterval(1000);

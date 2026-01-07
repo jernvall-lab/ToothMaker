@@ -315,7 +315,7 @@ int glcore::createGLContext()
     int fbcount=0;
     GLXFBConfig* fbConfigs = glXChooseFBConfig(display, DefaultScreen(display),
                                                visualAttribs, &fbcount);
-    if (fbConfigs == NULL) {
+    if (fbConfigs == nullptr) {
         fprintf(stderr, "Error: glXChooseFBConfig() failed.\n");
         return -1;
     }
@@ -337,7 +337,7 @@ int glcore::createGLContext()
 
     GLXContext openGLContext = glXCreateContextAttribsARB(display, fbConfigs[0], 0, True,
                                                           context_attribs);
-    if (openGLContext == NULL) {
+    if (openGLContext == nullptr) {
         fprintf(stderr, "Error: glXCreateContextAttribsARB() failed.\n");
         return -1;
     }
@@ -743,11 +743,11 @@ void glcore::screenshotGL(GLObject& obj, int w, int h)
     check_gl_error();
 
     // Allocate space for 4-component image buffer.
-    if (obj.scrimg != NULL) {
+    if (obj.scrimg != nullptr) {
         free(obj.scrimg);
     }
     obj.scrimg = (GLubyte*)malloc( w*h*4 );
-    if (obj.scrimg == NULL) {
+    if (obj.scrimg == nullptr) {
         fprintf(stderr, "Error: memory allocation failed (%s()).\n", __FUNCTION__);
         return;
     }
