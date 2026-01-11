@@ -70,11 +70,12 @@ make clean
 make test
 ```
 
-This runs 4 tests:
+This runs 3 tests (with Test 3 having two sub-parts):
 1. **C++ with humppa format** - Compares output against reference
 2. **C++ with ToothMaker format** - Compares output against reference
-3. **Fortran vs C++ connectivity** - Verifies identical cell connectivity
-4. **Fortran vs C++ cell shapes** - Verifies geometry within tolerance (0.001)
+3. **Fortran vs C++ cross-validation**:
+   - 3a: Connectivity comparison (exact match)
+   - 3b: Cell shapes comparison (tolerance 0.001)
 
 ## Running Simulations
 
@@ -86,13 +87,13 @@ This runs 4 tests:
 
 Example:
 ```bash
-./cpp/humppa_cpp test/mpar_no_umgr.txt output.dad 6000 1
+./cpp/humppa_cpp test/mpar_no_umgr.txt output 6000 1
 ```
 
 This produces:
-- `6000_output.dad_.dad` - Full simulation data
-- `6000_output.dad_.off` - 3D mesh for visualization
-- `6000_output.dad_.txt` - Parameter summary
+- `6000_output_.dad` - Full simulation data
+- `6000_output_.off` - 3D mesh for visualization
+- `6000_output_.txt` - Parameter summary
 
 ### Fortran binary
 

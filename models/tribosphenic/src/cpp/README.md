@@ -14,7 +14,7 @@ Translated with Claude Opus 4.5.
 | `tooth_model_core.cpp` | 361 | Constructor, initialization, grid setup |
 | `tooth_model_geometry.cpp` | 236 | Cell margin/shape calculations |
 | `tooth_model_diffusion.cpp` | 296 | Reaction-diffusion equations |
-| `tooth_model_mechanics.cpp` | 483 | Mechanical forces (growth, buoyancy, repulsion) |
+| `tooth_model_mechanics.cpp` | 475 | Mechanical forces (growth, buoyancy, repulsion) |
 | `tooth_model_division.cpp` | 843 | Cell division algorithm |
 | `tooth_model_iteration.cpp` | 36 | Main iteration loop |
 | `file_io.cpp` | 663 | File I/O operations (humppa + ToothMaker formats) |
@@ -263,13 +263,24 @@ The C++ `saveAsOFF()` function produces different output than the original Fortr
 
 The C++ version uses the `dad_to_polygons` algorithm instead, which fixes these issues. As a consequence, **each triangle is written twice with both orientations**. This doubles the polygon count but ensures correct rendering regardless of viewer orientation, since recovering correctly oriented triangles from the original data structure is non-trivial.
 
+### 7. DAD File Import (Not Implemented)
+
+The original Fortran code has a `llegir` subroutine that reads complete `.dad` files to restore simulation state (parameters, cell positions, neighbors, knots). This was designed for GUI use - loading saved simulations for visualization or continuing a run.
+
+The C++ port includes translated versions of these functions (`readDataFile()`, `readMorphology()`, `readNeighbors()`, `readKnots()`, `readExtraData()`, `readParametersBinary()`), but they are **not called** from the CLI and have **not been tested**. The CLI only reads initial parameters and runs simulations from scratch.
+
+If DAD file import is needed in the future, these functions would require:
+- Testing with actual `.dad` files
+- Array bounds validation (see Potential Issues below)
+- Proper error handling
+
 ---
 
 ## Potential Issues in Current C++ Code
 
 ### Critical Issues
 
-1. **File read array bounds** (`file_io.cpp:165-183`): `readMorphology()` reads `numCells` from the file, then uses it to index `cellPositions` without checking array capacity. A corrupted or malicious file specifying large `numCells` causes out-of-bounds memory access and undefined behavior.
+1. **File read array bounds** (`file_io.cpp`): `readMorphology()` reads `numCells` from the file, then uses it to index `cellPositions` without checking array capacity. A corrupted or malicious file specifying large `numCells` causes out-of-bounds memory access and undefined behavior. **Note:** This is part of the unimplemented DAD file import feature (see section 7) and is not currently reachable from the CLI.
 
 2. **Neighbor array bounds** (`tooth_model_division.cpp`): The `addNewCells()` function has complex neighbor list manipulation. While some overflow conditions trigger `panicFlag`, not all insertion paths are protected. Rapid cell division with unusual geometry could write beyond `MAX_NEIGHBORS`.
 
@@ -476,11 +487,12 @@ cd ..
 make test
 ```
 
-This runs 4 tests:
+This runs 3 tests (with Test 3 having two sub-parts):
 1. **C++ with humppa format** - Compares output against reference
 2. **C++ with ToothMaker format** - Compares output against reference
-3. **Fortran vs C++ connectivity** - Verifies identical cell connectivity
-4. **Fortran vs C++ cell shapes** - Verifies geometry within tolerance (0.001)
+3. **Fortran vs C++ cross-validation**:
+   - 3a: Connectivity comparison (exact match)
+   - 3b: Cell shapes comparison (tolerance 0.001)
 
 Test files are in `../test/`:
 - `mpar_no_umgr.txt` - Test parameters (humppa format)

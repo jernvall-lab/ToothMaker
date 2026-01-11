@@ -283,6 +283,7 @@ void FileIO::writeParametersText(std::ostream& out) {
     out << model->timeStep << " number of iterations\n";
 }
 
+// NOTE: Part of unimplemented DAD file import feature. Not called from CLI, untested.
 void FileIO::readParametersBinary(std::istream& in) {
     std::cout << "Reading parameters..." << std::endl;
     for (int i = 0; i < 5; i++) in >> parameterHistory[snapshotIndex][i];
@@ -295,6 +296,7 @@ void FileIO::readParametersBinary(std::istream& in) {
     in >> parameterHistory[snapshotIndex][31];
 }
 
+// NOTE: Part of unimplemented DAD file import feature. Not called from CLI, untested.
 void FileIO::readMorphology(std::istream& in) {
     int tempTime, tempCells;
     if (!(in >> tempTime >> tempCells)) {
@@ -316,6 +318,7 @@ void FileIO::readMorphology(std::istream& in) {
     }
 }
 
+// NOTE: Part of unimplemented DAD file import feature. Not called from CLI, untested.
 void FileIO::readExtraData(std::istream& in) {
     int tempTime, tempCells;
     if (!(in >> tempTime >> tempCells)) {
@@ -335,6 +338,7 @@ void FileIO::readExtraData(std::istream& in) {
     }
 }
 
+// NOTE: Part of unimplemented DAD file import feature. Not called from CLI, untested.
 void FileIO::readKnots(std::istream& in) {
     int tempTime, tempCells;
     if (!(in >> tempTime >> tempCells)) {
@@ -361,6 +365,7 @@ void FileIO::readKnots(std::istream& in) {
     }
 }
 
+// NOTE: Part of unimplemented DAD file import feature. Not called from CLI, untested.
 void FileIO::readNeighbors(std::istream& in) {
     int tempTime, tempCells;
     if (!(in >> tempTime >> tempCells)) {
@@ -482,6 +487,8 @@ void FileIO::loadParameters(int snapshotIdx) {
     model->basalMesenchymalRate = parameterHistory[snapshotIdx][31];        // parap(32) = umgr
 }
 
+// NOTE: Part of unimplemented DAD file import feature. Not called from CLI, untested.
+// Corresponds to Fortran 'llegir' subroutine for loading saved simulations.
 void FileIO::readDataFile() {
     if (passFlag == 0) {
         neighborHistory.resize(MAX_SNAPSHOTS);
@@ -592,6 +599,10 @@ void FileIO::readInitialParameters() {
     file.close();
 }
 
+// NOTE: This function differs from the original Fortran 'guardaveinsoff' in two key respects:
+// 1) Fixes a bug with missing faces that existed in the original routine
+// 2) Writes each face TWICE (both orientations) to simplify visualization with renderers
+//    that expect consistently oriented faces
 void FileIO::saveAsOFF(std::ostream& out, const std::vector<std::array<int, MAX_NEIGHBORS>>& cellNeighbors) {
     // Calculate material values for coloring
     calculateMaterial();
