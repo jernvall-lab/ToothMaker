@@ -5,12 +5,17 @@ This directory contains the source code for the tribosphenic model.
 ## Directory Structure
 
 ```
-src/
-├── cpp/          # C++ implementation (primary)
-├── fortran/      # Original Fortran 90 implementation
-├── test/         # Unit tests and reference files
+tribosphenic/
 ├── Makefile      # Parent makefile for building both versions
-└── README.md     # This file
+├── bin/          # Output binaries
+│   ├── humppa_cpp_64bit      # C++ binary
+│   └── humppa_fortran_64bit  # Fortran binary
+├── data/         # Interface XMLs and default parameters
+└── src/
+    ├── cpp/      # C++ implementation (primary)
+    ├── fortran/  # Original Fortran 90 implementation
+    ├── test/     # Unit tests and reference files
+    └── README.md # This file
 ```
 
 ### cpp/
@@ -38,11 +43,18 @@ Unit test framework with reference outputs for regression testing.
 
 ## Building
 
+All build commands are run from the `tribosphenic/` directory (parent of `src/`).
+
 ### Build everything (C++ and Fortran)
 
 ```bash
+cd models/tribosphenic
 make
 ```
+
+Outputs:
+- `bin/humppa_cpp_64bit` - C++ binary
+- `bin/humppa_fortran_64bit` - Fortran binary
 
 ### Build C++ only
 
@@ -66,6 +78,8 @@ make clean
 
 ## Running Tests
 
+From the `tribosphenic/` directory:
+
 ```bash
 make test
 ```
@@ -82,12 +96,12 @@ This runs 3 tests (with Test 3 having two sub-parts):
 ### C++ binary
 
 ```bash
-./cpp/humppa_cpp <parameter_file> <output_name> <iterations> <output_interval>
+bin/humppa_cpp_64bit <parameter_file> <output_name> <iterations> <output_interval>
 ```
 
-Example:
+Example (from `tribosphenic/`):
 ```bash
-./cpp/humppa_cpp test/mpar_no_umgr.txt output 6000 1
+bin/humppa_cpp_64bit src/test/mpar_no_umgr.txt output 6000 1
 ```
 
 This produces:
@@ -99,7 +113,7 @@ This produces:
 
 ```bash
 cd <directory_with_param_file>
-../fortran/humppa <param_file> <output_name> <iterations> <output_interval>
+/path/to/bin/humppa_fortran_64bit <param_file> <output_name> <iterations> <output_interval>
 ```
 
 Note: The Fortran binary requires the parameter file to be in the current working directory.
