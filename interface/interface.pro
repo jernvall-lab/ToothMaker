@@ -6,6 +6,9 @@
 
 QT += core gui widgets
 
+# Qt6 moved QOpenGLWidget to a separate module
+greaterThan(QT_MAJOR_VERSION, 5): QT += openglwidgets
+
 TARGET = ToothMaker
 TEMPLATE = app
 
@@ -77,8 +80,8 @@ QMAKE_LFLAGS -= -arch x86_64 -Xarch_x86_64
 QMAKE_LFLAGS_X86_64 -= -arch x86_64 -Xarch_x86_64
 
 QMAKE_CXXFLAGS_RELEASE -= -O2
-QMAKE_CXXFLAGS_RELEASE += -O3 -std=c++11
-QMAKE_CXXFLAGS_DEBUG += -std=c++11
+QMAKE_CXXFLAGS_RELEASE += -O3 -std=c++17
+QMAKE_CXXFLAGS_DEBUG += -std=c++17
 
 QMAKE_CFLAGS_RELEASE -= -O2
 QMAKE_CFLAGS_RELEASE += -O3

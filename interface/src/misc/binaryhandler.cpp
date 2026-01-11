@@ -28,7 +28,7 @@
 BinaryHandler::BinaryHandler() : Model()
 {
     connect(&m_process, SIGNAL(finished(int)), this, SLOT(binaryFinished_()));
-    connect(&m_process, SIGNAL(error(QProcess::ProcessError)), this,
+    connect(&m_process, SIGNAL(errorOccurred(QProcess::ProcessError)), this,
             SLOT(binaryError_(QProcess::ProcessError)));
     connect(&m_process, SIGNAL(started()), this, SLOT(start()));
 
