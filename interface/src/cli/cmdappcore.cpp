@@ -14,6 +14,7 @@
 
 #include <ctime>
 #include <iostream>
+#include <QDateTime>
 #include <QDir>
 #include <QApplication>
 
@@ -212,10 +213,9 @@ void CmdAppCore::runModel()
 
     glengine->clearScreen();
 
-    // NOTE: Model/run ID is set as time(NULL), meaning that if two consequtive
-    // model runs occur within one second they are assigned the same ID, leading
-    // to undefined behaviour!
-    int run_id = time(NULL);
+    // Run ID uses millisecond timestamp to avoid collisions between consecutive runs.
+    // Formula guarantees exactly 10 digits within int32 range [1000000000, 2147483647].
+    int run_id = 1000000000 + static_cast<int>(QDateTime::currentMSecsSinceEpoch() % 1147483648LL);
     toothLife = new ToothLife(0, run_id);
 
     Model* model = models.at(modelId);

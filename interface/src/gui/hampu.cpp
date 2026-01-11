@@ -16,6 +16,8 @@
 #include <numeric>
 #include <ctime>
 
+#include <QDateTime>
+
 #include "gui/hampu.h"
 #include "utils/writeparameters.h"
 #include "utils/readparameters.h"
@@ -487,10 +489,10 @@ void Hampu::Panel_Run(int nIter)
     // Disable the model menu while running model:
     controlPanel->enableModelList(0);
 
-    // NOTE: Model/run ID is set as time(NULL), meaning that if two consequtive
-    // model runs occur within one second they are assigned the same ID, leading
-    // to undefined behaviour!
-    int run_id = time(NULL);
+    // Run ID uses millisecond timestamp to avoid collisions between consecutive runs.
+    // Formula guarantees exactly 10 digits within int32 range [1000000000, 2147483647].
+    // Cycles every ~13.3 days; collision requires same millisecond + same cycle position.
+    int run_id = 1000000000 + static_cast<int>(QDateTime::currentMSecsSinceEpoch() % 1147483648LL);
     toothLifeWork = new ToothLife( currentModel, run_id );
     toothLifeWork->setParameters( model->getParameters() );
 
