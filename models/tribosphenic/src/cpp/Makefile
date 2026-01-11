@@ -24,8 +24,8 @@ OBJECTS = $(SOURCES:.cpp=.o)
 # Header dependencies
 HEADERS = tooth_model.hpp
 
-# Target executable
-TARGET = humppa_cpp
+# Target executable (output to bin/ directory)
+TARGET = ../../bin/humppa_cpp_64bit
 
 # Default target
 all: $(TARGET)
@@ -56,15 +56,15 @@ test-update-reference: $(TARGET)
 	@echo "Regenerating reference files..."
 	@mkdir -p ../test/reference
 	@cd ../test && rm -rf tmp_ref && mkdir tmp_ref && cd tmp_ref && \
-		../../cpp/$(TARGET) ../mpar_1767210438.txt output.dad 900 10 >/dev/null && \
+		../../../bin/humppa_cpp_64bit ../mpar_1767210438.txt output.dad 900 10 >/dev/null && \
 		cp 9000_output.dad_.dad ../reference/9000_humppa.dad && \
-		../../cpp/$(TARGET) ../toothmaker_1767210438.txt output.dad 900 10 >/dev/null && \
+		../../../bin/humppa_cpp_64bit ../toothmaker_1767210438.txt output.dad 900 10 >/dev/null && \
 		cp 9000_output.dad_.dad ../reference/9000_toothmaker.dad && \
 		cd .. && rm -rf tmp_ref
 	@echo "Reference files updated."
 
-# Install (copy to parent directory)
+# Install target (binary already built to bin/, kept for compatibility)
 install: $(TARGET)
-	cp $(TARGET) ../
+	@echo "Binary installed to ../../bin/humppa_cpp_64bit"
 
 .PHONY: all clean debug test test-update-reference install

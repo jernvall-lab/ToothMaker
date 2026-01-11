@@ -4,8 +4,8 @@
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CPP_BIN="$SCRIPT_DIR/../cpp/humppa_cpp"
-FORTRAN_BIN="$SCRIPT_DIR/../fortran/humppa"
+CPP_BIN="$SCRIPT_DIR/../../bin/humppa_cpp_64bit"
+FORTRAN_BIN="$SCRIPT_DIR/../../bin/humppa_fortran_64bit"
 TEST_TMP="$SCRIPT_DIR/../tmp_test"
 
 # Check that C++ binary exists (required for all tests)

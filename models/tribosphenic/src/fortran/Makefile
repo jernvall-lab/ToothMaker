@@ -4,9 +4,9 @@
 FC = gfortran
 FFLAGS = -O2 -static-libgfortran -static-libgcc
 
-# Source and target
+# Source and target (output to bin/ directory)
 SOURCE = humppa_translate.f90
-TARGET = humppa
+TARGET = ../../bin/humppa_fortran_64bit
 
 # Default target
 all: $(TARGET)

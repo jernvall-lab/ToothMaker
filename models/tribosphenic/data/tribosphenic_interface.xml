@@ -3,7 +3,7 @@
 <Interface>
 
 <General>
-    <Name>Tribosphenic tooth</Name>
+    <Name>Tribosphenic tooth (Fortran/legacy)</Name>
     <DefaultParameters>BastP2.txt</DefaultParameters>
 </General>
     
