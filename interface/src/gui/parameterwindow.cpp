@@ -147,16 +147,14 @@ void ParameterWindow::updateButtonValues()
 
         if (p.type == PARTYPE_FIELD) {
             // TODO: .12 should be taken from PARAM_PREC
-            char val[64];
-            sprintf( val, "%.12lf", p.value );
+            QString valStr = QString::number(p.value, 'f', 12);
 
-            // Remove trailing zeros:
-            int pos = strlen(val)-1;
-            while (val[pos] == '0') pos--;
-            if (val[pos]=='.') val[pos+2] = '\0';
-            else val[pos+1] = '\0';
+            // Remove trailing zeros but keep at least one digit after decimal:
+            while (valStr.endsWith('0') && !valStr.endsWith(".0")) {
+                valStr.chop(1);
+            }
 
-            valueFields_.at(i)->setText(val);
+            valueFields_.at(i)->setText(valStr);
             valueFields_.at(i)->setCursorPosition(0);
         }
 

@@ -837,10 +837,9 @@ int Hampu::exportModelData( int step, int datatype, QString export_folder )
             // Take screenshot at current orientation if no orientations given:
             if (orientations.size() == 0) {
                 QImage img = glwidget->screenshotGL();
-                char iter[11];
-                sprintf( iter, "%.10d", viewIntStep*model->getStepSize() );
+                QString iter = QString("%1").arg(viewIntStep*model->getStepSize(), 10, 10, QChar('0'));
                 QString target = folder + "/" + PROGRAM_NAME + "_" + par_id
-                                 + "_" + QString(iter) + ".png";
+                                 + "_" + iter + ".png";
                 img.save(target);
             }
 
@@ -848,11 +847,10 @@ int Hampu::exportModelData( int step, int datatype, QString export_folder )
             for (auto orient : orientations) {
                 glwidget->setViewOrientation( orient.rotx, orient.roty );
                 QImage img = glwidget->screenshotGL();
-                char iter[11];
-                sprintf( iter, "%.10d", viewIntStep*model->getStepSize() );
+                QString iter = QString("%1").arg(viewIntStep*model->getStepSize(), 10, 10, QChar('0'));
                 QString target = folder + "/" + PROGRAM_NAME + "_" + par_id
                                  + "_" + QString::fromStdString(orient.name)
-                                 + "_" + QString(iter) + ".png";
+                                 + "_" + iter + ".png";
                 img.save(target);
             }
 
@@ -944,15 +942,13 @@ void Hampu::screenshotWidget()
 {
     QImage img = glwidget->screenshotGL();
 
-    char fname[2048], msg[4096];
-    sprintf( fname, "%s/Desktop/%s_proj_%d.png",
-             (QDir::homePath()).toStdString().c_str(), PROGRAM_NAME,
-             screenshotCounter );
-    img.save( QString(fname) );
+    QString fname = QString("%1/Desktop/%2_proj_%3.png")
+                    .arg(QDir::homePath(), PROGRAM_NAME)
+                    .arg(screenshotCounter);
+    img.save(fname);
     screenshotCounter++;
 
-    sprintf(msg, "Screenshot saved: %s", fname);
-    writeStatusBar(msg);
+    writeStatusBar(QString("Screenshot saved: %1").arg(fname).toStdString());
 }
 
 
@@ -963,7 +959,6 @@ void Hampu::screenshotWidget()
  */
 void Hampu::updateProgress()
 {
-    char msg[256];
     int model_idx = toothLifeWork->getCurrentModel();
 
     // Update the development position only if viewing the currently running
@@ -976,9 +971,9 @@ void Hampu::updateProgress()
 
         int stepsize = models.at(model_idx)->getStepSize();
         if (stepsize <= 0) {
-            sprintf(msg, "Error: Model step size must be a positive integer (current step size %d).",
-                    stepsize);
-            writeStatusBar(msg);
+            QString msg = QString("Error: Model step size must be a positive integer (current step size %1).")
+                          .arg(stepsize);
+            writeStatusBar(msg.toStdString());
             return;
         }
 
@@ -998,15 +993,15 @@ void Hampu::updateProgress()
 
     float prog = models.at(model_idx)->getProgress();
     if (!scanning) {
-        sprintf(msg, "Running... %.1f%% complete.", prog);
-        writeStatusBar(msg);
+        QString msg = QString("Running... %1% complete.").arg(prog, 0, 'f', 1);
+        writeStatusBar(msg.toStdString());
     }
     else {
         int n = scanList->getScanQueueSize();
         int i = scanList->getCurrentScanItem();
-        sprintf(msg, "Scanning item %d/%d,  %.1f%% complete. To abort scanning, go Tools -> Scan parameters.",
-                i, n, prog);
-        writeStatusBar(msg);
+        QString msg = QString("Scanning item %1/%2,  %3% complete. To abort scanning, go Tools -> Scan parameters.")
+                      .arg(i).arg(n).arg(prog, 0, 'f', 1);
+        writeStatusBar(msg.toStdString());
     }
 }
 
@@ -1029,13 +1024,14 @@ void Hampu::updateModel()
 
         // Report total running time.
         int timeDiff = time(NULL)-timeStart;
-        char timeMsg[256];
         int hours = timeDiff/(3600);
         int mins = (timeDiff-(hours*3600)) / 60;
         int secs = timeDiff - (hours*3600) - (mins*60);
-        sprintf(timeMsg, "Finished after %.2d:%.2d:%.2d.",
-                hours, mins, secs);
-        writeStatusBar(timeMsg);
+        QString timeMsg = QString("Finished after %1:%2:%3.")
+                          .arg(hours, 2, 10, QChar('0'))
+                          .arg(mins, 2, 10, QChar('0'))
+                          .arg(secs, 2, 10, QChar('0'));
+        writeStatusBar(timeMsg.toStdString());
     }
 
     // Renames the current work item in history from "..Running" into number of
@@ -1056,9 +1052,7 @@ void Hampu::updateModel()
             exportModelData( last_step, EXPORT_SCREENSHOTS | EXPORT_DATA, folder );
 
         }
-        char msg[64];
-        sprintf(msg, "Data export complete.");
-        writeStatusBar(msg);
+        writeStatusBar("Data export complete.");
 
         // Calls next set of parameters for scanning.
         scanParameters_();
@@ -1239,13 +1233,14 @@ void Hampu::updateCurrentStepView_(int quiet)
         n_tri = mesh.get_polygons().size();
     }
 
-    char msg[256];
-    sprintf(msg, "Current step: %d", stepsize*viewIntStep);
-    if (n_vert !=0 && n_tri != 0) {
-        sprintf( msg, "Current step: %d. Vertices: %d, triangles: %d.",
-                 stepsize*viewIntStep, n_vert, n_tri );
+    QString msg;
+    if (n_vert != 0 && n_tri != 0) {
+        msg = QString("Current step: %1. Vertices: %2, triangles: %3.")
+              .arg(stepsize*viewIntStep).arg(n_vert).arg(n_tri);
+    } else {
+        msg = QString("Current step: %1").arg(stepsize*viewIntStep);
     }
-    writeStatusBar(msg);
+    writeStatusBar(msg.toStdString());
 }
 
 

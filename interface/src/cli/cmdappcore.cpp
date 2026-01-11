@@ -48,12 +48,11 @@ CmdAppCore::CmdAppCore(int & argc, char ** argv) : QCoreApplication(argc, argv)
     // Initializing temporary folder:
     QDir qdir;
     QString tempPath = QDir::tempPath();
-    char tmp[1024];
     int pid = (int)QCoreApplication::applicationPid();
-    sprintf(tmp, "%s/%s_%d", tempPath.toStdString().c_str(), PROGRAM_NAME, pid);
-    systemTempPath = tmp;
-    if (!qdir.exists(QString(systemTempPath.c_str()))) {
-        qdir.mkdir(QString(systemTempPath.c_str()));
+    QString tmpPath = QString("%1/%2_%3").arg(tempPath, PROGRAM_NAME).arg(pid);
+    systemTempPath = tmpPath.toStdString();
+    if (!qdir.exists(tmpPath)) {
+        qdir.mkdir(tmpPath);
     }
     std::cout << "Temp. folder: " << systemTempPath << std::endl;
 
@@ -88,10 +87,11 @@ void CmdAppCore::updateProgress()
         glengine->setVisualData( toothLife, i+1, models.at(modelId) );
 
         QImage img = glengine->screenshotGL();
-        char tmp[256];
         int stepsize = models.at(modelId)->getStepSize();
-        sprintf(tmp, "%s_%.10d.png", PROGRAM_NAME, (i+1)*stepsize);
-        QString target = runDir + "/images/" + QString(tmp);
+        QString filename = QString("%1_%2.png")
+                           .arg(PROGRAM_NAME)
+                           .arg((i+1)*stepsize, 10, 10, QChar('0'));
+        QString target = runDir + "/images/" + filename;
         img.save(target);
     }
 
@@ -113,9 +113,11 @@ void CmdAppCore::updateModel()
     int hours = timeDiff/(3600);
     int mins = (timeDiff-(hours*3600)) / 60;
     int secs = timeDiff - (hours*3600) - (mins*60);
-    char timeMsg[265];
-    sprintf(timeMsg, "Finished after %.2d:%.2d:%.2d.", hours, mins, secs);
-    writeStatusBar(timeMsg);
+    QString timeMsg = QString("Finished after %1:%2:%3.")
+                      .arg(hours, 2, 10, QChar('0'))
+                      .arg(mins, 2, 10, QChar('0'))
+                      .arg(secs, 2, 10, QChar('0'));
+    writeStatusBar(timeMsg.toStdString());
     fprintf(stdout, "\n");
 
     Model* model = models.at( modelId );
@@ -335,24 +337,23 @@ int CmdAppCore::startParameterScan(int niter, char *param, char *scanfile,
     currentScanItem = 0;
 
     // Create folders for storing model output:
-    char tmp[1024];
     QDir qdir;
-    sprintf(tmp, "%s/%s", runDir.toStdString().c_str(), SSHOT_SAVE_DIR);
-    if (!qdir.exists(QString(tmp))) {
-        qdir.mkdir(QString(tmp));
+    QString sshotPath = QDir(runDir).filePath(SSHOT_SAVE_DIR);
+    if (!qdir.exists(sshotPath)) {
+        qdir.mkdir(sshotPath);
     }
     // For 3D models set separate folders for storing objects:
     if (models.at(modelId)->getRenderMode() == RENDER_HUMPPA) {
-        sprintf(tmp, "%s/%s", runDir.toStdString().c_str(), DATA_SAVE_DIR);
-        if (!qdir.exists(QString(tmp))) {
-            qdir.mkdir(QString(tmp));
+        QString dataPath = QDir(runDir).filePath(DATA_SAVE_DIR);
+        if (!qdir.exists(dataPath)) {
+            qdir.mkdir(dataPath);
         }
     }
 
     if (expImg) {
-        sprintf(tmp, "%s/images", runDir.toStdString().c_str());
-        if (!qdir.exists(QString(tmp))) {
-            qdir.mkdir(QString(tmp));
+        QString imagesPath = QDir(runDir).filePath("images");
+        if (!qdir.exists(imagesPath)) {
+            qdir.mkdir(imagesPath);
         }
         progressTimer = new QTimer(this);
         progressTimer->setInterval(1000);

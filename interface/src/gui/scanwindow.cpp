@@ -218,14 +218,13 @@ void ScanWindow::selectStorageFolder()
     resLabel->setText(resultsFolder);
 
     // Add required sub-folders.
-    char tmp[1024];
-    sprintf(tmp, "%s/%s", resultsFolder.toStdString().c_str(), SSHOT_SAVE_DIR);
-    if (!qdir->exists(QString(tmp))) {
-        qdir->mkdir(QString(tmp));
+    QString sshotPath = QDir(resultsFolder).filePath(SSHOT_SAVE_DIR);
+    if (!qdir->exists(sshotPath)) {
+        qdir->mkdir(sshotPath);
     }
-    sprintf(tmp, "%s/%s", resultsFolder.toStdString().c_str(), DATA_SAVE_DIR);
-    if (!qdir->exists(QString(tmp))) {
-        qdir->mkdir(QString(tmp));
+    QString dataPath = QDir(resultsFolder).filePath(DATA_SAVE_DIR);
+    if (!qdir->exists(dataPath)) {
+        qdir->mkdir(dataPath);
     }
 }
 
