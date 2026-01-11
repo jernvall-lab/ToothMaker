@@ -67,10 +67,6 @@ http://dx.doi.org/10.1098/rsos.180903.
 
 ## Build instructions
 
-These instructions concern only the building of ToothMaker, i.e., the interface. Pre-built 32 bit binaries of the tooth model, both 2010 'Triconodont' and 2014 'Tribosphenic' versions, are included (see [/models](models/)) and will be automatically copied when building ToothMaker. If you'd like to rebuild the Fortran code for the tooth model, see [Notes](#notes).
-
-The 2010 version of the model is included only for completeness. For all practical purposes, the 2014 version is a superset of the 2010 version.
-
 ### Requirements
 
 * Qt 5.15+ (Qt 6 not yet supported)
@@ -78,7 +74,6 @@ The 2010 version of the model is included only for completeness. For all practic
 * GLEW, GLM (included in [/ext](ext/))
 * macOS 10.13+, Ubuntu 20.04+, or Windows 10+
 * OpenGL 3.0 support
-* 32-bit binary support (see [Notes](#notes))
 
 ### Quickstart (macOS & Linux)
 
@@ -102,20 +97,17 @@ macdeployqt interface/ToothMaker.app
 
 to make a self-contained bundle.
 
-### Linux
+### Models
 
-Make sure you have 32 bit binary support installed if you use the pre-built model binaries.
+As of ToothMaker 0.8.0 (or when built from source), two versions of the 2014 'Tribosphenic' tooth model are included:
 
-### Mac OS X 10.6 (Snow Leopard)
+* **Tribosphenic tooth (C++)** - A C++ translation of the original Fortran code. This is the recommended version as it runs faster and is easier to maintain. In tests, the C++ version produces numerically equivalent output to the Fortran version.
+* **Tribosphenic tooth (Fortran/legacy)** - The original Fortran 90 implementation, included for reference and validation.
 
-See the instructions [here](OSX106).
+The 2010 'Triconodont' model is also included for completeness, though for all practical purposes, the 2014 version is a superset of the 2010 version.
+
+Model binaries are built automatically when building ToothMaker.
 
 ### Windows
 
 Windows port hasn't been maintained for some time. Building with the standard Qt package should work, though some small changes to the code may be required (such as fixing header includes).
-
-## Notes
-
-* ToothMaker is a renamed fork of MorphoMaker for running the 2010/2014 tooth model only. As such, the code contains several references to MorphoMaker, and major portions of the code (like gl_modern) do nothing here. The code is part C++11, part pre-C++11, and is a patchwork of different styles. If you modify the code, it is recommended that you follow the local style of the given file in naming etc.
-
-* The pre-built tooth model binaries are 32 bit due to reliability issues when compiled 64 bit. In case you'd like to recompile the binaries, the [G95](http://www.g95.org/) compiler is recommended. Other compilers such as GFortran have been known to cause issues.
