@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<Interface>
+
+<General>
+    <Name>Tribosphenic tooth (C++)</Name>
+    <DefaultParameters>BastP2.txt</DefaultParameters>
+</General>
+
+<Binary>
+    <BinaryOSX>humppa_cpp_64bit</BinaryOSX>
+    <BinaryLinux>humppa_cpp_64bit</BinaryLinux>
+    <BinaryWindows>humppa_cpp_64bit.exe</BinaryWindows>
+    <InputStyle>Humppa</InputStyle>
+    <OutputStyle>Humppa</OutputStyle>
+    <OutputParser>dad_to_polygons</OutputParser>
+    <ResultParser>top_cusp_angle</ResultParser>
+</Binary>
+
+<Controls>
+    <ModelStepsize>500</ModelStepsize>
+    <ParametersImage>bg_text_quadrate_070.png</ParametersImage>
+    <CellConnections>Enable</CellConnections>
+    <Orientation>
+        <Name>Occlusal</Name>
+        <Rotate>0.0,0.0</Rotate>
+    </Orientation>
+    <Orientation>
+        <Name>Buccal</Name>
+        <Rotate>180.0,-90.0</Rotate>
+    </Orientation>
+    <Orientation>
+        <Name>Lingual</Name>
+        <Rotate>0.0,-90.0</Rotate>
+    </Orientation>
+    <Orientation>
+        <Name>Posterior</Name>
+        <Rotate>90.0,-90.0</Rotate>
+    </Orientation>
+    <Orientation>
+        <Name>Anterior</Name>
+        <Rotate>-90.0,-90.0</Rotate>
+    </Orientation>
+
+    <ViewMode>
+        <Name>Shape only</Name>
+        <Content>0</Content>
+    </ViewMode>
+    <ViewMode>
+        <Name>Differentiation &amp; knots</Name>
+        <Content>1</Content>
+    </ViewMode>
+    <ViewMode>
+        <Name>Activator concentration</Name>
+        <Content>2</Content>
+    </ViewMode>
+    <ViewMode>
+        <Name>Inhibitor concentration</Name>
+        <Content>3</Content>
+    </ViewMode>
+    <ViewMode>
+        <Name>Growth factor concentration</Name>
+        <Content>4</Content>
+    </ViewMode>
+</Controls>
+
+<Parameters>
+    <Parameter>
+        <Name>Egr</Name>
+        <Position>260,35</Position>
+        <Description>Epithelial proliferation rate.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Mgr</Name>
+        <Position>230,325</Position>
+        <Description>Mesenchymal proliferation rate.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Rep</Name>
+        <Position>260,170</Position>
+        <Description>Young's modulus (stiffness).</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Swi</Name>
+        <Position>185,457</Position>
+        <Description>Distance from 0 where the borders are defined.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Adh</Name>
+        <Position>260,145</Position>
+        <Description>Traction between neighbours.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+
+    <Parameter>
+        <Name>Act</Name>
+        <Position>33,230</Position>
+        <Description>Activator auto-activation.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Inh</Name>
+        <Position>33,430</Position>
+        <Description>Inhibition of activator.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Not2</Name>
+        <Value>0.0</Value>
+        <Position>33,380</Position>
+        <Description>Nothing (ectodin in mouse).</Description>
+        <Hidden>True</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Sec</Name>
+        <Position>33,130</Position>
+        <Description>Growth factor secretion rate.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Not3</Name>
+        <Value>0.0</Value>
+        <Position>33,135</Position>
+        <Description>Nothing.</Description>
+        <Hidden>True</Hidden>
+    </Parameter>
+
+    <Parameter>
+        <Name>Da</Name>
+        <Position>33,255</Position>
+        <Description>Activator diffusion rate.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Di</Name>
+        <Position>33,455</Position>
+        <Description>Inhibitor diffusion rate.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Ds</Name>
+        <Position>33,155</Position>
+        <Description>Growth factor diffusion rate.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Not4</Name>
+    	<Value>0.0</Value>
+        <Position>33,160</Position>
+        <Description>Nothing (ectodin diffusion).</Description>
+        <Hidden>True</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Int</Name>
+        <Position>33,405</Position>
+        <Description>Initial inhibitor threshold.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+
+    <Parameter>
+        <Name>Set</Name>
+        <Position>33,105</Position>
+        <Description>Growth factor threshold.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Boy</Name>
+        <Position>230,400</Position>
+        <Description>Mesenchyme mechanic resistance.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Dff</Name>
+        <Position>260,105</Position>
+        <Description>Differentiation rate.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Bgr</Name>
+        <Position>230,375</Position>
+        <Description>Border growth, amount of mesenchyme in anterior-posterior.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Abi</Name>
+        <Position>260,235</Position>
+        <Description>Anterior bias.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+
+    <Parameter>
+        <Name>Pbi</Name>
+        <Position>260,260</Position>
+        <Description>Posterior bias.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Lbi</Name>
+        <Value>1.0</Value>
+        <Position>33,305</Position>
+        <Description>Lingual bias.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Bbi</Name>
+        <Value>1.0</Value>
+        <Position>33,280</Position>
+        <Description>Buccal bias.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Rad</Name>
+        <Position>325,432</Position>
+        <Description>Radius of initial conditions.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Deg</Name>
+        <Position>33,30</Position>
+        <Description>Protein degradation rate.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+
+    <Parameter>
+        <Name>Dgr</Name>
+        <Position>260,80</Position>
+        <Description>Downward vector of growth.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Ntr</Name>
+        <Position>260,195</Position>
+        <Description>Mechanical traction from the borders to the nucleus.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Bwi</Name>
+        <Position>325,457</Position>
+        <Description>Width of border.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>Ina</Name>
+        <Position>33,330</Position>
+        <Description>Initial activator concentration.</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+    <Parameter>
+        <Name>uMgr</Name>
+        <Position>230,350</Position>
+        <Description>Basal mesenchymal proliferation rate</Description>
+        <Hidden>False</Hidden>
+    </Parameter>
+</Parameters>
+
+</Interface>
