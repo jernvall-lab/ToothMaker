@@ -560,7 +560,7 @@ void BinaryHandler::run()
         return;
     
     // Get the rest of the result files still in the sequence.
-    while (1) {
+    while (retval == 0) {
         msleep(UPDATE_INTERVAL);
 
         // Only proceed if addTooth_ succeeds. If it fails (e.g., .dad file
