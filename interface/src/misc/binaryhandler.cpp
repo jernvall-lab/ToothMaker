@@ -274,13 +274,9 @@ std::vector<std::string> BinaryHandler::getDataFilenames_( int step,
         QString file = files.at(i).fileName();
 
         for (auto& parser : outputParsers) {
-            QString path_style = "..\bin\\";
-            #if defined(__linux__) || defined(__APPLE__)
-            path_style = "../bin/";
-            #endif
             QString parser_out = "parser_tmp_" + run_id + ".txt";
-            QString cmd = path_style + parser + " " + file + " "
-                          + parser_out;
+            QString parserPath = QDir::toNativeSeparators(QDir("../bin").filePath(parser));
+            QString cmd = parserPath + " " + file + " " + parser_out;
 
             QProcess process;
             auto args = QProcess::splitCommand(cmd);
@@ -418,11 +414,6 @@ int BinaryHandler::setBinSettings_(const QString& parfile, const int num_iter,
     }
     m_progressFile.setFileName(fname);
 
-    QString path_style = "..\bin\\";
-    #if defined(__linux__) || defined(__APPLE__)
-    path_style = "../bin/";
-    #endif
-
     m_cmd = "";
     QTextStream str;
     str.setString(&m_cmd);
@@ -434,7 +425,8 @@ int BinaryHandler::setBinSettings_(const QString& parfile, const int num_iter,
         str << "python ";
     }
 
-    str << path_style << m_binary << " ";
+    QString binaryPath = QDir::toNativeSeparators(QDir("../bin").filePath(m_binary));
+    str << binaryPath << " ";
     if (inputStyle == "MorphoMaker" || inputStyle == "") {
         str << "--param " << parfile << " --id " << m_id << " --step "
             << step_size << " --niter " << num_iter;
