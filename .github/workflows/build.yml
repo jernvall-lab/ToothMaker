@@ -1,0 +1,212 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false  # Don't cancel other jobs if one fails
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            name: Linux
+            artifact: ToothMaker-Linux
+          - os: macos-12
+            name: macOS-Intel
+            artifact: ToothMaker-macOS-Intel
+          - os: macos-14
+            name: macOS-ARM
+            artifact: ToothMaker-macOS-ARM
+          - os: windows-2019
+            name: Windows
+            artifact: ToothMaker-Windows
+
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git rev-list version
+
+      #
+      # Install Qt
+      #
+      - name: Install Qt (Linux/Windows)
+        if: runner.os == 'Linux' || runner.os == 'Windows'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          cache: true
+
+      - name: Install Qt (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install qt@5
+          echo "$(brew --prefix qt@5)/bin" >> $GITHUB_PATH
+          echo "Qt5_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5" >> $GITHUB_ENV
+
+      #
+      # Install build dependencies
+      #
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gfortran libgl1-mesa-dev libx11-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install gcc
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc-fortran
+            make
+
+      #
+      # Build tribosphenic models (separate step for clarity)
+      #
+      - name: Build tribosphenic models (Unix)
+        if: runner.os != 'Windows'
+        working-directory: models/tribosphenic
+        run: make
+
+      - name: Build tribosphenic models (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        working-directory: models/tribosphenic
+        run: make
+
+      #
+      # Run model tests
+      #
+      - name: Run tribosphenic tests (Unix)
+        if: runner.os != 'Windows'
+        working-directory: models/tribosphenic
+        run: make test
+
+      #
+      # Build Qt application
+      #
+      - name: Build ToothMaker (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir build && cd build
+          qmake ../ToothMaker.pro CONFIG+=release
+          make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+
+      - name: Build ToothMaker (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          mkdir build
+          cd build
+          qmake ..\ToothMaker.pro CONFIG+=release
+          nmake
+
+      #
+      # Copy resources
+      #
+      - name: Copy resources (Unix)
+        if: runner.os != 'Windows'
+        working-directory: build
+        run: ../copy_resources.sh
+
+      - name: Copy resources (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $resourceDir = "build/interface/Resources"
+          New-Item -ItemType Directory -Force -Path "$resourceDir/bin"
+
+          # Copy interface resources
+          Copy-Item interface/data/images/* $resourceDir/
+          Copy-Item interface/src/renderer/*.glsl $resourceDir/
+
+          # Copy model data
+          Get-ChildItem models/*/data -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            Copy-Item "$($_.FullName)/*" $resourceDir/
+          }
+
+          # Copy model binaries
+          Get-ChildItem models/*/bin -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            Copy-Item "$($_.FullName)/*" "$resourceDir/bin/"
+          }
+
+          # Copy utility binaries
+          Get-ChildItem build/models/utils/*/*.exe -ErrorAction SilentlyContinue | ForEach-Object {
+            Copy-Item $_.FullName "$resourceDir/bin/"
+          }
+
+      #
+      # Package artifacts
+      #
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p package
+          cp -r build/interface/ToothMaker package/
+          cp -r build/interface/Resources package/
+          cd package && tar -czvf ../ToothMaker-Linux.tar.gz .
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # Run macdeployqt to bundle Qt frameworks
+          macdeployqt build/interface/ToothMaker.app
+
+          # Create zip
+          cd build/interface
+          zip -r ../../ToothMaker-${{ matrix.name }}.zip ToothMaker.app
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Run windeployqt to copy Qt DLLs
+          windeployqt build/interface/release/ToothMaker.exe
+
+          # Create package directory
+          New-Item -ItemType Directory -Force -Path package
+          Copy-Item build/interface/release/* package/ -Recurse
+          Copy-Item build/interface/Resources package/ -Recurse
+
+          # Create zip
+          Compress-Archive -Path package/* -DestinationPath ToothMaker-Windows.zip
+
+      #
+      # Upload artifacts
+      #
+      - name: Upload artifact (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ToothMaker-Linux.tar.gz
+
+      - name: Upload artifact (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ToothMaker-${{ matrix.name }}.zip
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ToothMaker-Windows.zip
