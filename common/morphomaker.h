@@ -68,14 +68,8 @@
 // Interface window width at start.
 #define MAIN_WINDOW_WIDTH 1024
 
-// Initial interface window height, platform-specific to fix aligment issues.
-#if defined(__APPLE__)
+// Initial interface window height
 #define MAIN_WINDOW_HEIGHT 650
-#elif defined(LINUX) || defined(linux)
-#define MAIN_WINDOW_HEIGHT 670
-#else
-#define MAIN_WINDOW_HEIGHT 660
-#endif
 
 // Resource folder.
 #if defined(__linux__)

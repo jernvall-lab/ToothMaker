@@ -116,6 +116,12 @@ int Hampu::init_GUI()
     // Show the window to trigger OpenGL context creation
     // QOpenGLWidget creates its context lazily when first shown
     show();
+    
+    // On Linux, menu bar is inside the window - add its height to minimum size
+    if (!menuBar()->isNativeMenuBar()) {
+        setMinimumSize(MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT + menuBar()->height());
+    }
+    
     glwidget->makeCurrent();
 
     // Now check if the OpenGL context was created successfully
