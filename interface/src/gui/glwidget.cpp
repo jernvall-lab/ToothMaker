@@ -79,6 +79,26 @@ GLWidget::~GLWidget()
  */
 void GLWidget::paintGL()
 {
+    // Apply deferred state changes (context is guaranteed current in paintGL).
+    // This avoids makeCurrent() calls elsewhere which can deadlock.
+
+    if (m_renderModeChanged) {
+        glcore::setRenderMode(m_pendingRenderMode, obj);
+        m_renderModeChanged = false;
+    }
+
+    if (m_visualDataChanged) {
+        applyVisualData_();
+        m_visualDataChanged = false;
+    }
+
+    if (m_texturesChanged) {
+        if (m_pendingTooth != nullptr) {
+            update_textures_(m_pendingTooth, m_pendingModel, obj);
+        }
+        m_texturesChanged = false;
+    }
+
     // With QOpenGLWidget, the default framebuffer is not 0 but a Qt-managed FBO
     glcore::paintGL(obj, PAINT_SCREEN, defaultFramebufferObject());
 
@@ -334,33 +354,42 @@ QSize GLWidget::sizeHint() const
  */
 void GLWidget::setVisualData(ToothLife *toothlife, int step, Model *model)
 {
-    makeCurrent();  // Required for QOpenGLWidget before GL calls
+    // Defer visual data update to paintGL() to avoid makeCurrent() deadlock
+    m_pendingToothLife = toothlife;
+    m_pendingStep = step;
+    m_pendingModel = model;
+    m_visualDataChanged = true;
+    update();
+}
 
-    if (toothlife == nullptr || toothlife->getTooth(step) == nullptr) {
+
+
+/**
+ * @brief Applies deferred visual data changes.
+ *        Called from paintGL() where context is guaranteed current.
+ */
+void GLWidget::applyVisualData_()
+{
+    if (m_pendingToothLife == nullptr || m_pendingToothLife->getTooth(m_pendingStep) == nullptr) {
         glcore::setVisualData(nullptr, obj, nullptr);
         obj.img = nullptr;
         glcore::setVisualData2D(0, 0, obj);
-        doneCurrent();
-        update();
         return;
     }
 
-    Tooth *tooth = toothlife->getTooth(step);
+    Tooth *tooth = m_pendingToothLife->getTooth(m_pendingStep);
 
     if (tooth->get_tooth_type() == RENDER_HUMPPA) {
         glcore::setVisualData( &(tooth->get_cell_data()), obj, &(tooth->get_mesh()) );
     }
     else if (tooth->get_tooth_type() == RENDER_PIXEL) {
-        update_textures_( tooth, model, obj );
+        update_textures_( tooth, m_pendingModel, obj );
     }
     else {
-        obj.mesh = &(model->fill_mesh( *tooth ));
+        obj.mesh = &(m_pendingModel->fill_mesh( *tooth ));
         glcore::uploadData(obj, VERTICES);
-        glcore::uploadData(obj, TEXTURES);             // Vertex colors.
+        glcore::uploadData(obj, TEXTURES);
     }
-
-    doneCurrent();
-    update();
 }
 
 
@@ -387,10 +416,11 @@ void GLWidget::setViewMode(int mode, Tooth* tooth, Model *model)
     if (DEBUG_MODE) fprintf(stderr, "%s:%s(%d, ...)\n", __FILE__, __FUNCTION__, mode);
 
     obj.viewMode = mode;
-    if (tooth!=NULL) {
-        makeCurrent();
-        update_textures_( tooth, model, obj );
-        doneCurrent();
+    if (tooth != nullptr) {
+        // Defer texture update to paintGL() to avoid makeCurrent() deadlock
+        m_pendingTooth = tooth;
+        m_pendingModel = model;
+        m_texturesChanged = true;
         update();
     }
 }
@@ -406,10 +436,11 @@ void GLWidget::setViewThreshold(double val, Tooth* tooth, Model *model)
     if (DEBUG_MODE) fprintf(stderr, "%s:%s(%lf)\n", __FILE__, __FUNCTION__, val);
 
     obj.viewThreshold = val;
-    if (tooth!=NULL) {
-        makeCurrent();
-        update_textures_( tooth, model, obj );
-        doneCurrent();
+    if (tooth != nullptr) {
+        // Defer texture update to paintGL() to avoid makeCurrent() deadlock
+        m_pendingTooth = tooth;
+        m_pendingModel = model;
+        m_texturesChanged = true;
         update();
     }
 }
@@ -486,9 +517,10 @@ void GLWidget::setRenderMode(int mode)
     if (obj.renderMode != mode) {
         clearScreen();
     }
-    makeCurrent();
-    glcore::setRenderMode(mode, obj);
-    doneCurrent();
+    // Defer GL state change to paintGL() to avoid makeCurrent() deadlock
+    m_pendingRenderMode = mode;
+    m_renderModeChanged = true;
+    update();
 }
 
 

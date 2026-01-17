@@ -52,4 +52,20 @@ class GLWidget : public QOpenGLWidget, protected QOpenGLFunctions
     private:
         GLObject obj;                       // See glcore.h for definition.
         bool allowRotations;                // If false, only object panning allowed.
+
+        // Deferred state for thread-safe updates (applied in paintGL).
+        // This avoids makeCurrent() calls outside Qt callbacks, preventing deadlocks.
+        bool m_renderModeChanged = false;
+        int m_pendingRenderMode = 0;
+
+        bool m_visualDataChanged = false;
+        ToothLife* m_pendingToothLife = nullptr;
+        int m_pendingStep = 0;
+        Model* m_pendingModel = nullptr;
+
+        bool m_texturesChanged = false;
+        Tooth* m_pendingTooth = nullptr;
+        // m_pendingModel reused for textures
+
+        void applyVisualData_();            // Apply deferred visual data (called from paintGL)
 };
