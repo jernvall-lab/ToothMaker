@@ -65,6 +65,12 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install gcc
+          # Homebrew gcc installs gfortran with version suffix (e.g., gfortran-14)
+          # Create symlink so 'gfortran' command works
+          GFORTRAN=$(ls $(brew --prefix)/bin/gfortran-* 2>/dev/null | head -1)
+          if [ -n "$GFORTRAN" ]; then
+            sudo ln -sf "$GFORTRAN" /usr/local/bin/gfortran
+          fi
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
