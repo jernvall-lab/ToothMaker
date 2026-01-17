@@ -112,7 +112,7 @@ jobs:
         run: |
           mkdir build && cd build
           qmake ../ToothMaker.pro CONFIG+=release
-          make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+          make
 
       - name: Build ToothMaker (Windows)
         if: runner.os == 'Windows'
