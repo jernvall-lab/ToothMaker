@@ -14,8 +14,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
-            name: Linux
-            artifact: ToothMaker-Linux
+            name: Linux-x64
+            artifact: ToothMaker-Linux-x64
+          - os: ubuntu-22.04-arm
+            name: Linux-ARM
+            artifact: ToothMaker-Linux-ARM
           - os: macos-12
             name: macOS-Intel
             artifact: ToothMaker-macOS-Intel
@@ -170,7 +173,7 @@ jobs:
           mkdir -p package
           cp -r build/interface/ToothMaker package/
           cp -r build/interface/Resources package/
-          cd package && tar -czvf ../ToothMaker-Linux.tar.gz .
+          cd package && tar -czvf ../ToothMaker-${{ matrix.name }}.tar.gz .
 
       - name: Package (macOS)
         if: runner.os == 'macOS'
@@ -208,7 +211,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ToothMaker-Linux.tar.gz
+          path: ToothMaker-${{ matrix.name }}.tar.gz
 
       - name: Upload artifact (macOS)
         if: runner.os == 'macOS'
