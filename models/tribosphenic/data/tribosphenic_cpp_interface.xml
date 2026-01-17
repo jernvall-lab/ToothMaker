@@ -3,7 +3,7 @@
 <Interface>
 
 <General>
-    <Name>Tribosphenic tooth (C++)</Name>
+    <Name>Tribosphenic tooth</Name>
     <DefaultParameters>BastP2.txt</DefaultParameters>
 </General>
 

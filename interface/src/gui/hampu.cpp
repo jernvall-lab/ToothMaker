@@ -397,7 +397,7 @@ void Hampu::Panel_Import(std::string file)
 
     // Now read the model parameters:
     morphomaker::Import_parameters( file,
-                                    models.at(currentModel)->getParameters() );
+                                    models.at(modelFound)->getParameters() );
     currentHistory = controlPanel->addHistory(0);
     controlPanel->setSliderMinMax(0, 1);
     setModelSettings(modelFound, 0);
