@@ -2,7 +2,10 @@
 # Builds the modular C++ version of the tooth development model
 
 CXX = g++
-CXXFLAGS = -std=c++17 -O3 -flto -ffast-math -funroll-loops -DNDEBUG
+# Note: -ffast-math removed to ensure consistent floating-point results across
+# platforms. The simulation is chaotic, so even small FP differences compound
+# into completely different trajectories, breaking cross-platform tests.
+CXXFLAGS = -std=c++17 -O3 -flto -funroll-loops -DNDEBUG
 LDFLAGS = -flto
 
 # Debug build flags (use: make debug)
@@ -56,10 +59,10 @@ test-update-reference: $(TARGET)
 	@echo "Regenerating reference files..."
 	@mkdir -p ../test/reference
 	@cd ../test && rm -rf tmp_ref && mkdir tmp_ref && cd tmp_ref && \
-		../../../bin/humppa_cpp_64bit ../mpar_1767210438.txt output.dad 900 10 >/dev/null && \
-		cp 9000_output.dad_.dad ../reference/9000_humppa.dad && \
-		../../../bin/humppa_cpp_64bit ../toothmaker_1767210438.txt output.dad 900 10 >/dev/null && \
-		cp 9000_output.dad_.dad ../reference/9000_toothmaker.dad && \
+		../../../bin/humppa_cpp_64bit ../mpar_no_umgr.txt output.dad 6000 1 >/dev/null && \
+		cp 6000_output.dad_.dad ../reference/6000_cpp_humppa.dad && \
+		../../../bin/humppa_cpp_64bit ../toothmaker_no_umgr.txt output.dad 6000 1 >/dev/null && \
+		cp 6000_output.dad_.dad ../reference/6000_cpp_toothmaker.dad && \
 		cd .. && rm -rf tmp_ref
 	@echo "Reference files updated."
 
