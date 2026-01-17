@@ -178,9 +178,12 @@ jobs:
           # Run macdeployqt to bundle Qt frameworks
           macdeployqt build/interface/ToothMaker.app
 
-          # Create zip
+          # Ad-hoc sign the app (required for Apple Silicon)
+          codesign --force --deep -s - build/interface/ToothMaker.app
+
+          # Create zip using ditto (preserves symlinks in frameworks)
           cd build/interface
-          zip -r ../../ToothMaker-${{ matrix.name }}.zip ToothMaker.app
+          ditto -c -k --keepParent ToothMaker.app ../../ToothMaker-${{ matrix.name }}.zip
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
