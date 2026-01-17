@@ -72,6 +72,10 @@ jobs:
             sudo ln -sf "$GFORTRAN" /usr/local/bin/gfortran
           fi
 
+      - name: Setup MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
