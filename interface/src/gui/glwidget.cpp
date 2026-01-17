@@ -152,6 +152,12 @@ void GLWidget::initializeGL()
     resources.cd( RESOURCES );
     glcore::initializeGL( obj, resources.path().toStdString() );
 
+    // Warm up render modes to trigger any lazy GPU driver initialization.
+    // Without this, first use of a render mode (e.g., on first "Run" click)
+    // can cause a noticeable delay as the driver initializes state.
+    glcore::setRenderMode(RENDER_HUMPPA, obj);  // Fixed-function pipeline
+    glcore::setRenderMode(RENDER_MESH, obj);    // Shader pipeline
+
     // Restore framebuffer to Qt's default FBO after glcore initialization
     // (glcore leaves it bound to a custom FBO)
     glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
