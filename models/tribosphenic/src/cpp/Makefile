@@ -2,7 +2,7 @@
 # Builds the modular C++ version of the tooth development model
 
 CXX = g++
-CXXFLAGS = -std=c++17 -O3 -march=native -flto -ffast-math -funroll-loops -DNDEBUG
+CXXFLAGS = -std=c++17 -O3 -flto -ffast-math -funroll-loops -DNDEBUG
 LDFLAGS = -flto
 
 # Debug build flags (use: make debug)
