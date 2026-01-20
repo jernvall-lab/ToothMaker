@@ -8,9 +8,9 @@
 </General>
     
 <Binary>
-    <BinaryOSX>humppa_mac</BinaryOSX>
-    <BinaryLinux>humppa_linux</BinaryLinux>
-    <BinaryWindows>humppa.exe</BinaryWindows>
+    <BinaryOSX>humppa_2010</BinaryOSX>
+    <BinaryLinux>humppa_2010</BinaryLinux>
+    <BinaryWindows>humppa_2010.exe</BinaryWindows>
     <InputStyle>Humppa</InputStyle>
     <OutputStyle>Humppa</OutputStyle>
     <OutputParser>no_empty_lines</OutputParser>

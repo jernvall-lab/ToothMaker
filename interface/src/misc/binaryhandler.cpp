@@ -329,17 +329,20 @@ int BinaryHandler::addTooth_(const int step_test)
     // assigned if the model skips over result files.
     if (outputStyle == "PLY" || outputStyle == "") {
         if (morphomaker::Read_PLY_file( fname, *tooth )) {
+            delete tooth;
             return -1;
         }
     }
     else if (outputStyle == "Matrix") {
         if (morphomaker::Read_BIN_matrix( fname, *tooth )) {
+            delete tooth;
             return -1;
         }
     }
     else if (outputStyle == "Humppa") {
         morphomaker::Read_OFF_file( fname, *tooth );
         if (morphomaker::Read_Humppa_DAD_file( step_test, stepSize, m_id, *tooth )) {
+            delete tooth;
             return -1;
         }
     }
@@ -528,54 +531,112 @@ void BinaryHandler::binaryError_(QProcess::ProcessError err)
 
 
 /**
+ * @brief Check if output file(s) exist for a given step.
+ * @param step      Step number.
+ * @return          True if file(s) exist.
+ */
+bool BinaryHandler::fileExistsForStep_(int step)
+{
+    auto files = getDataFilenames_(step, true);
+    return files.size() > 0;
+}
+
+
+
+/**
+ * @brief Find the last step that has output files.
+ * @return          Last existing step number, or -1 if none found.
+ */
+int BinaryHandler::findLastExistingStep_()
+{
+    int totalSteps = nIter / stepSize;
+    for (int s = totalSteps - 1; s >= 0; s--) {
+        if (fileExistsForStep_(s)) {
+            return s;
+        }
+    }
+    return -1;
+}
+
+
+
+/**
+ * @brief Read output for a given step and add to toothLife.
+ * @param step      Step number.
+ * @return          True if successful, false on parse error.
+ */
+bool BinaryHandler::readStep_(int step)
+{
+    return addTooth_(step) == 0;
+}
+
+
+
+/**
  * @brief Main binary tracker loop.
  *
+ * Phase 1: While model is running, use look-ahead pattern to avoid reading
+ *          files that are still being written.
+ * Phase 2: After model exits, read remaining files with timeout for each step.
+ *          If model crashed, skip the last (potentially incomplete) file.
  */
 void BinaryHandler::run()
 {
-    int step = 0;   // simulation step currently being processed
+    const int totalSteps = nIter / stepSize;
+    const int timeoutMs = 3000;
+    int step = 0;
 
-    // Process tracking loop.
-    while (m_process.state()==QProcess::Running) {
+    // Phase 1: While model is running, use look-ahead.
+    while (m_process.state() == QProcess::Running) {
         msleep(UPDATE_INTERVAL);
 
-        // Testing for the presence of the next step here, and then reading the
-        // current step only if the next already available. This to avoid reading
-        // files that are still being written.
-        auto output_files = getDataFilenames_( step+1, true );
-        if (output_files.size() > 0) {
-            // Only increment step if addTooth_ succeeds (returns 0).
-            // If it fails, we'll retry on the next iteration.
-            if (addTooth_(step) == 0) {
+        // Only read current step if next step exists (ensures current is complete).
+        if (fileExistsForStep_(step + 1)) {
+            if (readStep_(step)) {
                 step++;
             }
         }
 
-        // Per-step progress tracking:
-        currentIter = (step == 0) ? 0 : (step-1)*stepSize;
+        currentIter = (step == 0) ? 0 : (step - 1) * stepSize;
     }
 
-    // Exit if there was a crash.
-    if (retval != 0)
-        return;
-    
-    // Get the rest of the result files still in the sequence.
-    while (retval == 0) {
-        msleep(UPDATE_INTERVAL);
+    // Phase 2: Process has exited - read remaining files.
+    bool crashed = (m_process.exitStatus() == QProcess::CrashExit);
 
-        // Only proceed if addTooth_ succeeds. If it fails (e.g., .dad file
-        // not yet written), retry on the next iteration.
-        if (addTooth_(step) != 0) {
-            continue;
+    // If crashed, skip the last file (may be incomplete). Otherwise read all.
+    int maxStep = crashed ? findLastExistingStep_() - 1 : totalSteps;
+    if (maxStep < step) {
+        maxStep = step - 1;  // Don't go backwards.
+    }
+
+    while (step <= maxStep) {
+        int waited = 0;
+
+        // Wait for file to appear, with timeout.
+        while (!fileExistsForStep_(step) && waited < timeoutMs) {
+            msleep(UPDATE_INTERVAL);
+            waited += UPDATE_INTERVAL;
         }
 
-        // Check if next step exists; if so, increment and continue.
-        auto output_files = getDataFilenames_( step+1, true );
-        if (output_files.size() > 0) {
-            step++;
+        if (!fileExistsForStep_(step)) {
+            emit msgStatusBar("Error: Timed out waiting for model output at step "
+                              + std::to_string(step) + ".");
+            return;
         }
-        else {
-            break;
+
+        if (!readStep_(step)) {
+            emit msgStatusBar("Error: Failed to parse model output at step "
+                              + std::to_string(step) + ".");
+            return;
         }
+
+        step++;
+        currentIter = step * stepSize;
+    }
+
+    // Warn about non-zero exit code (but not crash - that's handled by binaryError_).
+    if (m_process.exitCode() != 0 && !crashed) {
+        emit msgStatusBar("Warning: Model exited with error code "
+                          + std::to_string(m_process.exitCode()) + ".");
     }
 }

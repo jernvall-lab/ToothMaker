@@ -89,7 +89,7 @@ ControlPanel::ControlPanel( QWidget *, std::vector<Model*> *models )
     sliderTimer->setInterval(UPDATE_INTERVAL);
     connect(sliderTimer, SIGNAL(timeout()), this, SLOT(slider_step_view()));
     sliderTimer->start();
-    // Emit slider signal to Hampy only if user inacting with the slider.
+    // Emit slider signal to Hampu only if user interacting with the slider.
     connect(develSlider, SIGNAL(sliderPressed()), this, SLOT(slider_active()));
     connect(develSlider, SIGNAL(sliderReleased()), this, SLOT(slider_inactive()));
     sliderUpdate = false;
@@ -386,6 +386,7 @@ void ControlPanel::setSliderMinMax(int min, int max)
 void ControlPanel::slider_step_view()
 {
     if (sliderUpdate) {
+        develSlider->repaint();  // Force repaint before heavy GL work
         emit changeStepView( develSlider->value() );
     }
 }
@@ -433,6 +434,16 @@ void ControlPanel::setSliderValue(int val)
 int ControlPanel::getSliderValue()
 {
     return develSlider->value();
+}
+
+
+
+/**
+ * @brief Forces immediate repaint of the slider widget.
+ */
+void ControlPanel::repaintSlider()
+{
+    develSlider->repaint();
 }
 
 

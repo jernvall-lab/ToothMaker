@@ -28,6 +28,9 @@ private:
     int setTempEnv_(const QString&);
     int setBinSettings_(const QString&, const int, const int);
     int calcProgress_(int, std::vector<long>&, int);
+    bool fileExistsForStep_(int step);
+    int findLastExistingStep_();
+    bool readStep_(int step);
 
     QProcess m_process;             // model binary process
     QTimer m_killTimer;             // timer for killing the binary after a user-defined limit

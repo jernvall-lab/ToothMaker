@@ -41,6 +41,7 @@ class ControlPanel : public QWidget
         void setSliderMinMax(int, int);
         void setSliderValue(int);
         int getSliderValue();
+        void repaintSlider();
         int addHistory(int);
         void endHistory(int);
         void removeHistory(int);
@@ -128,5 +129,5 @@ class ControlPanel : public QWidget
         int currentRunIndex;        // History entry number.
         int nIter;                  // Number of iterations.
         QTimer* sliderTimer;        // Timer for checking development slider.
-        bool sliderUpdate;         // True if user inacting with devel. slider.
+        bool sliderUpdate;          // True if user interacting with devel. slider.
 };

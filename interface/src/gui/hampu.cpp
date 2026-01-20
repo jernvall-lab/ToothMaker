@@ -432,7 +432,7 @@ void Hampu::Panel_Export(std::string file)
  * @param step      Development stage to view.
  */
 void Hampu::Panel_Development(int step)
-{    
+{
     if ( viewIntStep == step || currentHistory>=toothHistory.size() ) {
         return;
     }
@@ -450,14 +450,6 @@ void Hampu::Panel_Development(int step)
     }
 
     updateCurrentStepView_(STATUSBAR_VERBOSE);
-
-    // Guard against re-entrancy from processEvents triggering more slider updates
-    static bool inProgress = false;
-    if (!inProgress) {
-        inProgress = true;
-        QApplication::processEvents();
-        inProgress = false;
-    }
 }
 
 
@@ -925,7 +917,9 @@ void Hampu::setVisualData()
     }
 
     ToothLife *toothLife = toothHistory.at(currentHistory);
-    glwidget->clearScreen();
+    // Note: Don't call clearScreen() here - it can cause artifacts if paintGL()
+    // runs between clear and setVisualData(). The setVisualData() call already
+    // sets new data, making the clear unnecessary.
     glwidget->setVisualData(toothLife, viewIntStep, models.at(currentModel));
 }
 
@@ -1046,8 +1040,9 @@ void Hampu::updateModel()
     // iterations at finish:
     ToothLife *toothLife = toothHistory.at( toothHistory.size()-1 );
     int stepsize = models.at(toothLife->getCurrentModel())->getStepSize();
-    uint32_t last_step = toothLife->getLifeSize()-1;
-    controlPanel->endHistory( last_step*stepsize );
+    uint32_t lifeSize = toothLife->getLifeSize();
+    int lastIterations = (lifeSize > 0) ? (lifeSize - 1) * stepsize : 0;
+    controlPanel->endHistory( lastIterations );
     controlPanel->enableModelList(1);
     controlPanel->updateRunStatus("Run");
 
@@ -1057,8 +1052,8 @@ void Hampu::updateModel()
             exportModelData( -1, EXPORT_SCREENSHOTS | EXPORT_DATA, folder );
         }
         else {
-            exportModelData( last_step, EXPORT_SCREENSHOTS | EXPORT_DATA, folder );
-
+            int lastStep = (lifeSize > 0) ? lifeSize - 1 : 0;
+            exportModelData( lastStep, EXPORT_SCREENSHOTS | EXPORT_DATA, folder );
         }
         writeStatusBar("Data export complete.");
 

@@ -8,9 +8,9 @@
 </General>
     
 <Binary>
-    <BinaryOSX>humppa_translate_mac_64bit</BinaryOSX>
-    <BinaryLinux>humppa_translate_linux_64bit</BinaryLinux>
-    <BinaryWindows>humppa_translate.exe</BinaryWindows>
+    <BinaryOSX>humppa_fortran_64bit</BinaryOSX>
+    <BinaryLinux>humppa_fortran_64bit</BinaryLinux>
+    <BinaryWindows>humppa_fortran_64bit.exe</BinaryWindows>
     <InputStyle>Humppa</InputStyle>
     <OutputStyle>Humppa</OutputStyle>
     <OutputParser>dad_to_polygons</OutputParser>
