@@ -13,7 +13,6 @@
     <BinaryWindows>humppa_2010.exe</BinaryWindows>
     <InputStyle>Humppa</InputStyle>
     <OutputStyle>Humppa</OutputStyle>
-    <OutputParser>no_empty_lines</OutputParser>
     <OutputParser>dad_to_polygons</OutputParser>
     <ResultParser>top_cusp_angle</ResultParser>
 </Binary>
