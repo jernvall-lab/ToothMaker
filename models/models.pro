@@ -14,7 +14,11 @@ CONFIG += ordered
 tribosphenic.commands = $(MAKE) -C $$PWD/tribosphenic
 QMAKE_EXTRA_TARGETS += tribosphenic
 
-# Build tribosphenic after utils (as part of default target)
-first.depends = $(first) sub-utils-all-ordered tribosphenic
+# Triconodont model uses plain Makefile, not qmake
+triconodont.commands = $(MAKE) -C $$PWD/triconodont
+QMAKE_EXTRA_TARGETS += triconodont
+
+# Build models after utils (as part of default target)
+first.depends = $(first) sub-utils-all-ordered tribosphenic triconodont
 QMAKE_EXTRA_TARGETS += first
 

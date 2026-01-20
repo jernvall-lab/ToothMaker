@@ -269,6 +269,12 @@ std::vector<std::string> BinaryHandler::getDataFilenames_( int step,
     std::cout << "** Number of files to be parsed: " << files.size() << std::endl;
 */
 
+    // If no parsers are configured, use the original file directly
+    if (outputParsers.empty()) {
+        output_files.push_back(files.at(0).fileName().toStdString());
+        return output_files;
+    }
+
     // Apply parsers
     for (int i=0; i<files.size(); i++) {
         QString file = files.at(i).fileName();
@@ -282,13 +288,18 @@ std::vector<std::string> BinaryHandler::getDataFilenames_( int step,
             auto args = QProcess::splitCommand(cmd);
             process.start(args.takeFirst(), args);
             if(!process.waitForFinished( PARSER_TIMEOUT )) {
-                // TODO: Add checks for other errors, e.g., does the parser exist.
-               qDebug() << "Error: Parser" << parser << "failed to finish in"
-                        << PARSER_TIMEOUT << "msecs on file" << file <<". SKipping.";
+               qDebug() << "Error: Parser" << parser << "timed out after"
+                        << PARSER_TIMEOUT << "ms on file" << file;
                continue;
+            }
+            if (process.exitCode() != 0) {
+                qDebug() << "Warning: Parser" << parser << "returned error code"
+                         << process.exitCode() << "on file" << file;
             }
 
             // Replace the input file with the parser output if applicable.
+            // Note: dad_to_polygons writes its own output file (removes underscore
+            // from filename), so parser_out won't exist for it.
             if (QFile::exists(parser_out)) {
                 QFile::remove(file);
                 QFile::copy(parser_out, file);
@@ -297,8 +308,21 @@ std::vector<std::string> BinaryHandler::getDataFilenames_( int step,
         }
     }
 
-    // Assuming a fixed output file name for now.
+    // Return the filename that matches what dad_to_polygons parser outputs.
+    // The parser transforms "ITER_RUNID_.off" to "ITER_RUNID.off" (removes underscore).
     std::string outfile = std::to_string(iter) + "_" + run_id.toStdString() + ext;
+
+    // Check if the expected output file exists
+    QString expectedPath = run_path + QString::fromStdString(outfile);
+    if (!QFile::exists(expectedPath)) {
+        qDebug() << "Warning: Expected parser output" << expectedPath << "not found";
+        // Fall back to returning the original file if parser output doesn't exist
+        if (files.size() > 0) {
+            outfile = files.at(0).fileName().toStdString();
+            qDebug() << "Falling back to original file:" << QString::fromStdString(outfile);
+        }
+    }
+
     output_files.push_back( outfile );
 
     return output_files;
@@ -340,7 +364,10 @@ int BinaryHandler::addTooth_(const int step_test)
         }
     }
     else if (outputStyle == "Humppa") {
-        morphomaker::Read_OFF_file( fname, *tooth );
+        if (morphomaker::Read_OFF_file( fname, *tooth )) {
+            delete tooth;
+            return -1;
+        }
         if (morphomaker::Read_Humppa_DAD_file( step_test, stepSize, m_id, *tooth )) {
             delete tooth;
             return -1;

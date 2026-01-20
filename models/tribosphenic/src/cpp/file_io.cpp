@@ -662,13 +662,16 @@ void FileIO::getColorMapping(double val, double minVal, double maxVal, std::arra
         f = 0.5;
     }
 
+    // Color mapping matches dad_to_polygons output:
+    // - Undifferentiated (f < 0.07): gray
+    // - Knots (f >= 1.0): yellow
+    // - Differentiated: white
+    // Note: Original Fortran used red/orange gradient for differentiation.
     if (f < 0.07) {
-        color = {0.6, 0.6, 0.6, 0.8};
-    } else if (f < 0.2) {
-        color = {1.0, f, 0.0, 0.5};
-    } else if (f < 1.0) {
-        color = {1.0, f * 3, 0.0, 1.0};
+        color = {0.5, 0.5, 0.5, 1.0};  // Gray (undifferentiated)
+    } else if (f >= 1.0) {
+        color = {1.0, 1.0, 0.0, 1.0};  // Yellow (knots)
     } else {
-        color = {1.0, 1.0, 0.0, 1.0};
+        color = {1.0, 1.0, 1.0, 1.0};  // White (differentiated)
     }
 }

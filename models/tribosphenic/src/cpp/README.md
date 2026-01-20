@@ -263,6 +263,18 @@ The C++ `saveAsOFF()` function produces different output than the original Fortr
 
 The C++ version uses the `dad_to_polygons` algorithm instead, which fixes these issues. As a consequence, **each triangle is written twice with both orientations**. This doubles the polygon count but ensures correct rendering regardless of viewer orientation, since recovering correctly oriented triangles from the original data structure is non-trivial.
 
+#### Color Mapping Change
+
+The C++ `getColorMapping()` outputs colors that match what `dad_to_polygons` produces, rather than the original Fortran colors:
+
+| Cell State | Original Fortran | C++ / dad_to_polygons |
+|------------|------------------|----------------------|
+| Undifferentiated | Gray (0.6, 0.6, 0.6) | Gray (0.5, 0.5, 0.5) |
+| Differentiated | Red/orange gradient | White (1.0, 1.0, 1.0) |
+| Knots | Yellow (1.0, 1.0, 0.0) | Yellow (1.0, 1.0, 0.0) |
+
+The original Fortran used alpha values to encode differentiation state (alpha 0.5 for differentiated, 0.8 for undifferentiated, 1.0 for knots), which `dad_to_polygons` and `binaryhandler` would detect and recolor. The C++ version outputs the final colors directly with alpha 1.0 for all cells, eliminating the need for post-processing by `dad_to_polygons`.
+
 ### 7. DAD File Import (Not Implemented)
 
 The original Fortran code has a `llegir` subroutine that reads complete `.dad` files to restore simulation state (parameters, cell positions, neighbors, knots). This was designed for GUI use - loading saved simulations for visualization or continuing a run.
