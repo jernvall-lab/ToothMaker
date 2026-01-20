@@ -19,7 +19,7 @@ jobs:
           - os: ubuntu-22.04-arm
             name: Linux-ARM
             artifact: ToothMaker-Linux-ARM
-          - os: macos-12
+          - os: macos-13
             name: macOS-Intel
             artifact: ToothMaker-macOS-Intel
           - os: macos-14
