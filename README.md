@@ -69,8 +69,8 @@ http://dx.doi.org/10.1098/rsos.180903.
 
 ### Requirements
 
-* Qt 5.15+ (Qt 6 not yet supported)
-* GCC 7+ or Clang 5+ (C++11 support required)
+* Qt 5.15+ (Qt 6 untested)
+* GCC 7+ or Clang 5+ (C++17 support required)
 * GLEW, GLM (included in [/ext](ext/))
 * macOS 10.13+, Ubuntu 20.04+, or Windows 10+
 * OpenGL 3.0 support
