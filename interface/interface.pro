@@ -79,22 +79,29 @@ QMAKE_CXXFLAGS_X86_64  -= -arch x86_64 -Xarch_x86_64
 QMAKE_LFLAGS -= -arch x86_64 -Xarch_x86_64
 QMAKE_LFLAGS_X86_64 -= -arch x86_64 -Xarch_x86_64
 
-QMAKE_CXXFLAGS_RELEASE -= -O2
-QMAKE_CXXFLAGS_RELEASE += -O3 -std=c++17
-QMAKE_CXXFLAGS_DEBUG += -std=c++17
-
-QMAKE_CFLAGS_RELEASE -= -O2
-QMAKE_CFLAGS_RELEASE += -O3
-QMAKE_CFLAGS_DEBUG +=
+# Platform-specific compiler flags
+win32-msvc* {
+    # MSVC uses different flag syntax
+    QMAKE_CXXFLAGS_RELEASE += /std:c++17
+    QMAKE_CXXFLAGS_DEBUG += /std:c++17
+} else {
+    QMAKE_CXXFLAGS_RELEASE -= -O2
+    QMAKE_CXXFLAGS_RELEASE += -O3 -std=c++17
+    QMAKE_CXXFLAGS_DEBUG += -std=c++17
+    QMAKE_CFLAGS_RELEASE -= -O2
+    QMAKE_CFLAGS_RELEASE += -O3
+}
 
 QMAKE_FLAGS +=
 unix:!macx: QMAKE_LFLAGS += -rdynamic
 
 unix:!macx: LIBS += -lX11
-# Windows: Link OpenGL and GLEW
+# Windows: Compile GLEW from source (statically linked)
 win32 {
-    LIBS += -lopengl32 -lglew32
-    INCLUDEPATH += ../ext/GLEW/include
+    SOURCES += ../ext/GLEW/glew.c
+    DEFINES += GLEW_STATIC
+    LIBS += -lopengl32
+    INCLUDEPATH += ../ext/GLEW
 }
 
 # On macOS, we need OpenGL framework but not the deprecated AGL framework
