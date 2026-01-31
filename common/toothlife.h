@@ -66,7 +66,7 @@ public:
     int getLifeSize()
     {
         std::lock_guard<std::mutex> lock(m_mtx);
-        return m_teeth.size();
+        return static_cast<int>(m_teeth.size());
     }
 
     // Get model index.

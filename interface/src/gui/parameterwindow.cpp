@@ -59,13 +59,13 @@ void ParameterWindow::setParameters( Parameters& par )
 {
     auto& parameters = par.getParameters();
 
-    size_t n = parameters.size();
+    int n = static_cast<int>(parameters.size());
     fileLabels_.resize(n);
     valueFields_.resize(n);
     checkboxes_.resize(n);
     buttons_.resize(n);
 
-    for (size_t i=0; i<parameters.size(); i++) {
+    for (int i=0; i<n; i++) {
         auto& p = parameters.at(i);
 
         names_.push_back( p.name.c_str() );
@@ -78,7 +78,7 @@ void ParameterWindow::setParameters( Parameters& par )
             // TODO: These should be defined in the header or so.
             int button_width = 65;
             if (p.name.length() > 5)
-                button_width = 6 * p.name.length() + 35;
+                button_width = static_cast<int>(6 * p.name.length() + 35);
 
             createButton_( x, y + BUTTON_V_PADDING, i, button_width, !p.hidden );
             x = x + button_width + FIELD_H_PADDING;

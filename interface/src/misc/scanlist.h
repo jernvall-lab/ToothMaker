@@ -37,7 +37,7 @@ class ScanList
         int getViewMode()                           { return viewMode; }
 
         // Returns the number of scan items in the queue.
-        int getScanQueueSize()                      { return scanQueue.size(); }
+        int getScanQueueSize()                      { return static_cast<int>(scanQueue.size()); }
 
         // Add a model view orientation for rendering output.
         void addOrientation( std::string name )     { orientations.push_back(name); }

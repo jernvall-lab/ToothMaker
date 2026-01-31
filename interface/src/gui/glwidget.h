@@ -1,5 +1,10 @@
 #pragma once
 
+// On Windows, GLEW must be included before any Qt OpenGL headers
+#if defined(_WIN32)
+#include <GL/glew.h>
+#endif
+
 #include <QtGui>
 #include <QOpenGLWidget>
 #include <QOpenGLFunctions>
