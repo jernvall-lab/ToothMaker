@@ -435,10 +435,10 @@ int glcore::createGLContext()
     WNDCLASS wc = {0};
     wc.lpfnWndProc = DefWindowProc;
     wc.hInstance = GetModuleHandle(NULL);
-    wc.lpszClassName = "GLContextClass";
+    wc.lpszClassName = L"GLContextClass";
     RegisterClass(&wc);
 
-    HWND hwnd = CreateWindow(wc.lpszClassName, "GL Context", 0, 0, 0, 1, 1,
+    HWND hwnd = CreateWindow(wc.lpszClassName, L"GL Context", 0, 0, 0, 1, 1,
                               NULL, NULL, wc.hInstance, NULL);
     if (!hwnd) {
         fprintf(stderr, "Error: Failed to create window for GL context.\n");
