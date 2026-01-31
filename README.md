@@ -99,15 +99,14 @@ to make a self-contained bundle.
 
 ### Models
 
-As of ToothMaker 0.8.0 (or when built from source), two versions of the 2014 'Tribosphenic' tooth model are included:
+Three tooth models are included:
 
-* **Tribosphenic tooth (C++)** - A C++ translation of the original Fortran code. This is the recommended version as it runs faster and is easier to maintain. In tests, the C++ version produces numerically equivalent output to the Fortran version.
-* **Tribosphenic tooth (Fortran/legacy)** - The original Fortran 90 implementation, included for reference and validation.
-
-The 2010 'Triconodont' model is also included for completeness, though for all practical purposes, the 2014 version is a superset of the 2010 version.
+* **Tribosphenic tooth** - The 2014 model for tribosphenic tooth morphologies. This is a C++ translation of the original Fortran code and is the recommended version. It runs faster and produces numerically equivalent output to the Fortran version.
+* **Tribosphenic tooth (Fortran/legacy)** - The original Fortran 90 implementation of the 2014 model, included for reference and validation.
+* **Triconodont tooth** - The 2010 model for triconodont tooth morphologies. For most purposes, the Tribosphenic model is a superset of this model.
 
 Model binaries are built automatically when building ToothMaker.
 
 ### Windows
 
-Windows port hasn't been maintained for some time. Building with the standard Qt package should work, though some small changes to the code may be required (such as fixing header includes).
+Windows builds are provided via GitHub Actions but are currently untested. Building from source requires Qt 5.15, MSVC, and MinGW (for gfortran).
