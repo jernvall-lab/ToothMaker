@@ -1,5 +1,10 @@
 #pragma once
 
+// On Windows, GLEW must be included before any Qt headers that may pull in gl.h
+#if defined(_WIN32)
+#include <GL/glew.h>
+#endif
+
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QStatusBar>
