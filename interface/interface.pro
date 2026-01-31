@@ -100,7 +100,7 @@ unix:!macx: LIBS += -lX11
 win32 {
     SOURCES += ../ext/GLEW/glew.c
     DEFINES += GLEW_STATIC
-    LIBS += -lopengl32
+    LIBS += -lopengl32 -luser32 -lgdi32
     INCLUDEPATH += ../ext/GLEW
 }
 
