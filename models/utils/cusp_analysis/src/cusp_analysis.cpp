@@ -59,8 +59,12 @@ int parse_off(const std::string& filename, Mesh& mesh)
         return -1;
     }
 
+    // Skip comment lines (starting with '#') before the OFF/COFF header.
     std::string header;
-    std::getline(in, header);
+    while (std::getline(in, header)) {
+        if (!header.empty() && header[0] != '#')
+            break;
+    }
     if (header.find("OFF") == std::string::npos) {
         std::cerr << "Error: Not an OFF file: " << filename << std::endl;
         return -1;
