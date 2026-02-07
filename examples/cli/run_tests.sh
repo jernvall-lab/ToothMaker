@@ -8,7 +8,7 @@
 # Per model, 6 tests are run:
 #   1. job_parameters.txt    (exact match)
 #   2. top_cusp_angles.txt   (sorted comparison)
-#   3. local_maxima.txt      (sorted comparison)
+#   3. local_maxima.txt      (tolerance comparison, handles Y sign ambiguity)
 #   4. cuspA_baseline.txt    (tolerance comparison, handles Y sign ambiguity)
 #   5. data/ directory       (subdirectory names, file counts, extensions)
 #   6. screenshots/          (exact filename listing)
@@ -133,17 +133,32 @@ run_model_tests() {
         fi
     fi
 
-    # Test 3: local_maxima.txt (sorted)
+    # Test 3: local_maxima.txt (tolerance, abs Y for sign ambiguity)
     echo "TEST ${test_num}.3: local_maxima.txt"
     if [ ! -f local_maxima.txt ]; then
         fail "file not found"
     else
         tail -n +2 local_maxima.txt | LC_ALL=C sort > "$work/_lm_test.txt"
         tail -n +2 "$ref/local_maxima.txt" | LC_ALL=C sort > "$work/_lm_ref.txt"
-        if diff "$work/_lm_test.txt" "$work/_lm_ref.txt" >/dev/null 2>&1; then
-            pass
+
+        local test_lines=$(wc -l < "$work/_lm_test.txt" | tr -d ' ')
+        local ref_lines=$(wc -l < "$work/_lm_ref.txt" | tr -d ' ')
+
+        if [ "$test_lines" != "$ref_lines" ]; then
+            fail "line count: $test_lines vs $ref_lines"
+        elif paste "$work/_lm_test.txt" "$work/_lm_ref.txt" | awk -v tol="$TOLERANCE" '
+            {
+                if ($1 != $5) { exit 1 }
+                dx = $2 - $6; if (dx < 0) dx = -dx
+                ay1 = $3; if (ay1 < 0) ay1 = -ay1
+                ay2 = $7; if (ay2 < 0) ay2 = -ay2
+                dy = ay1 - ay2; if (dy < 0) dy = -dy
+                dz = $4 - $8; if (dz < 0) dz = -dz
+                if (dx > tol || dy > tol || dz > tol) exit 1
+            }'; then
+            pass "tol=$TOLERANCE, abs(Y)"
         else
-            fail "content mismatch"
+            fail "values exceed tolerance ($TOLERANCE)"
         fi
     fi
 
