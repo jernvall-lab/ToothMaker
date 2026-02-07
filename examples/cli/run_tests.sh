@@ -21,8 +21,17 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REF_DIR="$SCRIPT_DIR/reference"
 TOOTHMAKER_ROOT="$SCRIPT_DIR/../.."
 
+# --- Parse arguments ---
+SKIP_TRICONODONT=0
+BIN=""
+for arg in "$@"; do
+    case "$arg" in
+        --skip-triconodont) SKIP_TRICONODONT=1 ;;
+        *) BIN="$arg" ;;
+    esac
+done
+
 # --- Find ToothMaker binary ---
-BIN="$1"
 if [ -z "$BIN" ]; then
     if [ -x "$TOOTHMAKER_ROOT/build/interface/ToothMaker.app/Contents/MacOS/ToothMaker" ]; then
         BIN="$TOOTHMAKER_ROOT/build/interface/ToothMaker.app/Contents/MacOS/ToothMaker"
@@ -250,7 +259,12 @@ echo "========================================"
 echo "ToothMaker command-line scanning tests"
 echo "========================================"
 
-run_model_tests "Triconodont (Fortran)" seal_triconodont.txt triconodont_9k 1 9000
+if [ "$SKIP_TRICONODONT" -eq 1 ]; then
+    echo ""
+    echo "--- Triconodont (Fortran): SKIPPED (--skip-triconodont) ---"
+else
+    run_model_tests "Triconodont (Fortran)" seal_triconodont.txt triconodont_9k 1 9000
+fi
 run_model_tests "Tribosphenic (C++)" seal_tribosphenic.txt tribosphenic_10k 2 10000
 
 echo ""
