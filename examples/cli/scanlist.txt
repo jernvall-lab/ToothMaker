@@ -1,0 +1,5 @@
+ViewMode==1
+orientation==Occlusal,Buccal
+# Parameter scan list:
+Act==0.7:0.4:1.5
+Inh==20:6:26

@@ -72,6 +72,10 @@ void GLEngine::setVisualData(ToothLife *toothlife, int step, Model *model)
     if (DEBUG_MODE) fprintf(stderr, "%s():\n", __FUNCTION__);
 
     Tooth *tooth = toothlife->getTooth(step-1);
+    if (tooth == nullptr) {
+        fprintf(stderr, "Error: No data available at step %d.\n", step);
+        return;
+    }
 
     if (tooth->get_tooth_type() == RENDER_HUMPPA) {
         glcore::setVisualData( &(tooth->get_cell_data()), obj,

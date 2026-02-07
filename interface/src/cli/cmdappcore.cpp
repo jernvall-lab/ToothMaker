@@ -22,7 +22,6 @@
 #include "misc/binaryhandler.h"
 #include "utils/readparameters.h"
 #include "utils/readxml.h"
-#include "utils/writedata.h"
 #include "misc/loader.h"
 
 
@@ -122,6 +121,14 @@ void CmdAppCore::updateModel()
     fprintf(stdout, "\n");
 
     Model* model = models.at( modelId );
+
+    if (toothLife->getLifeSize() == 0) {
+        fprintf(stderr, "Error: No simulation data available. Skipping rendering.\n");
+        delete toothLife;
+        scanParameters();
+        return;
+    }
+
     glengine->setRenderMode( model->getRenderMode() );
     glengine->setVisualData( toothLife, toothLife->getLifeSize(), model );
 
@@ -175,21 +182,8 @@ void CmdAppCore::updateModel()
     // Copy simulation output files to the target folder.
     model->exportData( run_id, folder );
 
-    if (model->getRenderMode() == RENDER_HUMPPA) {
-        // TODO: Model specific stuff like the following belongs to
-        // result parsers, not here.
-        Tooth* tooth = toothLife->getTooth( toothLife->getLifeSize()-1 );
-
-        QString file = runDir + "/local_maxima.txt";
-        morphomaker::Export_local_maxima( *tooth, file.toStdString(),
-                                          par_id.toStdString() );
-        file = runDir + "/cuspA_baseline.txt";
-        morphomaker::Export_main_cusp_baseline( *tooth, file.toStdString(),
-                                                par_id.toStdString() );
-    }
-
-    // Apply result parsers on the output files at the export folder.
-    model->runResultParsers( runDir );
+    // Run result parsers (cusp analysis, etc.) on the exported data.
+    model->runResultParsers( runDir, par_id, folder );
 
     if (expImg) {
         progressTimer->stop();
@@ -223,7 +217,7 @@ void CmdAppCore::runModel()
     int stepsize = model->getStepSize();
 
     models.at(modelId)->init_model( QString(systemTempPath.c_str()), 1,
-                                    *toothLife, nIter, stepsize, time(NULL), -1 );
+                                    *toothLife, nIter, stepsize, run_id, -1 );
     timeStart = model->start_model();
 }
 

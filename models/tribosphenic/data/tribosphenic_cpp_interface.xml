@@ -13,7 +13,7 @@
     <BinaryWindows>humppa_cpp_64bit.exe</BinaryWindows>
     <InputStyle>Humppa</InputStyle>
     <OutputStyle>Humppa</OutputStyle>
-    <ResultParser>top_cusp_angle</ResultParser>
+    <ResultParser>cusp_analysis</ResultParser>
 </Binary>
 
 <Controls>

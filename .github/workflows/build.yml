@@ -176,6 +176,20 @@ jobs:
           }
 
       #
+      # Run CLI scanning tests
+      #
+      - name: Run CLI tests (macOS)
+        if: runner.os == 'macOS'
+        working-directory: build
+        run: make test
+
+      - name: Run CLI tests (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y xvfb
+          xvfb-run examples/cli/run_tests.sh build/interface/ToothMaker
+
+      #
       # Package artifacts
       #
       - name: Package (Linux)

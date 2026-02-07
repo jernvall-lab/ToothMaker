@@ -2,21 +2,25 @@
  * @class BinaryHandler
  * @brief Handler for binary/script models.
  *
- * Takes care of starting and killing models and tracks their progress.
+ * Manages simulation binary execution, output file reading, and result parsing.
+ * Uses an OutputReader helper for file I/O and a state machine (RunState) to
+ * track execution progress.
  *
- * Calling run_binary() executes the binary/script and start progress tracker.
+ * Threading:
+ * - init_model(), start_model(), stop_model() run in the main thread.
+ * - run() runs in a worker thread (QThread).
+ * - binaryFinished_() and binaryError_() are slots called in the main thread.
  *
+ * Note: init_model() changes the process-wide working directory to the run folder
+ * because Read_Humppa_DAD_file() and Read_OFF_file() use CWD-relative paths.
  */
 
 #include <iostream>
-#include <sstream>
-#include <cmath>
 #include <ctime>
 
 #include <QDir>
 #include <QCoreApplication>
 #include <QTextStream>
-#include <QTime>
 #include <QDebug>
 
 #include "misc/binaryhandler.h"
@@ -25,6 +29,224 @@
 #include "morphomaker.h"
 
 
+
+// ============================================================================
+//  OutputReader
+// ============================================================================
+
+void OutputReader::configure(const QString& runPath, int runId, int stepSize,
+                             int renderMode, const QString& outputStyle,
+                             const std::vector<QString>& parsers)
+{
+    m_runPath = runPath;
+    m_runId = runId;
+    m_stepSize = stepSize;
+    m_renderMode = renderMode;
+    m_outputStyle = outputStyle;
+    m_parsers = parsers;
+}
+
+
+
+QString OutputReader::getExtension_() const
+{
+    if (m_outputStyle == "PLY" || m_outputStyle == "")
+        return ".ply";
+    if (m_outputStyle == "Matrix")
+        return ".txt";
+    if (m_outputStyle == "Humppa")
+        return ".off";
+    return "";
+}
+
+
+
+/**
+ * @brief Find model output files matching the expected pattern for a step.
+ * @param step  Step number (1-based; iteration = step * stepSize).
+ * @return List of matching files.
+ */
+QFileInfoList OutputReader::findOutputFiles_(int step) const
+{
+    QString ext = getExtension_();
+    if (ext.isEmpty())
+        return {};
+
+    int iter = step * m_stepSize;
+    QString pattern = QString::number(iter) + "*"
+                      + QString::number(m_runId) + "*" + ext;
+    QDir qdir(m_runPath);
+    return qdir.entryInfoList(QStringList(pattern), QDir::Files);
+}
+
+
+
+bool OutputReader::fileExistsForStep(int step) const
+{
+    return !findOutputFiles_(step).isEmpty();
+}
+
+
+
+/**
+ * @brief Find the last step that has output files.
+ * @param totalSteps    Total expected steps (nIter / stepSize).
+ * @return Step number of last existing output, or -1 if none found.
+ */
+int OutputReader::findLastExistingStep(int totalSteps) const
+{
+    for (int s = totalSteps; s >= 1; s--) {
+        if (fileExistsForStep(s))
+            return s;
+    }
+    return -1;
+}
+
+
+
+/**
+ * @brief Apply output parsers to a model output file.
+ *
+ * Runs each parser in sequence. Parsers that write to the specified output
+ * file have their output substituted in. For parsers like dad_to_polygons
+ * that produce their own output filename (ITER_RUNID_.off -> ITER_RUNID.off),
+ * the transformed filename is detected and returned.
+ *
+ * @param originalFile  Original output filename (relative to run path).
+ * @param step          Step number.
+ * @return Final filename after parsers, or empty string on failure.
+ */
+QString OutputReader::applyParsers_(const QString& originalFile, int step)
+{
+    if (m_parsers.empty())
+        return originalFile;
+
+    QString currentFile = originalFile;
+
+    for (auto& parser : m_parsers) {
+        QString parserOut = "parser_tmp_" + QString::number(m_runId) + ".txt";
+        QString parserPath = QDir::toNativeSeparators(
+            QDir(m_runPath + "/../bin").filePath(parser));
+        QString cmd = "\"" + parserPath + "\" " + currentFile + " " + parserOut;
+
+        QProcess process;
+        process.setWorkingDirectory(m_runPath);
+        auto args = QProcess::splitCommand(cmd);
+        process.start(args.takeFirst(), args);
+
+        if (!process.waitForFinished(PARSER_TIMEOUT)) {
+            qWarning() << "Parser" << parser << "timed out on" << currentFile;
+            continue;
+        }
+        if (process.exitCode() != 0) {
+            qWarning() << "Parser" << parser << "returned error code"
+                       << process.exitCode() << "on" << currentFile;
+        }
+
+        // If parser wrote to our specified output file, swap it in.
+        // Note: dad_to_polygons ignores the output argument and writes its own
+        // file (removes trailing underscore), so parserOut won't exist for it.
+        QString parserOutPath = m_runPath + "/" + parserOut;
+        if (QFile::exists(parserOutPath)) {
+            QFile::remove(m_runPath + "/" + currentFile);
+            QFile::copy(parserOutPath, m_runPath + "/" + currentFile);
+            QFile::remove(parserOutPath);
+        }
+    }
+
+    // Check for dad_to_polygons-style output: "ITER_RUNID_.off" -> "ITER_RUNID.off".
+    int iter = step * m_stepSize;
+    QString ext = getExtension_();
+    QString transformedFile = QString::number(iter) + "_"
+                              + QString::number(m_runId) + ext;
+    if (QFile::exists(m_runPath + "/" + transformedFile))
+        return transformedFile;
+
+    // Fall back to original if no transformation happened.
+    if (QFile::exists(m_runPath + "/" + currentFile))
+        return currentFile;
+
+    qWarning() << "No valid output file after parsers for step" << step;
+    return "";
+}
+
+
+
+/**
+ * @brief Read output file(s) for a step and create a Tooth object.
+ * @param step  Step number (1-based; iteration = step * stepSize).
+ * @return Result with success flag, Tooth pointer (caller owns), and error message.
+ */
+OutputReader::Result OutputReader::readStep(int step)
+{
+    Result result = { false, nullptr, "" };
+
+    QFileInfoList files = findOutputFiles_(step);
+    if (files.isEmpty()) {
+        result.errorMsg = QString("No output file for step %1 (iter %2)")
+                          .arg(step).arg(step * m_stepSize);
+        return result;
+    }
+
+    QString fname = files.at(0).fileName();
+
+    // Apply parser pipeline if configured.
+    if (!m_parsers.empty()) {
+        fname = applyParsers_(fname, step);
+        if (fname.isEmpty()) {
+            result.errorMsg = "Parser pipeline failed at step "
+                              + QString::number(step);
+            return result;
+        }
+    }
+
+    // Create tooth and read data.
+    Tooth* tooth = new Tooth(m_renderMode);
+
+    if (m_outputStyle == "PLY" || m_outputStyle == "") {
+        if (morphomaker::Read_PLY_file(fname.toStdString(), *tooth)) {
+            delete tooth;
+            result.errorMsg = "Failed to read PLY file: " + fname;
+            return result;
+        }
+    }
+    else if (m_outputStyle == "Matrix") {
+        if (morphomaker::Read_BIN_matrix(fname.toStdString(), *tooth)) {
+            delete tooth;
+            result.errorMsg = "Failed to read matrix file: " + fname;
+            return result;
+        }
+    }
+    else if (m_outputStyle == "Humppa") {
+        if (morphomaker::Read_OFF_file(fname.toStdString(), *tooth)) {
+            delete tooth;
+            result.errorMsg = "Failed to read OFF file: " + fname;
+            return result;
+        }
+        if (morphomaker::Read_Humppa_DAD_file(step, m_stepSize, m_runId, *tooth)) {
+            delete tooth;
+            result.errorMsg = "Failed to read DAD file at step "
+                              + QString::number(step);
+            return result;
+        }
+    }
+    else {
+        delete tooth;
+        result.errorMsg = "Unknown output style: " + m_outputStyle;
+        return result;
+    }
+
+    result.success = true;
+    result.tooth = tooth;
+    return result;
+}
+
+
+
+// ============================================================================
+//  BinaryHandler
+// ============================================================================
+
 BinaryHandler::BinaryHandler() : Model()
 {
     connect(&m_process, SIGNAL(finished(int)), this, SLOT(binaryFinished_()));
@@ -32,10 +254,22 @@ BinaryHandler::BinaryHandler() : Model()
             SLOT(binaryError_(QProcess::ProcessError)));
     connect(&m_process, SIGNAL(started()), this, SLOT(start()));
 
-    m_timeLimit = -1;   // by default allowing the binary to run forever (-1)
+    // Kill timer: connected once here, started/stopped per run.
+    connect(&m_killTimer, &QTimer::timeout, this, [this]() {
+        if (m_process.state() == QProcess::Running) {
+            m_error = RunError::ProcessTimeout;
+            stop_model();
+        }
+    });
+
+    m_timeLimit = -1;
     m_id = 0;
     m_toothLife = nullptr;
+    m_killedByUser = false;
+    m_state = RunState::Idle;
+    m_error = RunError::None;
 }
+
 
 
 BinaryHandler::~BinaryHandler()
@@ -43,19 +277,21 @@ BinaryHandler::~BinaryHandler()
 }
 
 
+
 /**
  * @brief Initialize binary model.
- * @param temp_path     System temporary folder.
- * @param max_cores     Maximum number of CPU cores (not used).
- * @param tlife         Toothlife object for results.
- * @param num_iter      Number of iterations.
- * @param step_size     Step size.
- * @param id            Unique run ID.
- * @return              0 if success, else -1.
+ *
+ * Sets up the temporary environment, exports parameters, configures the
+ * command line, and prepares the OutputReader.
+ *
+ * Changes the process-wide working directory to the run folder. This is
+ * required because Read_Humppa_DAD_file() and Read_OFF_file() resolve
+ * filenames relative to CWD.
  */
 int BinaryHandler::init_model(const QString& temp_path, const int max_cores,
                               ToothLife& tlife, const int num_iter,
-                              const int step_size, const int id, const int timeLimit)
+                              const int step_size, const int id,
+                              const int timeLimit)
 {
     (void)max_cores;
     m_binary = QString(modelBin.c_str());
@@ -63,32 +299,36 @@ int BinaryHandler::init_model(const QString& temp_path, const int max_cores,
     m_timeLimit = timeLimit;
     m_toothLife = &tlife;
     systemTempPath = temp_path;
+    m_state = RunState::Idle;
+    m_error = RunError::None;
 
     setTempEnv_(temp_path);
 
-    QDir qdir;
-    qdir.setCurrent(temp_path);
+    // Create run folder.
     QString run_folder = QString::number(m_id);
-    qdir.mkdir(run_folder);
-    qdir.setCurrent(run_folder);
+    m_runPath = temp_path + "/" + run_folder;
+    QDir().mkpath(m_runPath);
 
-    QString parfile;
-    QTextStream str;
-    str.setString(&parfile);
-    str << temp_path << "/" << run_folder << "/mpar_" << m_id << ".txt";
-    int rv = morphomaker::Export_parameters( parameters, parfile.toStdString(),
-                                             inputStyle );
+    // Set CWD to run folder (see class doc for why).
+    QDir::setCurrent(m_runPath);
+
+    // Export parameters to the run folder.
+    QString parfile = m_runPath + "/mpar_" + QString::number(m_id) + ".txt";
+    int rv = morphomaker::Export_parameters(parameters, parfile.toStdString(),
+                                            inputStyle);
     if (rv) {
         return -1;
     }
     stepSize = step_size;
     nIter = num_iter;
 
-    // Can't send the parameter file with the full path to the binary,
-    // as some programs have difficulties with long arguments.
-    parfile = "";
-    str << "mpar_" << m_id << ".txt";
-    setBinSettings_( parfile, num_iter, step_size );
+    // Build command line (uses short par filename; binary runs in CWD).
+    QString shortParfile = "mpar_" + QString::number(m_id) + ".txt";
+    setBinSettings_(shortParfile, num_iter, step_size);
+
+    // Configure the output reader with a single, consistent run ID.
+    m_reader.configure(m_runPath, m_id, step_size, renderMode,
+                       outputStyle, outputParsers);
 
     return 0;
 }
@@ -96,9 +336,8 @@ int BinaryHandler::init_model(const QString& temp_path, const int max_cores,
 
 
 /**
- * @brief Call to start the model.
- * @param timeLimit     Maximum run time in ms after which the binary will be killed.
- * @return              Starting time or -1 if errors.
+ * @brief Start the model binary.
+ * @return Start time (unix timestamp), or -1 on error.
  */
 int BinaryHandler::start_model()
 {
@@ -107,42 +346,44 @@ int BinaryHandler::start_model()
     }
 
     retval = 0;
-    m_process.setProcessChannelMode( QProcess::ForwardedChannels );
+    m_state = RunState::Running;
+    m_error = RunError::None;
     m_killedByUser = false;
+
+    m_process.setProcessChannelMode(QProcess::ForwardedChannels);
+    m_process.setWorkingDirectory(m_runPath);
+
     qDebug().nospace() << "Executing " << m_cmd;
     auto args = QProcess::splitCommand(m_cmd);
     m_process.start(args.takeFirst(), args);
 
-    m_killTimer.setInterval(m_timeLimit);
-    QObject::connect(&m_killTimer, &QTimer::timeout, [&]() {
-        if (m_process.state() == QProcess::Running) {
-            stop_model();
-        }
-    });
-    m_killTimer.start();
+    // Start kill timer only if a positive time limit is set.
+    if (m_timeLimit > 0) {
+        m_killTimer.setInterval(m_timeLimit);
+        m_killTimer.start();
+    }
 
-
-    return time(NULL);
+    return time(nullptr);
 }
 
 
 
 /**
- * @brief Call to kill the running model.
+ * @brief Kill the running model.
  */
 void BinaryHandler::stop_model()
 {
-    if ( m_process.state() == QProcess::NotRunning ) {
+    if (m_process.state() == QProcess::NotRunning) {
         return;
     }
 
     m_killedByUser = true;
+    m_state = RunState::Cancelled;
 
     qDebug().nospace() << "Asking " << m_process.program() << " to exit.";
     int timeout = 100;
     m_process.terminate();
-    bool state = m_process.waitForFinished( timeout );
-    if (state) {
+    if (m_process.waitForFinished(timeout)) {
         qDebug() << m_process.program() << "exited gracefully.";
         return;
     }
@@ -157,58 +398,47 @@ void BinaryHandler::stop_model()
 
 
 /**
- * @brief Given a tooth object returns mesh with colors according to the current
- * view mode and view threshold.
- * @param tooth     Tooth object.
- * @return          Mesh with updated colors.
+ * @brief Returns mesh with view-mode-appropriate vertex colors (Humppa models).
  */
-Mesh& BinaryHandler::fill_mesh( Tooth& tooth )
+Mesh& BinaryHandler::fill_mesh(Tooth& tooth)
 {
     Mesh& mesh = tooth.get_mesh();
     if (outputStyle != "Humppa") {
         return mesh;
     }
 
-    // The following is specific to Humppa.
-    // For view_mode=0 use the default tooth color, view_mode=1 uses the vertex
-    // colors given in the output .off file, view_mode>1 use the morphogen
-    // concentrations stored as cell data.
+    // View mode: 0 = shape only, 1 = differentiation & knots, 2+ = morphogen.
+    int view_mode = atof(parameters->getKey(PARKEY_VIEWMODE).c_str());
+    double view_thresh = atof(parameters->getKey(PARKEY_VIEWTHRESH).c_str());
+    auto& colors = mesh.get_vertex_colors(1);   // Original vertex colors.
+    auto& cell_data = tooth.get_cell_data();
 
-    int view_mode = atof( parameters->getKey(PARKEY_VIEWMODE).c_str() );
-    double view_thresh = atof( parameters->getKey(PARKEY_VIEWTHRESH).c_str() );
-    // Get the original vertex colors stored in alt_colors ('1' for argument).
-    auto& colors = mesh.get_vertex_colors(1);
-    auto& cell_data = tooth.get_cell_data();    // Morphogen concentrations.
-
-    for ( uint32_t i=0; i<colors.size(); i++ ) {
+    for (uint32_t i = 0; i < colors.size(); i++) {
         mesh::vertex_color color = { DEFAULT_TOOTH_COL, DEFAULT_TOOTH_COL,
                                      DEFAULT_TOOTH_COL, 1.0 };
 
-        if ( view_mode == 0 ) {     // Mode: Shape only
-        }
-
-        if ( view_mode == 1 ) {     // Mode: Diff & knots.
+        if (view_mode == 1) {
             // White for differentiated cells.
-            if ( colors.at(i).a > 0.0 && colors.at(i).a < 0.6 ) {
+            if (colors.at(i).a > 0.0 && colors.at(i).a < 0.6) {
                 color = { 1.0, 1.0, 1.0, 1.0 };
             }
             // Keep knots colored as in the .off file (yellow).
-            if ( colors.at(i).a >= 0.6 ) {
+            if (colors.at(i).a >= 0.6) {
                 color = { colors.at(i).r, colors.at(i).g,
                           colors.at(i).b, colors.at(i).a };
             }
         }
 
-        if ( cell_data.size() > i && view_mode > 1 ) {
+        if (cell_data.size() > i && view_mode > 1) {
             // Red for morphogen levels above view_thresh.
             auto data = cell_data.at(i);
-            uint16_t j = view_mode-2;
-            if ( data.size() > j && data.at(j) > view_thresh ) {
+            uint16_t j = view_mode - 2;
+            if (data.size() > j && data.at(j) > view_thresh) {
                 color = { 1.0, 0.0, 0.0, 1.0 };
             }
         }
 
-        mesh.set_vertex_color( i, color );
+        mesh.set_vertex_color(i, color);
     }
 
     return mesh;
@@ -217,190 +447,14 @@ Mesh& BinaryHandler::fill_mesh( Tooth& tooth )
 
 
 /**
- * @brief Apply output parsers, return the next expected model output file name(s).
- * @param step          Step number to search the files for.
- * @param test_only     If true, only tests if the expected output file exists.
- * @return              Vector containing the output file name(s).
- */
-std::vector<std::string> BinaryHandler::getDataFilenames_( int step,
-                                                           bool test_only )
-{
-    std::vector<std::string> output_files;
-    QString run_id = QString::number( m_toothLife->getID() );
-    QString run_path = systemTempPath + "/" + run_id + "/";
-    QDir qdir(run_path);
-
-    std::string ext = "";
-    if (outputStyle == "PLY" || outputStyle == "")
-        ext = ".ply";
-    else if (outputStyle == "Matrix")
-        ext = ".txt";
-    else if (outputStyle == "Humppa")
-        ext = ".off";
-    else
-        return output_files;
-
-    //
-    // TODO: Imnplement control of output file names.
-    //
-
-    // Note: allowing for some room in the input file name:
-    int iter = step*stepSize;
-    QString target = QString::number(iter) + "*" + run_id + "*"
-                     + QString(ext.c_str());
-    QStringList filter;
-    filter << target;
-    QFileInfoList files = qdir.entryInfoList( filter, QDir::Files );
-
-    if (files.size() == 0)
-        return output_files;
-
-    if (test_only) {
-        for (auto file : files) {
-            output_files.push_back( file.fileName().toStdString() );
-        }
-        return output_files;
-    }
-
-/*
-    std::cout << std::endl;
-    std::cout << "** Running parsers in " << run_path.toStdString() << std::endl;
-    std::cout << "** Parser target " << target.toStdString() << std::endl;
-    std::cout << "** Number of files to be parsed: " << files.size() << std::endl;
-*/
-
-    // If no parsers are configured, use the original file directly
-    if (outputParsers.empty()) {
-        output_files.push_back(files.at(0).fileName().toStdString());
-        return output_files;
-    }
-
-    // Apply parsers
-    for (int i=0; i<files.size(); i++) {
-        QString file = files.at(i).fileName();
-
-        for (auto& parser : outputParsers) {
-            QString parser_out = "parser_tmp_" + run_id + ".txt";
-            QString parserPath = QDir::toNativeSeparators(QDir("../bin").filePath(parser));
-            QString cmd = parserPath + " " + file + " " + parser_out;
-
-            QProcess process;
-            auto args = QProcess::splitCommand(cmd);
-            process.start(args.takeFirst(), args);
-            if(!process.waitForFinished( PARSER_TIMEOUT )) {
-               qDebug() << "Error: Parser" << parser << "timed out after"
-                        << PARSER_TIMEOUT << "ms on file" << file;
-               continue;
-            }
-            if (process.exitCode() != 0) {
-                qDebug() << "Warning: Parser" << parser << "returned error code"
-                         << process.exitCode() << "on file" << file;
-            }
-
-            // Replace the input file with the parser output if applicable.
-            // Note: dad_to_polygons writes its own output file (removes underscore
-            // from filename), so parser_out won't exist for it.
-            if (QFile::exists(parser_out)) {
-                QFile::remove(file);
-                QFile::copy(parser_out, file);
-                QFile::remove(parser_out);
-            }
-        }
-    }
-
-    // Return the filename that matches what dad_to_polygons parser outputs.
-    // The parser transforms "ITER_RUNID_.off" to "ITER_RUNID.off" (removes underscore).
-    std::string outfile = std::to_string(iter) + "_" + run_id.toStdString() + ext;
-
-    // Check if the expected output file exists
-    QString expectedPath = run_path + QString::fromStdString(outfile);
-    if (!QFile::exists(expectedPath)) {
-        qDebug() << "Warning: Expected parser output" << expectedPath << "not found";
-        // Fall back to returning the original file if parser output doesn't exist
-        if (files.size() > 0) {
-            outfile = files.at(0).fileName().toStdString();
-            qDebug() << "Falling back to original file:" << QString::fromStdString(outfile);
-        }
-    }
-
-    output_files.push_back( outfile );
-
-    return output_files;
-}
-
-
-
-/**
- * @brief Adds an object to toothLife.
- *        Called from run() when a new step available.
- * @param stepTest
- * @return      0 if success (no error handling).
- */
-int BinaryHandler::addTooth_(const int step_test)
-{
-    Tooth *tooth = new Tooth( renderMode );
-
-    // Get the output file names, apply parsers:
-    auto output_files = getDataFilenames_( step_test, false );
-    if (output_files.size() == 0) {
-        m_toothLife->addTooth(tooth);
-        return 0;
-    }
-    std::string fname = output_files.at(0);     // Yes, this is on purpose...
-
-    // Incomplete data files are not considered fatal errors, but the won't get
-    // added to ToothLife. This may cause the object indices to be incorrectly
-    // assigned if the model skips over result files.
-    if (outputStyle == "PLY" || outputStyle == "") {
-        if (morphomaker::Read_PLY_file( fname, *tooth )) {
-            delete tooth;
-            return -1;
-        }
-    }
-    else if (outputStyle == "Matrix") {
-        if (morphomaker::Read_BIN_matrix( fname, *tooth )) {
-            delete tooth;
-            return -1;
-        }
-    }
-    else if (outputStyle == "Humppa") {
-        if (morphomaker::Read_OFF_file( fname, *tooth )) {
-            delete tooth;
-            return -1;
-        }
-        if (morphomaker::Read_Humppa_DAD_file( step_test, stepSize, m_id, *tooth )) {
-            delete tooth;
-            return -1;
-        }
-    }
-    else {}
-
-    m_toothLife->addTooth(tooth);
-
-    return 0;
-}
-
-
-
-/**
- * @brief Copies model binary to the temporary folder.
- * @param temp_path     System temporary folder.
- * @return              0 if success.
+ * @brief Copy model binaries to the temporary folder.
  */
 int BinaryHandler::setTempEnv_(const QString& temp_path)
 {
-    QDir qdir;
-    qdir.setCurrent(temp_path);
-
-    // Set up a bin directory where to move the model binaries.
-    if (!qdir.exists("bin")) {
-        qdir.mkdir("bin");
-    }
     QString temp_bin_path = temp_path + "/bin";
-    qdir.setCurrent(temp_bin_path);
+    QDir().mkpath(temp_bin_path);
 
-    // Assuming the model binaries reside under ../Resources/bin/ relative
-    // to the app. dir.
+    // Model binaries reside under ../Resources/bin/ relative to the app.
     QDir resources(QCoreApplication::applicationDirPath());
     resources.cd(RESOURCES);
     resources.cd("bin");
@@ -410,17 +464,17 @@ int BinaryHandler::setTempEnv_(const QString& temp_path)
                 resources.path().toStdString().c_str());
         fprintf(stderr, "Application directory: %s\n",
                 QCoreApplication::applicationDirPath().toStdString().c_str());
-        fprintf(stderr, "Current directory: '%s'\n",
-                qdir.currentPath().toStdString().c_str());
     }
 
     QStringList files = resources.entryList(QDir::Files);
     for (auto& f : files) {
-        auto dest = temp_bin_path+"/"+f;
+        auto dest = temp_bin_path + "/" + f;
         if (QFile::exists(dest)) {
             QFile::remove(dest);
         }
-        QFile::copy(resources.path()+"/"+f, dest);
+        if (!QFile::copy(resources.path() + "/" + f, dest)) {
+            qWarning() << "Failed to copy" << f << "to" << temp_bin_path;
+        }
     }
 
     return 0;
@@ -429,49 +483,38 @@ int BinaryHandler::setTempEnv_(const QString& temp_path)
 
 
 /**
- * @brief Constructs binary command line.
- * @param parfile       Parameter file.
- * @param num_iter      Number of iterations.
- * @param step_size     Step size.
- * @return      0 if success, else -1.
+ * @brief Construct binary command line.
  */
 int BinaryHandler::setBinSettings_(const QString& parfile, const int num_iter,
-                                     const int step_size)
+                                   const int step_size)
 {
-    QString fname = "progress_" + QString::number(m_id) + ".txt";
-    if (outputStyle == "Humppa") {
-        fname = QString::number(m_id) + "______progressbar.txt";
-    }
-    m_progressFile.setFileName(fname);
-
     m_cmd = "";
     QTextStream str;
     str.setString(&m_cmd);
 
     // Check if we're dealing with a Python script.
-    // It is users responsibility to make sure Python is available!
     QStringList blist = m_binary.split(".");
     if (blist.size() > 1 && blist.at(1) == "py") {
         str << "python ";
     }
 
-    QString binaryPath = QDir::toNativeSeparators(QDir("../bin").filePath(m_binary));
-    str << binaryPath << " ";
+    QString binaryPath = QDir::toNativeSeparators(
+        QDir("../bin").filePath(m_binary));
+    str << "\"" << binaryPath << "\" ";
+
     if (inputStyle == "MorphoMaker" || inputStyle == "") {
         str << "--param " << parfile << " --id " << m_id << " --step "
             << step_size << " --niter " << num_iter;
     }
     else if (inputStyle == "Humppa") {
         str << parfile << " " << m_id << " " << step_size << " "
-            << num_iter/step_size;
+            << num_iter / step_size;
     }
     else {
         fprintf(stderr, "Invalid argument style: %s\n",
                 inputStyle.toStdString().c_str());
         return -1;
-    }    
-
-    if (DEBUG_MODE) fprintf(stderr, "cmd: %s\n", m_cmd.toStdString().c_str());
+    }
 
     return 0;
 }
@@ -479,46 +522,12 @@ int BinaryHandler::setBinSettings_(const QString& parfile, const int num_iter,
 
 
 /**
- * @brief Returns the last number in a file with numbers running from 1 to n
- *        based on the file size.
- * @param size              File size in bytes.
- * @param cat               Progress file sizes per category (see run() for details).
- * @param trail_size        Number of extra white spaces on a progress file line.
- * @return                  Last number.
- */
-int BinaryHandler::calcProgress_( int size, std::vector<long>& cat,
-                                   int trail_size )
-{
-    // Find the correct category.
-    uint pos = 0;
-    for (auto& i : cat) {
-        if (size > i) {
-            pos++;
-        }
-    }
-    if (pos >= cat.size()) {
-        return -1;
-    }
-
-    // The last number in the file is given by the distance to the next size category.
-    long l = cat.at(pos) - size;
-    int last_num = (int)pow(10,pos) - (double)l/(pos+trail_size+1) - 1;
-
-    return last_num;
-}
-
-
-
-/**
- * @brief Slot for process signal 'finished()'.
- *
- * Triggers updateModel() in Hampu, so this needs to be called always when exiting,
- * including crash.
- *
+ * @brief Slot for QProcess 'finished' signal.
+ * Waits for the worker thread to complete, then emits finished().
  */
 void BinaryHandler::binaryFinished_()
 {
-    // Wait till run() has returned, which means exec() has returned.
+    m_killTimer.stop();
     wait();
     emit finished();
 }
@@ -526,7 +535,7 @@ void BinaryHandler::binaryFinished_()
 
 
 /**
- * @brief Slot for process signal 'error()'.
+ * @brief Slot for QProcess 'errorOccurred' signal.
  */
 void BinaryHandler::binaryError_(QProcess::ProcessError err)
 {
@@ -534,10 +543,14 @@ void BinaryHandler::binaryError_(QProcess::ProcessError err)
         return;
 
     QString msg = "Fatal error:";
-    if (err == QProcess::FailedToStart)
+    if (err == QProcess::FailedToStart) {
         msg = QString("Fatal error: Failed to start binary '%1'.").arg(m_binary);
-    else if (err == QProcess::Crashed)
+        m_error = RunError::FailedToStart;
+    }
+    else if (err == QProcess::Crashed) {
         msg = QString("Fatal error: Binary '%1' crashed.").arg(m_binary);
+        m_error = RunError::ProcessCrashed;
+    }
     else if (err == QProcess::Timedout)
         msg += " Binary wait timeout.";
     else if (err == QProcess::WriteError)
@@ -546,122 +559,156 @@ void BinaryHandler::binaryError_(QProcess::ProcessError err)
         msg += " Cannot read process.";
     else if (err == QProcess::UnknownError)
         msg += " Unknown error.";
+
     retval = 1;
+    m_state = RunState::Failed;
 
     qDebug() << msg;
     emit msgStatusBar(msg.toStdString());
 
-    // If the binary failed to start at all, _binary_finished() was never called.
+    // If the binary failed to start at all, binaryFinished_() was never called.
     if (err == QProcess::FailedToStart)
         binaryFinished_();
 }
 
 
-/**
- * @brief Check if output file(s) exist for a given step.
- * @param step      Step number.
- * @return          True if file(s) exist.
- */
-bool BinaryHandler::fileExistsForStep_(int step)
-{
-    auto files = getDataFilenames_(step, true);
-    return files.size() > 0;
-}
 
-
+// ============================================================================
+//  Worker thread
+// ============================================================================
 
 /**
- * @brief Find the last step that has output files.
- * @return          Last existing step number, or -1 if none found.
- */
-int BinaryHandler::findLastExistingStep_()
-{
-    int totalSteps = nIter / stepSize;
-    for (int s = totalSteps - 1; s >= 0; s--) {
-        if (fileExistsForStep_(s)) {
-            return s;
-        }
-    }
-    return -1;
-}
-
-
-
-/**
- * @brief Read output for a given step and add to toothLife.
- * @param step      Step number.
- * @return          True if successful, false on parse error.
- */
-bool BinaryHandler::readStep_(int step)
-{
-    return addTooth_(step) == 0;
-}
-
-
-
-/**
- * @brief Main binary tracker loop.
+ * @brief Read remaining output files after the process has exited.
  *
- * Phase 1: While model is running, use look-ahead pattern to avoid reading
- *          files that are still being written.
- * Phase 2: After model exits, read remaining files with timeout for each step.
- *          If model crashed, skip the last (potentially incomplete) file.
+ * On parse failures, logs a warning and continues to the next step.
+ * Partial results are better than none.
+ *
+ * @param skipLast      Skip the last existing step (for crash recovery).
+ * @param step          Step to resume from.
+ * @param totalSteps    Total expected steps (nIter / stepSize).
  */
-void BinaryHandler::run()
+void BinaryHandler::drainRemaining_(bool skipLast, int step, int totalSteps)
 {
-    const int totalSteps = nIter / stepSize;
+    int maxStep = skipLast
+        ? m_reader.findLastExistingStep(totalSteps) - 1
+        : totalSteps;
+
+    if (maxStep < step)
+        return;
+
     const int timeoutMs = 3000;
-    int step = 0;
-
-    // Phase 1: While model is running, use look-ahead.
-    while (m_process.state() == QProcess::Running) {
-        msleep(UPDATE_INTERVAL);
-
-        // Only read current step if next step exists (ensures current is complete).
-        if (fileExistsForStep_(step + 1)) {
-            if (readStep_(step)) {
-                step++;
-            }
-        }
-
-        currentIter = (step == 0) ? 0 : (step - 1) * stepSize;
-    }
-
-    // Phase 2: Process has exited - read remaining files.
-    bool crashed = (m_process.exitStatus() == QProcess::CrashExit);
-
-    // If crashed, skip the last file (may be incomplete). Otherwise read all.
-    int maxStep = crashed ? findLastExistingStep_() - 1 : totalSteps;
-    if (maxStep < step) {
-        maxStep = step - 1;  // Don't go backwards.
-    }
 
     while (step <= maxStep) {
+        // Brief wait for filesystem latency.
         int waited = 0;
-
-        // Wait for file to appear, with timeout.
-        while (!fileExistsForStep_(step) && waited < timeoutMs) {
+        while (!m_reader.fileExistsForStep(step) && waited < timeoutMs) {
             msleep(UPDATE_INTERVAL);
             waited += UPDATE_INTERVAL;
         }
 
-        if (!fileExistsForStep_(step)) {
-            emit msgStatusBar("Error: Timed out waiting for model output at step "
-                              + std::to_string(step) + ".");
-            return;
+        if (!m_reader.fileExistsForStep(step)) {
+            qWarning() << "Timed out waiting for output at step" << step
+                       << "(iter" << step * stepSize << ")";
+            step++;
+            continue;   // Skip missing step, don't abort.
         }
 
-        if (!readStep_(step)) {
-            emit msgStatusBar("Error: Failed to parse model output at step "
-                              + std::to_string(step) + ".");
-            return;
+        // Small delay to ensure file is fully flushed. In Phase 2 there is no
+        // look-ahead (no step N+1 to confirm N is complete). The process has
+        // exited so writes should be done, but filesystem metadata updates
+        // (size, timestamps) can lag behind on some systems.
+        msleep(UPDATE_INTERVAL);
+
+        auto result = m_reader.readStep(step);
+        if (!result.success) {
+            qWarning() << "Failed to read step" << step
+                       << ":" << result.errorMsg;
+            // Continue - partial results better than none.
+        } else {
+            m_toothLife->addTooth(result.tooth);
         }
 
         step++;
-        currentIter = step * stepSize;
+        currentIter = (step - 1) * stepSize;
+    }
+}
+
+
+
+/**
+ * @brief Main worker thread loop.
+ *
+ * Phase 1: While the model binary is running, read output files using a
+ *          look-ahead pattern (read step N only when step N+1 exists,
+ *          ensuring step N is fully written).
+ *
+ * Phase 2: After the binary exits, drain remaining output files. On crash,
+ *          skip the last file (may be incomplete). Parse failures are logged
+ *          but don't abort - partial results are preserved.
+ */
+void BinaryHandler::run()
+{
+    const int totalSteps = nIter / stepSize;
+    const int MAX_READ_RETRIES = 3;
+    const int READ_RETRY_DELAY = 100;   // ms between retries
+    int readRetries = 0;
+    int step = 1;   // First output at iteration = stepSize.
+
+    // Add an empty tooth for iteration 0. Models don't output at iteration 0,
+    // but the UI development slider starts from 0 and expects an entry there.
+    Tooth* emptyTooth = new Tooth(renderMode);
+    m_toothLife->addTooth(emptyTooth);
+
+    // Phase 1: Read files while model is running.
+    while (m_process.state() == QProcess::Running
+           && m_state == RunState::Running) {
+        msleep(UPDATE_INTERVAL);
+
+        // Look-ahead: only read step N when step N+1 exists.
+        if (m_reader.fileExistsForStep(step + 1)) {
+            auto result = m_reader.readStep(step);
+            if (result.success) {
+                m_toothLife->addTooth(result.tooth);
+                step++;
+                readRetries = 0;
+            } else {
+                readRetries++;
+                if (readRetries >= MAX_READ_RETRIES) {
+                    qWarning() << "Skipping step" << step << "after"
+                               << MAX_READ_RETRIES << "read failures:"
+                               << result.errorMsg;
+                    step++;
+                    readRetries = 0;
+                } else {
+                    msleep(READ_RETRY_DELAY);
+                }
+            }
+        }
+
+        currentIter = (step - 1) * stepSize;
     }
 
-    // Warn about non-zero exit code (but not crash - that's handled by binaryError_).
+    // User cancelled?
+    if (m_state == RunState::Cancelled) {
+        return;
+    }
+
+    // Phase 2: Drain remaining files.
+    bool crashed = (m_process.exitStatus() == QProcess::CrashExit);
+    if (crashed) {
+        m_state = RunState::Failed;
+        m_error = RunError::ProcessCrashed;
+    } else {
+        m_state = RunState::Draining;
+    }
+
+    drainRemaining_(crashed, step, totalSteps);
+
+    if (m_state == RunState::Draining) {
+        m_state = RunState::Completed;
+    }
+
+    // Warn about non-zero exit code (distinct from crash).
     if (m_process.exitCode() != 0 && !crashed) {
         emit msgStatusBar("Warning: Model exited with error code "
                           + std::to_string(m_process.exitCode()) + ".");

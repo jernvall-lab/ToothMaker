@@ -21,7 +21,6 @@
 #include "gui/hampu.h"
 #include "utils/writeparameters.h"
 #include "utils/readparameters.h"
-#include "utils/writedata.h"
 #include "utils/readxml.h"
 #include "model.h"
 #include "misc/loader.h"
@@ -883,21 +882,8 @@ int Hampu::exportModelData( int step, int datatype, QString export_folder )
         // Copy simulation output files to the target folder.
         model->exportData( run_id, folder );
 
-        if (model->getRenderMode() == RENDER_HUMPPA) {
-            // TODO: Model specific stuff like the following belongs to
-            // result parsers, not here.
-            Tooth* tooth = toothLife->getTooth( viewIntStep );
-
-            QString file = export_folder + "/local_maxima.txt";
-            morphomaker::Export_local_maxima( *tooth, file.toStdString(),
-                                              par_id.toStdString() );
-            file = export_folder + "/cuspA_baseline.txt";
-            morphomaker::Export_main_cusp_baseline( *tooth, file.toStdString(),
-                                                    par_id.toStdString() );
-        }
-
-        // Apply result parsers on the output files at the export folder.
-        model->runResultParsers( export_folder );
+        // Run result parsers (cusp analysis, etc.) on the exported data.
+        model->runResultParsers( export_folder, par_id, folder );
     }
 
     return counter;

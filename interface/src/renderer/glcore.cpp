@@ -38,7 +38,9 @@ int glcore::initGLObject(GLObject& obj)
     obj.framebuffer = 0;
     obj.renderbuffer[0] = 0;
     obj.renderbuffer[1] = 0;
-
+    obj.scrfbo = 0;
+    obj.scrrender[0] = 0;
+    obj.scrrender[1] = 0;
 
     obj.renderMode = 0;
     obj.viewMode = 0;

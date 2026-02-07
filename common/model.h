@@ -134,8 +134,11 @@ public:
     // Copies model output files to user-specified data export folder.
     int exportData( const QString, const QString );
 
-    // Executes result parsers on model output at the data export folder.
-    int runResultParsers( const QString );
+    // Executes result parsers on model output at the export folder.
+    // Each parser receives: <par_id> <data_folder> as arguments.
+    // CWD is set to outputDir during execution.
+    int runResultParsers( const QString outputDir, const QString parId,
+                          const QString dataFolder );
 
 
     //
@@ -196,7 +199,8 @@ private:
     // Model plain text name. XML key: <Name>
     std::string m_modelName;
 
-    // Parsers executed at the user-defined export folder. No input arguments.
+    // Result parsers executed sequentially at the export folder.
+    // Each receives: <par_id> <data_folder> as arguments.
     // XML key: <ResultParser>
     std::vector<QString> m_resultParsers;
 

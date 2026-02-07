@@ -14,7 +14,7 @@
     <InputStyle>Humppa</InputStyle>
     <OutputStyle>Humppa</OutputStyle>
     <OutputParser>dad_to_polygons</OutputParser>
-    <ResultParser>top_cusp_angle</ResultParser>
+    <ResultParser>cusp_analysis</ResultParser>
 </Binary>
     
 <Controls>

@@ -175,13 +175,25 @@ int Model::exportData( const QString run_id, const QString export_folder )
 
 
 /**
- * @brief Executes result parsers on model output at the data export folder.
- * @return      0 if success, else -1.
+ * @brief Executes result parsers on model output at the export folder.
+ *
+ * Each parser runs with CWD set to outputDir and receives:
+ *   <par_id> <data_folder>
+ *
+ * Parsers run in XML order, which matters when later parsers read
+ * output produced by earlier ones (e.g. top_cusp_angle reads
+ * local_maxima.txt produced by cusp_analysis).
+ *
+ * @param outputDir     Directory for parser output files (CWD during run).
+ * @param parId         Parameter set ID (used as label by parsers).
+ * @param dataFolder    Data subfolder containing .off/.dad files.
+ * @return              0 if success, else -1.
  */
-int Model::runResultParsers( const QString export_folder )
+int Model::runResultParsers( const QString outputDir, const QString parId,
+                              const QString dataFolder )
 {
-    if (!export_folder.compare("")) {
-        return -1;
+    if (m_resultParsers.empty() || outputDir.isEmpty()) {
+        return 0;
     }
 
     QDir resources( QCoreApplication::applicationDirPath() );
@@ -189,8 +201,7 @@ int Model::runResultParsers( const QString export_folder )
     resources.cd("bin");
 
     QString old_path = QDir::currentPath();
-    QDir::setCurrent( export_folder );
-    QProcess process;
+    QDir::setCurrent( outputDir );
 
     for (auto& parser : m_resultParsers) {
         QString cmd = "";
@@ -199,17 +210,23 @@ int Model::runResultParsers( const QString export_folder )
             cmd = "python ";
         }
 
-        cmd = cmd + resources.path() + "/" + parser;
+        cmd = cmd + resources.path() + "/" + parser
+              + " " + parId + " " + dataFolder;
+
+        QProcess process;
         auto args = QProcess::splitCommand(cmd);
         process.start(args.takeFirst(), args);
-        if(!process.waitForFinished( PARSER_TIMEOUT )) {
-            // TODO: Add checks for other errors, e.g., does the parser exist.
-           qDebug() << "Error: Parser" << parser << "failed to finish in"
-                    << PARSER_TIMEOUT << "msecs. SKipping.";
-           continue;
+        if (!process.waitForFinished( PARSER_TIMEOUT )) {
+            qDebug() << "Error: Parser" << parser << "failed to finish in"
+                     << PARSER_TIMEOUT << "msecs. Skipping.";
+            continue;
+        }
+        if (process.exitCode() != 0) {
+            qDebug() << "Warning: Parser" << parser
+                     << "returned error code" << process.exitCode();
         }
 
-        std::cout << "Results parser: " << cmd.toStdString() << std::endl;
+        std::cout << "Result parser: " << cmd.toStdString() << std::endl;
     }
 
     QDir::setCurrent( old_path );

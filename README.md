@@ -65,6 +65,16 @@ http://dx.doi.org/10.1098/rsos.180903.
 
 [6] Christensen, M. M. et al. 2023. The developmental basis for scaling of mammalian tooth size. Proceedings of the National Academy of Sciences, 120(25), e2300374120.
 
+## Command-Line Usage
+
+ToothMaker can also run parameter scans from the command line without the GUI:
+
+```shell
+ToothMaker --niter 9000 --param parameters.txt --scan scanlist.txt
+```
+
+This runs all parameter combinations defined in the scan list and produces simulation output, rendered screenshots, and cusp analysis results. See [examples/cli/](examples/cli/) for example input files and usage details.
+
 ## Build instructions
 
 ### Requirements

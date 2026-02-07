@@ -8,8 +8,7 @@ equals(OSX, "10.6") {
 
 SUBDIRS = dad_to_polygons \
           no_empty_lines \
-          top_cusp_angle
-          # main_cusp_baseline
+          cusp_analysis
 
 CONFIG += ordered
 

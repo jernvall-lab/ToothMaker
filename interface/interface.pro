@@ -25,7 +25,6 @@ SOURCES += \
     src/cli/glengine.cpp \
     src/utils/writeparameters.cpp \
     src/utils/readparameters.cpp \
-    src/utils/writedata.cpp \
     src/utils/readxml.cpp \
     src/misc/loader.cpp \
     src/renderer/glcore.cpp \
@@ -49,7 +48,6 @@ HEADERS += \
     src/renderer/glcore.h \
     src/utils/writeparameters.h \
     src/utils/readparameters.h \
-    src/utils/writedata.h \
     src/utils/readxml.h \
     src/misc/loader.h \
     src/renderer/glcore.h \

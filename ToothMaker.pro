@@ -14,4 +14,5 @@ SUBDIRS = interface \
 CONFIG += ordered
 
 unix: resources.commands = ../copy_resources.sh
-QMAKE_EXTRA_TARGETS += resources
+unix: test.commands = cd ../examples/cli && ./run_tests.sh
+QMAKE_EXTRA_TARGETS += resources test
