@@ -15,4 +15,5 @@ CONFIG += ordered
 
 unix: resources.commands = ../copy_resources.sh
 unix: test.commands = cd ../examples/cli && ./run_tests.sh
-QMAKE_EXTRA_TARGETS += resources test
+unix: cleanall.commands = $(MAKE) clean && $(MAKE) -C ../models/tribosphenic clean && $(MAKE) -C ../models/triconodont clean
+QMAKE_EXTRA_TARGETS += resources test cleanall

@@ -39,6 +39,9 @@ if [ -z "$BIN" ] || [ ! -x "$BIN" ]; then
     exit 1
 fi
 
+# Resolve to absolute path (script cd's during tests).
+BIN="$(cd "$(dirname "$BIN")" && pwd)/$(basename "$BIN")"
+
 echo "Binary: $BIN"
 
 # --- Linux: set DISPLAY for offscreen rendering ---
