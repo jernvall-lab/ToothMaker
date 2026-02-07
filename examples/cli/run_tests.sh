@@ -51,7 +51,7 @@ fi
 TEST_TMP="$SCRIPT_DIR/tmp_test"
 rm -rf "$TEST_TMP"
 mkdir -p "$TEST_TMP"
-trap "rm -rf $TEST_TMP" EXIT
+trap "cd '$SCRIPT_DIR' && rm -rf '$TEST_TMP'" EXIT
 
 PASS=0
 FAIL=0
@@ -92,6 +92,7 @@ run_model_tests() {
     local ref_subdir="$3"
     local ref="$REF_DIR/$ref_subdir"
     local test_num="$4"
+    local niter="$5"
 
     echo ""
     echo "--- $model_name ---"
@@ -104,9 +105,9 @@ run_model_tests() {
     cp "$SCRIPT_DIR/$param_file" "$work/"
     cp "$SCRIPT_DIR/scanlist.txt" "$work/"
 
-    echo "Running parameter scan (6 combinations, 9000 iterations)..."
+    echo "Running parameter scan (6 combinations, $niter iterations)..."
     cd "$work"
-    "$BIN" --niter 9000 --param "$param_file" --scan scanlist.txt
+    "$BIN" --niter "$niter" --param "$param_file" --scan scanlist.txt
     echo ""
 
     # Test 1: job_parameters.txt
@@ -246,8 +247,8 @@ echo "========================================"
 echo "ToothMaker command-line scanning tests"
 echo "========================================"
 
-run_model_tests "Triconodont (Fortran)" seal_triconodont.txt triconodont 1
-run_model_tests "Tribosphenic (C++)" seal_tribosphenic.txt tribosphenic 2
+run_model_tests "Triconodont (Fortran)" seal_triconodont.txt triconodont_9k 1 9000
+run_model_tests "Tribosphenic (C++)" seal_tribosphenic.txt tribosphenic_10k 2 10000
 
 echo ""
 echo "========================================"
