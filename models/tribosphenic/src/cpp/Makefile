@@ -5,7 +5,7 @@ CXX = g++
 # Note: -ffast-math removed to ensure consistent floating-point results across
 # platforms. The simulation is chaotic, so even small FP differences compound
 # into completely different trajectories, breaking cross-platform tests.
-CXXFLAGS = -std=c++17 -O3 -flto -funroll-loops -DNDEBUG
+CXXFLAGS = -std=c++17 -O3 -flto -funroll-loops -ffp-contract=off -DNDEBUG
 LDFLAGS = -flto
 
 # Debug build flags (use: make debug)
