@@ -1,2 +1,2 @@
 #!/bin/bash
- ../../build/interface/ToothMaker.app/Contents/MacOS/ToothMaker --niter 9000 --param seal_triconodont.txt --scan scanlist.txt
+ ../../build/interface/ToothMaker.app/Contents/MacOS/ToothMaker --niter 10000 --param seal_tribosphenic.txt --scan scanlist.txt
