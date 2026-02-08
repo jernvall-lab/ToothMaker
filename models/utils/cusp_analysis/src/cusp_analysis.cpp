@@ -26,6 +26,12 @@
 #include <string>
 #include <vector>
 
+#ifdef _WIN32
+#include <filesystem>
+#else
+#include <dirent.h>
+#endif
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -121,40 +127,68 @@ void build_adjacency(const Mesh& mesh,
 
 
 /**
- * @brief Find the DAD file with the highest iteration number in a directory.
+ * @brief Check if filename ends with the given extension.
  */
-std::string find_last_dad_file(const std::string& dir)
+static bool has_extension(const std::string& fname, const std::string& ext)
+{
+    if (fname.size() <= ext.size()) return false;
+    return fname.compare(fname.size() - ext.size(), ext.size(), ext) == 0;
+}
+
+/**
+ * @brief Parse leading digits from a filename as an iteration number.
+ * @return The iteration number, or -1 if no leading digits found.
+ */
+static int parse_iter_number(const std::string& fname)
+{
+    int iter = 0;
+    size_t i = 0;
+    while (i < fname.size() && fname[i] >= '0' && fname[i] <= '9') {
+        iter = iter * 10 + (fname[i] - '0');
+        i++;
+    }
+    return (i > 0) ? iter : -1;
+}
+
+/**
+ * @brief Find the file with the highest iteration number and given extension
+ *        in a directory. Iteration number is parsed from the leading digits
+ *        of the filename.
+ */
+std::string find_last_file_with_ext(const std::string& dir,
+                                     const std::string& ext)
 {
     std::string best_file;
     int best_iter = -1;
 
-    std::string cmd = "ls " + dir + "/*.dad 2>/dev/null";
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) return "";
-
-    char buf[1024];
-    while (fgets(buf, sizeof(buf), pipe)) {
-        std::string path(buf);
-        if (!path.empty() && path.back() == '\n')
-            path.pop_back();
-
-        size_t pos = path.rfind('/');
-        std::string fname = (pos != std::string::npos)
-                            ? path.substr(pos + 1) : path;
-
-        int iter = 0;
-        size_t i = 0;
-        while (i < fname.size() && fname[i] >= '0' && fname[i] <= '9') {
-            iter = iter * 10 + (fname[i] - '0');
-            i++;
-        }
-
-        if (i > 0 && iter > best_iter) {
+#ifdef _WIN32
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    for (auto& entry : fs::directory_iterator(dir, ec)) {
+        if (!entry.is_regular_file()) continue;
+        std::string fname = entry.path().filename().string();
+        if (!has_extension(fname, ext)) continue;
+        int iter = parse_iter_number(fname);
+        if (iter > best_iter) {
             best_iter = iter;
-            best_file = path;
+            best_file = entry.path().string();
         }
     }
-    pclose(pipe);
+#else
+    DIR* dp = opendir(dir.c_str());
+    if (!dp) return "";
+    struct dirent* ep;
+    while ((ep = readdir(dp)) != nullptr) {
+        std::string fname = ep->d_name;
+        if (!has_extension(fname, ext)) continue;
+        int iter = parse_iter_number(fname);
+        if (iter > best_iter) {
+            best_iter = iter;
+            best_file = dir + "/" + fname;
+        }
+    }
+    closedir(dp);
+#endif
 
     return best_file;
 }
@@ -290,38 +324,7 @@ int is_border_cell(const std::vector<std::vector<Vertex>>& shapes,
  */
 std::string find_last_off_file(const std::string& dir)
 {
-    std::string best_file;
-    int best_iter = -1;
-
-    std::string cmd = "ls " + dir + "/*.off 2>/dev/null";
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) return "";
-
-    char buf[1024];
-    while (fgets(buf, sizeof(buf), pipe)) {
-        std::string path(buf);
-        if (!path.empty() && path.back() == '\n')
-            path.pop_back();
-
-        size_t pos = path.rfind('/');
-        std::string fname = (pos != std::string::npos)
-                            ? path.substr(pos + 1) : path;
-
-        int iter = 0;
-        size_t i = 0;
-        while (i < fname.size() && fname[i] >= '0' && fname[i] <= '9') {
-            iter = iter * 10 + (fname[i] - '0');
-            i++;
-        }
-
-        if (i > 0 && iter > best_iter) {
-            best_iter = iter;
-            best_file = path;
-        }
-    }
-    pclose(pipe);
-
-    return best_file;
+    return find_last_file_with_ext(dir, ".off");
 }
 
 
@@ -643,7 +646,7 @@ int main(int argc, char* argv[])
 
     // Parse cell shapes from the DAD file for border detection.
     std::vector<std::vector<Vertex>> cellShapes;
-    std::string dadFile = find_last_dad_file(dataFolder);
+    std::string dadFile = find_last_file_with_ext(dataFolder, ".dad");
     if (!dadFile.empty()) {
         parse_dad_cell_shapes(dadFile, cellShapes);
     }
