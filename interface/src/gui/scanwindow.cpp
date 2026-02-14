@@ -116,12 +116,49 @@ void ScanWindow::setParameters(Parameters *par)
 
     for (auto& p : par->getParameters()) {
         if (!p.hidden) {
-            addParameterRow( p.name.c_str() );
+            addParameterRow( p.name.c_str(), p.value );
         }
     }
 
     tableSet = true;
     printNofJobs(0);
+}
+
+
+
+/**
+ * @brief Updates the "From" column with current parameter values.
+ * - Preserves check states, Step and To values.
+ * - If the table is empty (first open), does a full setup instead.
+ *
+ * @param par       Current parameters.
+ */
+void ScanWindow::updateParameterValues(Parameters *par)
+{
+    if (table->rowCount() == 0) {
+        setParameters(par);
+        return;
+    }
+
+    table->blockSignals(true);
+    int row = 0;
+    for (auto& p : par->getParameters()) {
+        if (!p.hidden) {
+            if (row < table->rowCount()) {
+                table->item(row, 2)->setText(QString::number(p.value));
+            }
+            row++;
+        }
+    }
+    table->blockSignals(false);
+
+    // Update scan items for checked parameters with new From values.
+    for (int i = 0; i < table->rowCount(); i++) {
+        if (table->item(i, 1)->checkState() == Qt::Checked) {
+            scanList->addScanItem(createScanItem(i));
+        }
+    }
+    printNofJobs(scanList->getNofJobs(combScanning));
 }
 
 
@@ -385,7 +422,7 @@ void ScanWindow::printNofJobs(int n)
  * @brief Adds a table rows for a given parameter by name.
  * @param parname       Parameter name.
  */
-void ScanWindow::addParameterRow(QString parname)
+void ScanWindow::addParameterRow(QString parname, double value)
 {
     int i = table->rowCount();
     table->setRowCount(i+1);
@@ -401,7 +438,7 @@ void ScanWindow::addParameterRow(QString parname)
     table->setItem(i, 1, item2);
 
     QTableWidgetItem *item3 = new QTableWidgetItem();
-    item3->setText("0.0");
+    item3->setText(QString::number(value));
     table->setItem(i, 2, item3);
 
     QTableWidgetItem *item4 = new QTableWidgetItem();

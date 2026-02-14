@@ -36,6 +36,7 @@ class ScanWindow : public QDialog
     public:
         ScanWindow(QWidget *parent=0);
         void setParameters(Parameters *);
+        void updateParameterValues(Parameters *);
         void resetScanList();
         ScanList *getScanList();
         QString getResultsFolder();
@@ -76,7 +77,7 @@ class ScanWindow : public QDialog
         ScanItem *createScanItem(int);
         void writeStatusBar(std::string);
         void printNofJobs(int);
-        void addParameterRow(QString);
+        void addParameterRow(QString, double);
         void paintEvent(QPaintEvent*);
         QPushButton *createButton(int, int, const QString &, const char *);
 };

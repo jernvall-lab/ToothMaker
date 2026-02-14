@@ -529,17 +529,18 @@ void Hampu::Panel_Run(int nIter)
     toothLifeWork = new ToothLife( currentModel, run_id );
     toothLifeWork->setParameters( model->getParameters() );
 
-    // If the current history entry has no simulation data (e.g., from import or
-    // model switch), reuse it. Otherwise create a new entry.
-    bool reuseEntry = (currentHistory < toothHistory.size()
-                       && toothHistory.at(currentHistory)->getLifeSize() == 0);
-
     // Clean the history if needed.
     while (toothHistory.size() > getMaxHistorySize_()) {
         delete toothHistory.at(0);
         toothHistory.erase(toothHistory.begin());
         controlPanel->removeHistory(0);
     }
+
+    // If the current history entry has no simulation data (e.g., from import or
+    // model switch), reuse it. Otherwise create a new entry.
+    // Check after trimming since trimming may have removed the entry.
+    bool reuseEntry = (currentHistory < toothHistory.size()
+                       && toothHistory.at(currentHistory)->getLifeSize() == 0);
 
     if (reuseEntry) {
         delete toothHistory.at(currentHistory);
@@ -666,6 +667,7 @@ void Hampu::Tools_ExportImages()
  */
 void Hampu::Tools_ScanParameters()
 {
+    scanWindow->updateParameterValues( models.at(currentModel)->getParameters() );
     scanWindow->show();
 }
 
