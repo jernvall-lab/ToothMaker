@@ -6,7 +6,7 @@ CXX = g++
 # floating-point results across compilers (clang vs GCC). The simulation is
 # chaotic, so even small FP differences (e.g. from FMA) compound into
 # completely different trajectories, breaking cross-platform tests.
-CXXFLAGS = -std=c++17 -O3 -flto -funroll-loops -ffp-contract=off -DNDEBUG
+CXXFLAGS = -std=c++17 -O3 -flto -funroll-loops -ffp-contract=on -DNDEBUG
 LDFLAGS = -flto
 
 # Debug build flags (use: make debug)
