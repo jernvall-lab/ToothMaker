@@ -80,7 +80,8 @@ This runs all parameter combinations defined in the scan list and produces simul
 ### Requirements
 
 * Qt 5.15+ (Qt 6 untested)
-* GCC 7+ or Clang 5+ (C++17 support required)
+* Clang 7+ (C++17 support required)
+* GCC 7+ with gfortran (for the legacy Fortran model)
 * GLEW, GLM (included in [/ext](ext/))
 * macOS 10.13+, Ubuntu 20.04+, or Windows 10+
 * OpenGL 3.0 support
@@ -119,4 +120,4 @@ Model binaries are built automatically when building ToothMaker.
 
 ### Windows
 
-Windows builds are provided via GitHub Actions but are currently untested. Building from source requires Qt 5.15, MSVC, and MinGW (for gfortran).
+Windows builds are provided via GitHub Actions but are currently untested. Building from source requires Qt 5.15, MSVC (for the GUI), and MinGW with clang and gfortran (for the simulation models).
