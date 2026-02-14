@@ -8,9 +8,19 @@
 CXX = clang++
 # -ffp-contract=on enables FMA within single C expressions, matching Fortran
 # default behavior and ensuring numerical stability.
+# -mfma is needed on x86_64 so the compiler can actually emit FMA instructions;
+# without it, -ffp-contract=on is a no-op on x86_64.
 # LTO is disabled on Windows because MinGW's ld cannot load the LLVM gold plugin.
 CXXFLAGS = -std=c++17 -O3 -funroll-loops -ffp-contract=on -DNDEBUG
 LDFLAGS =
+
+# x86_64 needs -mfma to enable FMA3 hardware instructions
+UNAME_M := $(shell uname -m 2>/dev/null)
+ifeq ($(UNAME_M),x86_64)
+  CXXFLAGS += -mfma
+endif
+
+# LTO on all platforms except Windows
 ifneq ($(OS),Windows_NT)
   CXXFLAGS += -flto
   LDFLAGS += -flto
