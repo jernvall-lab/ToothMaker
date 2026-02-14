@@ -64,6 +64,7 @@ int Hampu::init_GUI()
     scanning = 0;
     screenshotCounter = 0;
     runCounter = 0;
+    runHistoryIndex_ = -1;
     timeLimit = -1;     // -1 = no time limit
     parwidget = nullptr;
 
@@ -173,6 +174,12 @@ int Hampu::init_GUI()
     setSignals_();
 
     // Setting the default model with which the program starts.
+    // Create an initial history entry to keep toothHistory in sync with combobox.
+    ToothLife* initLife = new ToothLife(DEFAULT_MODEL, 0);
+    initLife->setParameters(models.at(DEFAULT_MODEL)->getParameters());
+    toothHistory.push_back(initLife);
+    QString defaultModelName = QString::fromStdString(models.at(DEFAULT_MODEL)->getModelName());
+    currentHistory = controlPanel->addHistoryEntry(defaultModelName);
     setModelSettings(DEFAULT_MODEL, 1);
 
     // Create a temporary folder for running the models.
@@ -311,16 +318,24 @@ void Hampu::Panel_CellConnections(int mode)
 void Hampu::Panel_Model(int i)
 {
     if (DEBUG_MODE) fprintf(stderr, "%s:%s(%d)\n", __FILE__, __FUNCTION__, i);
-    // NOTE: A new (empty) history entry must be created before changing the model.
-    // Otherwise some settings from the new entry will be incorrectly transferred to
-    // the previous
-    currentHistory = controlPanel->addHistory(0);
-    controlPanel->setSliderMinMax(0, 1);
-    setModelSettings(i,1);
 
-    Parameters* parameters = models.at(currentModel)->getParameters();
-    QString msg = QString("Model: %1").arg(QString::fromStdString(parameters->getKey(PARKEY_MODEL)));
-    writeStatusBar(msg.toStdString());
+    // Create a ToothLife to keep toothHistory in sync with the combobox.
+    ToothLife* toothLife = new ToothLife(i, 0);
+    toothLife->setParameters(models.at(i)->getParameters());
+
+    while (toothHistory.size() > getMaxHistorySize_()) {
+        delete toothHistory.at(0);
+        toothHistory.erase(toothHistory.begin());
+        controlPanel->removeHistory(0);
+    }
+    toothHistory.push_back(toothLife);
+
+    QString modelName = QString::fromStdString(models.at(i)->getModelName());
+    currentHistory = controlPanel->addHistoryEntry(modelName);
+    controlPanel->setSliderMinMax(0, 1);
+    setModelSettings(i, 1);
+
+    writeStatusBar(QString("Model: %1").arg(modelName).toStdString());
 }
 
 
@@ -394,11 +409,32 @@ void Hampu::Panel_Import(std::string file)
         return;
     }
 
-    // Now read the model parameters:
-    morphomaker::Import_parameters( file,
-                                    models.at(modelFound)->getParameters() );
-    currentHistory = controlPanel->addHistory(0);
+    // Import into a copy of the model's parameters (not the model's own object,
+    // which may be in use by a running simulation). The copy has the parameter
+    // definitions from the XML, so setParameterValue() works correctly.
+    Parameters importedPar(models.at(modelFound)->getParameters());
+    morphomaker::Import_parameters(file, &importedPar);
+
+    // Create a ToothLife to keep toothHistory in sync with the combobox.
+    ToothLife* toothLife = new ToothLife(modelFound, 0);
+    toothLife->setParameters(&importedPar);
+
+    while (toothHistory.size() > getMaxHistorySize_()) {
+        delete toothHistory.at(0);
+        toothHistory.erase(toothHistory.begin());
+        controlPanel->removeHistory(0);
+    }
+    toothHistory.push_back(toothLife);
+
+    // Extract short filename for the history label.
+    std::string fname = file;
+    size_t pos = fname.find_last_of("/\\");
+    if (pos != std::string::npos) fname = fname.substr(pos + 1);
+    currentHistory = controlPanel->addHistoryEntry(QString::fromStdString(fname));
     controlPanel->setSliderMinMax(0, 1);
+
+    // Apply imported parameters to the model for display/editing.
+    models.at(modelFound)->setParameters(&importedPar);
     setModelSettings(modelFound, 0);
 
     std::stringstream ss;
@@ -493,14 +529,28 @@ void Hampu::Panel_Run(int nIter)
     toothLifeWork = new ToothLife( currentModel, run_id );
     toothLifeWork->setParameters( model->getParameters() );
 
-    // Clean the history if needed, push the current work into history.
+    // If the current history entry has no simulation data (e.g., from import or
+    // model switch), reuse it. Otherwise create a new entry.
+    bool reuseEntry = (currentHistory < toothHistory.size()
+                       && toothHistory.at(currentHistory)->getLifeSize() == 0);
+
+    // Clean the history if needed.
     while (toothHistory.size() > getMaxHistorySize_()) {
         delete toothHistory.at(0);
         toothHistory.erase(toothHistory.begin());
         controlPanel->removeHistory(0);
     }
-    toothHistory.push_back(toothLifeWork);
-    currentHistory = controlPanel->addHistory(1);
+
+    if (reuseEntry) {
+        delete toothHistory.at(currentHistory);
+        toothHistory.at(currentHistory) = toothLifeWork;
+        controlPanel->startHistory(currentHistory);
+        runHistoryIndex_ = currentHistory;
+    } else {
+        toothHistory.push_back(toothLifeWork);
+        currentHistory = controlPanel->addHistory(1);
+        runHistoryIndex_ = currentHistory;
+    }
 
     int stepsize = model->getStepSize();
     int rv = model->init_model( QString(tempPathMorpho.c_str()), 2,
@@ -951,7 +1001,7 @@ void Hampu::updateProgress()
 
     // Update the development position only if viewing the currently running
     // model and 'Follows development' is checked.
-    if (currentHistory==toothHistory.size()-1 && followDevelopment) {
+    if (currentHistory == (uint)runHistoryIndex_ && followDevelopment) {
         viewIntStep = toothLifeWork->getLifeSize()-1;
         if ( viewIntStep < 0 ) {
             viewIntStep = 0;
@@ -1005,7 +1055,11 @@ void Hampu::updateModel()
 
     progressTimer->stop();
 
-    if (!models.at(currentModel)->getReturnValue()) {
+    // Use the model that actually ran, not currentModel (which may have changed
+    // if the user imported parameters for a different model during the run).
+    int runModelIdx = toothLifeWork->getCurrentModel();
+
+    if (!models.at(runModelIdx)->getReturnValue()) {
         // Call updateProgress one last time to make the current model view is
         // up-to-date.
         updateProgress();
@@ -1022,13 +1076,12 @@ void Hampu::updateModel()
         writeStatusBar(timeMsg.toStdString());
     }
 
-    // Renames the current work item in history from "..Running" into number of
-    // iterations at finish:
-    ToothLife *toothLife = toothHistory.at( toothHistory.size()-1 );
-    int stepsize = models.at(toothLife->getCurrentModel())->getStepSize();
-    uint32_t lifeSize = toothLife->getLifeSize();
+    // Renames the running work item in history from "..Running" into number of
+    // iterations at finish.
+    int stepsize = models.at(runModelIdx)->getStepSize();
+    uint32_t lifeSize = toothLifeWork->getLifeSize();
     int lastIterations = (lifeSize > 0) ? (lifeSize - 1) * stepsize : 0;
-    controlPanel->endHistory( lastIterations );
+    controlPanel->endHistory(lastIterations, runHistoryIndex_);
     controlPanel->enableModelList(1);
     controlPanel->updateRunStatus("Run");
 

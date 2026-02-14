@@ -43,7 +43,10 @@ class ControlPanel : public QWidget
         int getSliderValue();
         void repaintSlider();
         int addHistory(int);
-        void endHistory(int);
+        int addHistoryEntry(const QString& label);
+        void renameHistory(int index, const QString& label);
+        void startHistory(int index);
+        void endHistory(int niter, int index = -1);
         void removeHistory(int);
         void resetOrientation(int);
         void setModelIndex(int);

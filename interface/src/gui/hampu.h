@@ -103,6 +103,7 @@ private:
     ToothLife *toothLifeWork;               // Currently active ToothLife object
     std::vector<ToothLife*> toothHistory;   // Model history
     uint currentHistory;                    // Index of currently viewed history item
+    int runHistoryIndex_;                   // History combobox index of the running entry
     std::string tempPathMorpho;             // System temporary files path
     int currentModel;                       // Index of the currently viewed model
 

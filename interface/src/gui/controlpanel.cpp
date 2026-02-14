@@ -572,15 +572,61 @@ int ControlPanel::addHistory(int val)
 
 
 
-/** Renames the last piece of history with n.iter. after model exit.
- *  @param niter = number of iterations at model exit.
+/** Adds a named history entry that won't be overwritten by addHistory().
+ *  Used for model switches and parameter imports.
+ *  @param label = display text for the entry.
+ *  @return index of the new entry.
  */
-void ControlPanel::endHistory(int niter)
+int ControlPanel::addHistoryEntry(const QString& label)
+{
+    bool state = history->blockSignals(true);
+    history->addItem(label);
+    history->setCurrentIndex(history->count()-1);
+    history->blockSignals(state);
+    return history->currentIndex();
+}
+
+
+
+/** Renames a history entry.
+ *  @param index = entry to rename.
+ *  @param label = new display text.
+ */
+void ControlPanel::renameHistory(int index, const QString& label)
+{
+    if (index >= 0 && index < history->count()) {
+        history->setItemText(index, label);
+    }
+}
+
+
+
+/** Renames a history entry to "Running" status.
+ *  @param index = entry to rename.
+ */
+void ControlPanel::startHistory(int index)
+{
+    if (index >= 0 && index < history->count()) {
+        QString msg = QString("#%1 (Running)").arg(currentRunIndex);
+        history->setItemText(index, msg);
+    }
+}
+
+
+
+/** Renames a history entry with n.iter. after model exit.
+ *  @param niter = number of iterations at model exit.
+ *  @param index = history entry to rename (-1 = last entry).
+ */
+void ControlPanel::endHistory(int niter, int index)
 {
     if (DEBUG_MODE) fprintf(stderr, "%s:%s(%d)\n", __FILE__, __FUNCTION__, niter);
 
+    if (index < 0 || index >= history->count()) {
+        index = history->count() - 1;
+    }
     QString msg = QString("#%1 (no.iter. %2)").arg(currentRunIndex).arg(niter);
-    history->setItemText(history->count()-1, msg);
+    history->setItemText(index, msg);
     currentRunIndex++;
 }
 
