@@ -4,6 +4,12 @@
 #include "tooth_model.hpp"
 
 void ToothModel::runIteration(int numSteps) {
+    // Open progress file once for the entire iteration batch
+    std::ofstream progressFile;
+    if (!progressFilename.empty()) {
+        progressFile.open(progressFilename, std::ios::app);
+    }
+
     for (int ite = 0; ite < numSteps; ite++) {
         panicFlag = 0;
 
@@ -26,11 +32,9 @@ void ToothModel::runIteration(int numSteps) {
 
         timeStep++;
 
-        // Write progress to file
-        std::ofstream progressFile(progressFilename, std::ios::app);
+        // Write progress
         if (progressFile.is_open()) {
-            progressFile << (totalIterations * (iterationIndex - 1) + timeStep) << std::endl;
-            progressFile.close();
+            progressFile << (totalIterations * (iterationIndex - 1) + timeStep) << "\n";
         }
     }
 }

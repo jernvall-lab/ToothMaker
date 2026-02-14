@@ -73,6 +73,7 @@ public:
     // Working arrays for position updates
     //=========================================================================
     std::vector<std::array<double, 3>> positionDeltas;     // Position changes per iteration
+    std::vector<std::array<double, 3>> prevPositions;      // Previous positions (reused by calculateNucleusTraction)
 
     //=========================================================================
     // Working arrays for reaction-diffusion (reused each iteration)

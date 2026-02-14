@@ -25,9 +25,6 @@ void ToothModel::reactionDiffusion() {
 
     // Calculate diffusion weights based on cell geometry
     for (int i = 0; i < numCells; i++) {
-        rdWeight[i].fill(0.0);
-        rdAreaProj[i].fill(0.0);
-
         for (int j = 0; j < MAX_NEIGHBORS; j++) {
             if (neighbors[i][j] != 0) {
                 double ua = cellPositions[i][0];
@@ -38,10 +35,10 @@ void ToothModel::reactionDiffusion() {
                 for (int jj = j + 1; jj < MAX_NEIGHBORS; jj++) {
                     if (neighbors[i][jj] != 0) {
                         // Edge length between margin points
-                        rdWeight[i][j] = std::sqrt(
-                            std::pow(cellMargins[i][j][0] - cellMargins[i][jj][0], 2) +
-                            std::pow(cellMargins[i][j][1] - cellMargins[i][jj][1], 2) +
-                            std::pow(cellMargins[i][j][2] - cellMargins[i][jj][2], 2));
+                        double emx = cellMargins[i][j][0] - cellMargins[i][jj][0];
+                        double emy = cellMargins[i][j][1] - cellMargins[i][jj][1];
+                        double emz = cellMargins[i][j][2] - cellMargins[i][jj][2];
+                        rdWeight[i][j] = std::sqrt(emx * emx + emy * emy + emz * emz);
 
                         // Triangle area calculation using cross product
                         double ux = cellMargins[i][j][0] - ua;
@@ -51,31 +48,35 @@ void ToothModel::reactionDiffusion() {
                         double dy = cellMargins[i][jj][1] - ub;
                         double dz = cellMargins[i][jj][2] - uc;
 
-                        rdAreaProj[i][j] = 0.5 * std::sqrt(  // Fortran: 0.05D1 = 0.5
-                            std::pow(uy * dz - uz * dy, 2) +
-                            std::pow(uz * dx - ux * dz, 2) +
-                            std::pow(ux * dy - uy * dx, 2));
+                        double cpx = uy * dz - uz * dy;
+                        double cpy = uz * dx - ux * dz;
+                        double cpz = ux * dy - uy * dx;
+                        rdAreaProj[i][j] = 0.5 * std::sqrt(cpx * cpx + cpy * cpy + cpz * cpz);
                         goto next_neighbor;
                     }
                 }
 
                 // Wrap around to first neighbor if no next found
-                rdWeight[i][j] = std::sqrt(
-                    std::pow(cellMargins[i][j][0] - cellMargins[i][0][0], 2) +
-                    std::pow(cellMargins[i][j][1] - cellMargins[i][0][1], 2) +
-                    std::pow(cellMargins[i][j][2] - cellMargins[i][0][2], 2));
+                {
+                    double emx = cellMargins[i][j][0] - cellMargins[i][0][0];
+                    double emy = cellMargins[i][j][1] - cellMargins[i][0][1];
+                    double emz = cellMargins[i][j][2] - cellMargins[i][0][2];
+                    rdWeight[i][j] = std::sqrt(emx * emx + emy * emy + emz * emz);
+                }
 
-                double ux = cellMargins[i][j][0] - cellPositions[i][0];
-                double uy = cellMargins[i][j][1] - cellPositions[i][1];
-                double uz = cellMargins[i][j][2] - cellPositions[i][2];
-                double dx = cellMargins[i][0][0] - cellPositions[i][0];
-                double dy = cellMargins[i][0][1] - cellPositions[i][1];
-                double dz = cellMargins[i][0][2] - cellPositions[i][2];
+                {
+                    double ux = cellMargins[i][j][0] - cellPositions[i][0];
+                    double uy = cellMargins[i][j][1] - cellPositions[i][1];
+                    double uz = cellMargins[i][j][2] - cellPositions[i][2];
+                    double dx = cellMargins[i][0][0] - cellPositions[i][0];
+                    double dy = cellMargins[i][0][1] - cellPositions[i][1];
+                    double dz = cellMargins[i][0][2] - cellPositions[i][2];
 
-                rdAreaProj[i][j] = 0.5 * std::sqrt(  // Fortran: 0.05D1 = 0.5
-                    std::pow(uy * dz - uz * dy, 2) +
-                    std::pow(uz * dx - ux * dz, 2) +
-                    std::pow(ux * dy - uy * dx, 2));
+                    double cpx = uy * dz - uz * dy;
+                    double cpy = uz * dx - ux * dz;
+                    double cpz = ux * dy - uy * dx;
+                    rdAreaProj[i][j] = 0.5 * std::sqrt(cpx * cpx + cpy * cpy + cpz * cpz);
+                }
             }
         next_neighbor:;
         }

@@ -111,11 +111,6 @@ void ToothModel::allocateAndInit() {
     std::fill(neighborCount.begin(), neighborCount.end(), 6);
 
     // Build initial grid by iterating through cells and placing neighbors
-    // Temporary storage for building the grid
-    std::vector<std::array<int, MAX_NEIGHBORS>> tempNeighbors(numCellsTotal);
-    for (auto& n : tempNeighbors) n.fill(0);
-    std::vector<std::array<double, 3>> tempPositions(numCellsTotal, {0.0, 0.0, 0.0});
-
     for (centerCellIndex = 0; centerCellIndex < numCells; centerCellIndex++) {
         currX = cellPositions[centerCellIndex][0];
         currY = cellPositions[centerCellIndex][1];

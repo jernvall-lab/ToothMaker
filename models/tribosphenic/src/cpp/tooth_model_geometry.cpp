@@ -165,12 +165,16 @@ std::vector<std::array<int, 3>> ToothModel::getTriangles() const {
     // Triangle exists when k is a neighbor of both i and j
     std::vector<std::array<int, 3>> triangles;
 
+    // Reusable buffers for set operations (avoid per-iteration heap allocation)
+    std::vector<int> common;
+    std::vector<int> jOnly;
+
     for (int i = 0; i < numCells; i++) {
         for (int j : nlist[i]) {
             if (j <= i) continue;  // Avoid duplicates
 
             // Find common neighbors of i and j (set intersection)
-            std::vector<int> common;
+            common.clear();
             std::set_intersection(
                 nlist[i].begin(), nlist[i].end(),
                 nlist[j].begin(), nlist[j].end(),
@@ -190,7 +194,7 @@ std::vector<std::array<int, 3>> ToothModel::getTriangles() const {
             if (j <= i) continue;
 
             // Find neighbors of j that are NOT neighbors of i
-            std::vector<int> jOnly;
+            jOnly.clear();
             std::set_difference(
                 nlist[j].begin(), nlist[j].end(),
                 nlist[i].begin(), nlist[i].end(),
@@ -200,7 +204,7 @@ std::vector<std::array<int, 3>> ToothModel::getTriangles() const {
                 if (k == i) continue;
 
                 // Find common neighbors of k and i (potential 4th vertex)
-                std::vector<int> common;
+                common.clear();
                 std::set_intersection(
                     nlist[k].begin(), nlist[k].end(),
                     nlist[i].begin(), nlist[i].end(),

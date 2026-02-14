@@ -2,7 +2,7 @@
 // Mechanical calculations: growth, buoyancy, repulsion, traction, position updates
 
 #include "tooth_model.hpp"
-#include <unordered_set>
+
 
 void ToothModel::calculateGrowthPushing() {
     // Reset deltas
@@ -291,19 +291,19 @@ void ToothModel::checkNonNeighborRepulsion() {
     constexpr double distThreshold = 1.4;
     constexpr double distThresholdSq = distThreshold * distThreshold;
 
-    std::unordered_set<int> neighborSet;
-    neighborSet.reserve(MAX_NEIGHBORS);
+    // Flat array for neighbor lookup (faster than unordered_set for ~6 elements)
+    std::array<int, MAX_NEIGHBORS> neighborList;
 
     for (int i = 0; i < numCells; i++) {
         double ua = cellPositions[i][0];
         double ub = cellPositions[i][1];
         double uc = cellPositions[i][2];
 
-        // Build hash set of neighbors for O(1) lookup
-        neighborSet.clear();
+        // Build compact neighbor list for lookup
+        int neighborListSize = 0;
         for (int j = 0; j < MAX_NEIGHBORS; j++) {
             if (neighbors[i][j] > 0) {
-                neighborSet.insert(neighbors[i][j]);
+                neighborList[neighborListSize++] = neighbors[i][j];
             }
         }
 
@@ -312,7 +312,14 @@ void ToothModel::checkNonNeighborRepulsion() {
 
         for (int ii = 0; ii < numCells; ii++) {
             if (ii == i) continue;
-            if (neighborSet.count(ii + 1)) continue;
+
+            // Linear scan of ~6 neighbors (fits in one cache line)
+            int ii1 = ii + 1;
+            bool isNeighbor = false;
+            for (int n = 0; n < neighborListSize; n++) {
+                if (neighborList[n] == ii1) { isNeighbor = true; break; }
+            }
+            if (isNeighbor) continue;
 
             double ux = cellPositions[ii][0] - ua;
             if (ux > distThreshold || ux < -distThreshold) continue;
@@ -357,7 +364,8 @@ void ToothModel::checkNonNeighborRepulsion() {
 
 void ToothModel::calculateNucleusTraction() {
     // Nucleus traction toward cell borders (averaging effect)
-    std::vector<std::array<double, 3>> prevPositions = cellPositions;
+    prevPositions.resize(cellPositions.size());
+    std::copy(cellPositions.begin(), cellPositions.end(), prevPositions.begin());
 
     // Interior cells
     for (int i = numBorderCells; i < numCells; i++) {
@@ -452,22 +460,10 @@ void ToothModel::updatePositions() {
         }
     }
 
-    // Prevent upward movement (from stellate pressure)
+    // Clamp z deltas, lock knot z, and apply position updates (single pass)
     for (int i = 0; i < numCells; i++) {
-        if (positionDeltas[i][2] < 0) {
-            positionDeltas[i][2] = 0.0;
-        }
-    }
-
-    // Lock z position for knots
-    for (int i = 0; i < numCells; i++) {
-        if (knotMarkers[i] == 1) {
-            positionDeltas[i][2] = 0.0;
-        }
-    }
-
-    // Apply position updates
-    for (int i = 0; i < numCells; i++) {
+        if (positionDeltas[i][2] < 0) positionDeltas[i][2] = 0.0;
+        if (knotMarkers[i] == 1) positionDeltas[i][2] = 0.0;
         cellPositions[i][0] += TIME_DELTA * positionDeltas[i][0];
         cellPositions[i][1] += TIME_DELTA * positionDeltas[i][1];
         cellPositions[i][2] += TIME_DELTA * positionDeltas[i][2];

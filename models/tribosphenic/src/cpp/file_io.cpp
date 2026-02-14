@@ -411,18 +411,19 @@ void FileIO::storeParameters(int snapshotIdx) {
     parameterHistory[snapshotIdx][11] = model->not3Rate;                 // parap(12) = acaca
 
     // Diffusion coefficients: parap(13-17) = difq3d(1-5) -> C++ [12-16]
-    for (int j = 0; j < NUM_3D_QUANTITIES; j++) {
+    // Only write [12-15]; [16] is overwritten below by diffThresholdInt
+    for (int j = 0; j < NUM_3D_QUANTITIES - 1; j++) {
         parameterHistory[snapshotIdx][12 + j] = model->diffusionCoeffs3D[j];
     }
     // 2D diffusion coefficients: parap(18-21) = difq2d(1-4) -> C++ [17-20]
-    // NOTE: difq2d(2) at [18] is GUI "Boy" (buoyancy), not a diffusion coefficient!
-    for (int j = 0; j < NUM_2D_QUANTITIES; j++) {
-        parameterHistory[snapshotIdx][17 + j] = model->diffusionCoeffs2D[j];
-    }
+    // Only write [18]; [17], [19], [20] are overwritten below
+    parameterHistory[snapshotIdx][18] = model->diffusionCoeffs2D[1];    // difq2d(2) = GUI "Boy" (buoyancy)
 
-    // Note: Original Fortran has overlapping indices - these are preserved
-    parameterHistory[snapshotIdx][16] = model->diffThresholdInt;         // parap(17) = us (overlaps difq3d(5))
-    parameterHistory[snapshotIdx][17] = model->diffThresholdSet;         // parap(18) = ud (overlaps difq2d(1))
+    // Overlapping Fortran indices - these are the actual final values
+    parameterHistory[snapshotIdx][16] = model->diffThresholdInt;         // parap(17) = us
+    parameterHistory[snapshotIdx][17] = model->diffThresholdSet;         // parap(18) = ud
+    parameterHistory[snapshotIdx][19] = model->borderWidth;              // parap(20) = tadif - GUI "Dff" (differentiation rate!)
+    parameterHistory[snapshotIdx][20] = model->biasFactor;               // parap(21) = fac
     parameterHistory[snapshotIdx][21] = model->biasPosterior;            // parap(22) = bip
     parameterHistory[snapshotIdx][22] = model->biasAnterior;             // parap(23) = bia
     parameterHistory[snapshotIdx][23] = model->biasBuccal;               // parap(24) = bib
@@ -431,8 +432,6 @@ void FileIO::storeParameters(int snapshotIdx) {
     parameterHistory[snapshotIdx][26] = model->degradationRate;          // parap(27) = mu
     parameterHistory[snapshotIdx][27] = model->sharpnessMax;             // parap(28) = tazmax
     parameterHistory[snapshotIdx][28] = model->nucleusTraction;          // parap(29) = radibi
-    parameterHistory[snapshotIdx][19] = model->borderWidth;              // parap(20) = tadif - GUI "Dff" (differentiation rate!)
-    parameterHistory[snapshotIdx][20] = model->biasFactor;               // parap(21) = fac (overlaps difq2d(4))
     parameterHistory[snapshotIdx][29] = model->biasCenterRadius;         // parap(30) = radibii - GUI "Bwi" maps here (XML error)
     parameterHistory[snapshotIdx][30] = model->initialActivator;         // parap(31) = ina
     parameterHistory[snapshotIdx][31] = model->basalMesenchymalRate;     // parap(32) = umgr
