@@ -2,7 +2,16 @@
 # Builds the original Fortran version of the tooth development model
 
 FC = gfortran
-FFLAGS = -O2 -static-libgfortran -static-libgcc
+# -ffp-contract=off disables FMA fusion for consistent output across architectures.
+# Without this, gfortran defaults to -ffp-contract=fast which fuses on ARM (where FMA
+# is always available) but not on x86_64 (unless -mfma is also set), causing divergence.
+FFLAGS = -O2 -ffp-contract=off -static-libgfortran -static-libgcc
+
+# x86_64 needs -mfma to enable FMA3 hardware instructions
+UNAME_M := $(shell uname -m 2>/dev/null)
+ifeq ($(UNAME_M),x86_64)
+  FFLAGS += -mfma
+endif
 
 # Source and target (output to bin/ directory)
 SOURCE = humppa_translate.f90
