@@ -7,15 +7,8 @@
 # floating-point differences which accumulate in this chaotic simulation.
 CXX = clang++
 # -ffp-contract=on enables FMA within single C expressions, matching Fortran
-# default behavior and ensuring numerical stability. On x86_64, -mfma is
-# needed to enable FMA3 instructions (FMA is native on ARM).
-ARCH := $(shell uname -m)
-ifeq ($(ARCH),x86_64)
-    ARCH_FLAGS = -mfma
-else
-    ARCH_FLAGS =
-endif
-CXXFLAGS = -std=c++17 -O3 -flto -funroll-loops -ffp-contract=on $(ARCH_FLAGS) -DNDEBUG
+# default behavior and ensuring numerical stability.
+CXXFLAGS = -std=c++17 -O3 -flto -funroll-loops -ffp-contract=on -DNDEBUG
 LDFLAGS = -flto
 
 # Debug build flags (use: make debug)
