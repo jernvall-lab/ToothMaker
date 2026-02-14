@@ -8,8 +8,13 @@
 CXX = clang++
 # -ffp-contract=on enables FMA within single C expressions, matching Fortran
 # default behavior and ensuring numerical stability.
-CXXFLAGS = -std=c++17 -O3 -flto -funroll-loops -ffp-contract=on -DNDEBUG
-LDFLAGS = -flto
+# LTO is disabled on Windows because MinGW's ld cannot load the LLVM gold plugin.
+CXXFLAGS = -std=c++17 -O3 -funroll-loops -ffp-contract=on -DNDEBUG
+LDFLAGS =
+ifneq ($(OS),Windows_NT)
+  CXXFLAGS += -flto
+  LDFLAGS += -flto
+endif
 
 # Debug build flags (use: make debug)
 DEBUG_FLAGS = -std=c++17 -g -O0 -Wall -Wextra -DDEBUG
