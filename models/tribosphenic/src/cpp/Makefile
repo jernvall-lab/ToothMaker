@@ -1,18 +1,14 @@
 # Makefile for humppa_cpp tooth simulation
 # Builds the modular C++ version of the tooth development model
 
-CXX = g++
-# FMA (fused multiply-add) is critical for numerical stability in this chaotic
-# simulation. -ffp-contract=on enables FMA within single C expressions (matching
-# Fortran behavior). On ARM, FMA is natively available; on x86_64, -mfma is
-# needed to enable FMA3 instructions (requires Haswell/2013+).
-ARCH := $(shell uname -m)
-ifeq ($(ARCH),x86_64)
-    ARCH_FLAGS = -mfma
-else
-    ARCH_FLAGS =
-endif
-CXXFLAGS = -std=c++17 -O3 -flto -funroll-loops -ffp-contract=on $(ARCH_FLAGS) -DNDEBUG
+# Use clang++ on all platforms for consistent floating-point behavior.
+# On macOS, g++ is already Apple Clang; on Linux, we need clang++ explicitly.
+# GCC and Clang make different FMA/optimization choices that cause this chaotic
+# simulation to diverge significantly.
+CXX = clang++
+# -ffp-contract=on enables FMA within single C expressions, matching Fortran
+# default behavior and ensuring numerical stability.
+CXXFLAGS = -std=c++17 -O3 -flto -funroll-loops -ffp-contract=on -DNDEBUG
 LDFLAGS = -flto
 
 # Debug build flags (use: make debug)

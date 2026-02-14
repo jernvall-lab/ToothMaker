@@ -59,7 +59,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools \
-            gfortran libgl1-mesa-dev libx11-dev
+            gfortran clang libgl1-mesa-dev libx11-dev
 
       - name: Install Qt (macOS)
         if: runner.os == 'macOS'
