@@ -98,6 +98,7 @@ jobs:
           update: true
           install: >-
             mingw-w64-x86_64-gcc-fortran
+            mingw-w64-x86_64-clang
             make
 
       #
