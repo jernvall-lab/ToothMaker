@@ -7,7 +7,6 @@ equals(OSX, "10.6") {
 }
 
 SUBDIRS = dad_to_polygons \
-          no_empty_lines \
           cusp_analysis
 
 CONFIG += ordered
