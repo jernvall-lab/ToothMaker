@@ -2,11 +2,17 @@
 # Builds the modular C++ version of the tooth development model
 
 CXX = g++
-# Note: -ffast-math removed and -ffp-contract=off added to ensure consistent
-# floating-point results across compilers (clang vs GCC). The simulation is
-# chaotic, so even small FP differences (e.g. from FMA) compound into
-# completely different trajectories, breaking cross-platform tests.
-CXXFLAGS = -std=c++17 -O3 -flto -funroll-loops -ffp-contract=on -DNDEBUG
+# FMA (fused multiply-add) is critical for numerical stability in this chaotic
+# simulation. -ffp-contract=on enables FMA within single C expressions (matching
+# Fortran behavior). On ARM, FMA is natively available; on x86_64, -mfma is
+# needed to enable FMA3 instructions (requires Haswell/2013+).
+ARCH := $(shell uname -m)
+ifeq ($(ARCH),x86_64)
+    ARCH_FLAGS = -mfma
+else
+    ARCH_FLAGS =
+endif
+CXXFLAGS = -std=c++17 -O3 -flto -funroll-loops -ffp-contract=on $(ARCH_FLAGS) -DNDEBUG
 LDFLAGS = -flto
 
 # Debug build flags (use: make debug)
