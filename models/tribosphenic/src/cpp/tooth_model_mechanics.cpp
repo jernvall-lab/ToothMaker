@@ -291,8 +291,68 @@ void ToothModel::checkNonNeighborRepulsion() {
     constexpr double distThreshold = 1.4;
     constexpr double distThresholdSq = distThreshold * distThreshold;
 
-    // Flat array for neighbor lookup (faster than unordered_set for ~6 elements)
+    if (numCells < 2) return;
+
+    // Build spatial grid for O(N) neighbor lookup instead of O(N²).
+    // Grid cell size = distThreshold so checking 3x3x3 neighborhood
+    // guarantees finding all cells within distThreshold on each axis.
+    constexpr double gridCellSize = distThreshold;
+    constexpr double invGridCellSize = 1.0 / gridCellSize;
+
+    // Find bounding box
+    double minX = cellPositions[0][0], maxX = minX;
+    double minY = cellPositions[0][1], maxY = minY;
+    double minZ = cellPositions[0][2], maxZ = minZ;
+    for (int i = 1; i < numCells; i++) {
+        double x = cellPositions[i][0], y = cellPositions[i][1], z = cellPositions[i][2];
+        if (x < minX) minX = x; else if (x > maxX) maxX = x;
+        if (y < minY) minY = y; else if (y > maxY) maxY = y;
+        if (z < minZ) minZ = z; else if (z > maxZ) maxZ = z;
+    }
+
+    // Grid dimensions (add 1 for cells exactly on the boundary)
+    int gridX = static_cast<int>((maxX - minX) * invGridCellSize) + 2;
+    int gridY = static_cast<int>((maxY - minY) * invGridCellSize) + 2;
+    int gridZ = static_cast<int>((maxZ - minZ) * invGridCellSize) + 2;
+    int gridYZ = gridY * gridZ;
+    int gridTotal = gridX * gridYZ;
+
+    // Populate grid: first pass counts cells per bin, second pass fills
+    std::vector<int> binCount(gridTotal, 0);
+    std::vector<int> cellBin(numCells);  // which bin each cell is in
+
+    for (int i = 0; i < numCells; i++) {
+        int gx = static_cast<int>((cellPositions[i][0] - minX) * invGridCellSize);
+        int gy = static_cast<int>((cellPositions[i][1] - minY) * invGridCellSize);
+        int gz = static_cast<int>((cellPositions[i][2] - minZ) * invGridCellSize);
+        int bin = gx * gridYZ + gy * gridZ + gz;
+        cellBin[i] = bin;
+        binCount[bin]++;
+    }
+
+    // Build bin offsets (prefix sum)
+    std::vector<int> binOffset(gridTotal + 1);
+    binOffset[0] = 0;
+    for (int b = 0; b < gridTotal; b++) {
+        binOffset[b + 1] = binOffset[b] + binCount[b];
+    }
+
+    // Fill sorted cell list (cells within each bin are in ascending index order
+    // because we iterate i = 0..numCells-1)
+    std::vector<int> binCells(numCells);
+    std::vector<int> binPos(gridTotal, 0);  // current fill position per bin
+    for (int i = 0; i < numCells; i++) {
+        int bin = cellBin[i];
+        binCells[binOffset[bin] + binPos[bin]] = i;
+        binPos[bin]++;
+    }
+
+    // Flat array for neighbor lookup
     std::array<int, MAX_NEIGHBORS> neighborList;
+
+    // Reusable buffer for collecting nearby candidates in sorted order
+    std::vector<int> candidates;
+    candidates.reserve(64);
 
     for (int i = 0; i < numCells; i++) {
         double ua = cellPositions[i][0];
@@ -307,12 +367,39 @@ void ToothModel::checkNonNeighborRepulsion() {
             }
         }
 
+        // Collect candidates from 3x3x3 grid neighborhood
+        int gx = static_cast<int>((ua - minX) * invGridCellSize);
+        int gy = static_cast<int>((ub - minY) * invGridCellSize);
+        int gz = static_cast<int>((uc - minZ) * invGridCellSize);
+
+        candidates.clear();
+        for (int dx = -1; dx <= 1; dx++) {
+            int nx = gx + dx;
+            if (nx < 0 || nx >= gridX) continue;
+            for (int dy = -1; dy <= 1; dy++) {
+                int ny = gy + dy;
+                if (ny < 0 || ny >= gridY) continue;
+                for (int dz = -1; dz <= 1; dz++) {
+                    int nz = gz + dz;
+                    if (nz < 0 || nz >= gridZ) continue;
+                    int nbin = nx * gridYZ + ny * gridZ + nz;
+                    // Cells in each bin are already in ascending index order
+                    for (int p = binOffset[nbin]; p < binOffset[nbin + 1]; p++) {
+                        int ii = binCells[p];
+                        if (ii != i) candidates.push_back(ii);
+                    }
+                }
+            }
+        }
+
+        // Sort candidates by cell index to match original iteration order
+        // (preserves identical FP accumulation)
+        std::sort(candidates.begin(), candidates.end());
+
         // Accumulate forces directly
         double sumX = 0.0, sumY = 0.0, sumZ = 0.0;
 
-        for (int ii = 0; ii < numCells; ii++) {
-            if (ii == i) continue;
-
+        for (int ii : candidates) {
             // Linear scan of ~6 neighbors (fits in one cache line)
             int ii1 = ii + 1;
             bool isNeighbor = false;
