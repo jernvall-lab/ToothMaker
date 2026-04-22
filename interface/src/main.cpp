@@ -75,11 +75,12 @@ int handleArguments(int argc, char **argv, int *niter, int *parfile, int *scanfi
     }
 
     for (i=1; i<argc; i++) {
+        if (!strcmp(argv[i], "--export-images")) { *expimg=1; continue; }
+        if (i+1 >= argc) continue;
         if (!strcmp(argv[i], "--param")) *parfile=i+1;
         if (!strcmp(argv[i], "--scan")) *scanfile=i+1;
         if (!strcmp(argv[i], "--niter")) *niter=atoi(argv[i+1]);
         if (!strcmp(argv[i], "--step")) *step=atoi(argv[i+1]);
-        if (!strcmp(argv[i], "--export-images")) *expimg=1;
         if (!strcmp(argv[i], "--resolution")) *res=atoi(argv[i+1]);
     }
 

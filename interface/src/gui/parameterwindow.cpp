@@ -101,7 +101,7 @@ void ParameterWindow::setParameters( Parameters& par )
 void ParameterWindow::addFileDialog( QString& name, int x, int y )
 {
     QPushButton *button = new QPushButton(name, this);
-    connect(button, SIGNAL(clicked()), this, SLOT(importFile()));
+    connect(button, &QPushButton::clicked, this, &ParameterWindow::importFile);
     button->move(x, y);
     button->setFixedWidth(80);
 
@@ -127,10 +127,9 @@ void ParameterWindow::addCheckbox_( QString text, int x, int y, int i )
     checkbox->move(x, y);
     checkboxes_[i] = checkbox;
 
-    QSignalMapper *signalMapper = new QSignalMapper(this);
-    signalMapper->setMapping( checkbox, i );
-    connect( checkbox, SIGNAL(stateChanged(int)), signalMapper, SLOT(map()) );
-    connect( signalMapper, SIGNAL(mapped(int)), this, SLOT(checkbox_state(int)) );
+    connect( checkbox, &QCheckBox::stateChanged, this, [this, i](int) {
+        checkbox_state(i);
+    });
 }
 
 
@@ -284,10 +283,9 @@ void ParameterWindow::addValueField_(int x, int y, int i, bool show)
     field->setValidator(validator);
     valueFields_[i] = field;
 
-    QSignalMapper *signalMapper = new QSignalMapper(this);
-    signalMapper->setMapping(field, i);
-    connect(field, SIGNAL(textChanged(const QString &)), signalMapper, SLOT(map()));
-    connect(signalMapper, SIGNAL(mapped(int)), this, SLOT(setParValue(int)));
+    connect(field, &QLineEdit::textChanged, this, [this, i](const QString &) {
+        setParValue(i);
+    });
 
     if (!show)
         field->hide();
@@ -317,9 +315,7 @@ void ParameterWindow::createButton_(int x, int y, int i, int width, bool show)
     button->setFixedWidth(width);
     buttons_[i] = button;
 
-    // Mapping parameter buttons to corresponding value slots.
-    QSignalMapper *signalMapper = new QSignalMapper(this);
-    signalMapper->setMapping(button, i);
-    connect(button, SIGNAL(clicked()), signalMapper, SLOT(map()));
-    connect(signalMapper, SIGNAL(mapped(int)), this, SLOT(infoBox(int)));
+    connect(button, &QPushButton::clicked, this, [this, i]() {
+        infoBox(i);
+    });
 }

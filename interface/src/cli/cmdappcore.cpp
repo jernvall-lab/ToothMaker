@@ -38,9 +38,8 @@ CmdAppCore::CmdAppCore(int & argc, char ** argv) : QCoreApplication(argc, argv)
     qRegisterMetaType<std::string>("std::string");
     unsigned int i;
     for (i=0; i<models.size(); i++) {
-        connect(models.at(i), SIGNAL(msgStatusBar(std::string)), this,
-                SLOT(writeStatusBar(std::string)));
-        connect(models.at(i), SIGNAL(finished()), this, SLOT(updateModel()));
+        connect(models.at(i), &Model::msgStatusBar, this, &CmdAppCore::writeStatusBar);
+        connect(models.at(i), &Model::finished, this, &CmdAppCore::updateModel);
     }
 
     runDir = QDir::currentPath();
@@ -351,7 +350,7 @@ int CmdAppCore::startParameterScan(int niter, char *param, char *scanfile,
         }
         progressTimer = new QTimer(this);
         progressTimer->setInterval(1000);
-        connect(progressTimer, SIGNAL(timeout()), this, SLOT(updateProgress()));
+        connect(progressTimer, &QTimer::timeout, this, &CmdAppCore::updateProgress);
         progressTimer->start();
     }
 

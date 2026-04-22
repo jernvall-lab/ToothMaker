@@ -50,7 +50,6 @@ HEADERS += \
     src/utils/readparameters.h \
     src/utils/readxml.h \
     src/misc/loader.h \
-    src/renderer/glcore.h \
     ../common/model.h \
     ../common/mesh.h \
     ../common/parameters.h \

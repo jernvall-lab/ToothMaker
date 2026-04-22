@@ -249,10 +249,10 @@ OutputReader::Result OutputReader::readStep(int step)
 
 BinaryHandler::BinaryHandler() : Model()
 {
-    connect(&m_process, SIGNAL(finished(int)), this, SLOT(binaryFinished_()));
-    connect(&m_process, SIGNAL(errorOccurred(QProcess::ProcessError)), this,
-            SLOT(binaryError_(QProcess::ProcessError)));
-    connect(&m_process, SIGNAL(started()), this, SLOT(start()));
+    connect(&m_process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+            this, &BinaryHandler::binaryFinished_);
+    connect(&m_process, &QProcess::errorOccurred, this, &BinaryHandler::binaryError_);
+    connect(&m_process, &QProcess::started, this, [this]() { start(); });
 
     // Kill timer: connected once here, started/stopped per run.
     connect(&m_killTimer, &QTimer::timeout, this, [this]() {

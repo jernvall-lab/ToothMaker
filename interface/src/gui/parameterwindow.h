@@ -32,7 +32,7 @@ class ParameterWindow : public QWidget
     Q_OBJECT
 
     public:
-        ParameterWindow(QWidget *parent=0);
+        ParameterWindow(QWidget *parent=nullptr);
         ~ParameterWindow();
 
         void setModel( Model* );

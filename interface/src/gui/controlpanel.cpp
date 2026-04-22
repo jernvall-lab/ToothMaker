@@ -41,11 +41,10 @@ ControlPanel::ControlPanel( QWidget *, std::vector<Model*> *models )
     QValidator *validator = new QDoubleValidator(0.0, 99999, 5, this);
     validator->setLocale(QLocale("C"));
     threshold->setValidator(validator);
-    connect( threshold, SIGNAL(textChanged(const QString &)), this,
-             SLOT(viewThreshold(const QString &)) );
+    connect( threshold, &QLineEdit::textChanged, this, &ControlPanel::viewThreshold );
 
     // View checkboxes:
-    showGrid = createCheckBox(302, 40, "Show mesh", SLOT(cellConnections(int)));
+    showGrid = createCheckBox(302, 40, "Show mesh", &ControlPanel::cellConnections);
     showGrid->setChecked(SHOW_MESH);
 
     // Model menu
@@ -58,8 +57,8 @@ ControlPanel::ControlPanel( QWidget *, std::vector<Model*> *models )
     // Import/Export parameters:
     QLabel *labelFiles = new QLabel("Parameters:", this);
     labelFiles->move(764, 10);
-    createButton(847, 5, 68, "Import", SLOT(readParameters()));
-    createButton(916, 5, 68, "Export", SLOT(saveParameters()));
+    createButton(847, 5, 68, "Import", &ControlPanel::readParameters);
+    createButton(916, 5, 68, "Export", &ControlPanel::saveParameters);
 
     // Model history menu:
     QLabel *labelHistory = new QLabel("History:", this);
@@ -68,8 +67,8 @@ ControlPanel::ControlPanel( QWidget *, std::vector<Model*> *models )
     history->move(564, 35);
     history->setFixedWidth(COMBO_WIDTH);
     labelHistory->setBuddy(history);
-    connect( history, SIGNAL(currentIndexChanged(int)), this,
-             SLOT(changeHistory(int)) );
+    // qOverload: currentIndexChanged has int+QString overloads in Qt5, int only in Qt6.
+    connect( history, qOverload<int>(&QComboBox::currentIndexChanged), this, &ControlPanel::changeHistory );
 
     // Development slider:
     QLabel *labelDevel = new QLabel("Development:", this);
@@ -87,31 +86,30 @@ ControlPanel::ControlPanel( QWidget *, std::vector<Model*> *models )
     // on graphically demanding models, making the interface crawl.
     sliderTimer = new QTimer(this);
     sliderTimer->setInterval(UPDATE_INTERVAL);
-    connect(sliderTimer, SIGNAL(timeout()), this, SLOT(slider_step_view()));
+    connect(sliderTimer, &QTimer::timeout, this, &ControlPanel::slider_step_view);
     sliderTimer->start();
     // Emit slider signal to Hampu only if user interacting with the slider.
-    connect(develSlider, SIGNAL(sliderPressed()), this, SLOT(slider_active()));
-    connect(develSlider, SIGNAL(sliderReleased()), this, SLOT(slider_inactive()));
+    connect(develSlider, &QSlider::sliderPressed, this, &ControlPanel::slider_active);
+    connect(develSlider, &QSlider::sliderReleased, this, &ControlPanel::slider_inactive);
     sliderUpdate = false;
 
     // Iterations & Run button
     QLabel *labelRun = new QLabel("Iterations:", this);
     labelRun->move(513, 87);
-    iterations = createSpinBox(580, 84, SLOT(readLineValue(int)));
+    iterations = createSpinBox(580, 84, &ControlPanel::readLineValue);
     iterations->setSingleStep(1000);
     iterations->setMinimum(0);
     iterations->setMaximum(MAX_ITER);
     iterations->setFixedWidth(80);
     iterations->installEventFilter(this);
-    connect( iterations, SIGNAL(valueChanged(int)), this,
-             SLOT(changeIterations(int)) );
+    connect( iterations, qOverload<int>(&QSpinBox::valueChanged), this, &ControlPanel::changeIterations );
 
     runStatus = "Run";
-    runButton = createButton(673, 82, 68, runStatus, SLOT(handleRunButton()));
+    runButton = createButton(673, 82, 68, runStatus, &ControlPanel::handleRunButton);
 
     // Checkbox for following development: //
     QCheckBox *follow_devel = createCheckBox( 758, 87, "Follow development",
-                                              SLOT(follow_development(int)) );
+                                              &ControlPanel::follow_development );
     follow_devel->setChecked(FOLLOW_DEFAULT);
 
     currentRunIndex = 0;
@@ -150,8 +148,7 @@ QComboBox *ControlPanel::modelBox( std::vector<Model*> *models, int x, int y )
         }
     }
     morpho->move(x,y);
-    connect( morpho, SIGNAL(currentIndexChanged(int)), this,
-             SLOT(modelIndex(int)) );
+    connect( morpho, qOverload<int>(&QComboBox::currentIndexChanged), this, &ControlPanel::modelIndex );
 
     return morpho;
 }
@@ -167,8 +164,7 @@ void ControlPanel::viewModeBox(int x, int y)
 {
     viewMode = new QComboBox(this);
     viewMode->move(x,y);
-    connect( viewMode, SIGNAL(currentIndexChanged(int)), this,
-             SLOT(changeViewMode(int)) );
+    connect( viewMode, qOverload<int>(&QComboBox::currentIndexChanged), this, &ControlPanel::changeViewMode );
     viewMode->setFixedWidth(COMBO_WIDTH);
 }
 
@@ -185,8 +181,7 @@ QComboBox *ControlPanel::orientationBox(int x, int y)
 
     orientations->move(x,y);
     orientations->setFixedWidth(ORIENT_WIDTH);
-    connect( orientations, SIGNAL(currentIndexChanged(int)), this,
-             SLOT(changeOrientation(int)) );
+    connect( orientations, qOverload<int>(&QComboBox::currentIndexChanged), this, &ControlPanel::changeOrientation );
 
     return orientations;
 }
@@ -199,15 +194,16 @@ QComboBox *ControlPanel::orientationBox(int x, int y)
  * @param y         Loc. y
  * @param width     Width of the button
  * @param text      Button text
- * @param member    Signal connected to the button.
+ * @param slot      Signal connected to the button.
  * @return
  */
+template<typename Func>
 QPushButton *ControlPanel::createButton( int x, int y, int width,
-                                         const QString &text, const char *member )
+                                         const QString &text, Func slot )
 {
     QPushButton *button = new QPushButton(text, this);
     button->move(x,y);
-    connect(button, SIGNAL(clicked()), this, member);
+    connect(button, &QPushButton::clicked, this, slot);
     button->setFixedWidth(width);
     return button;
 }
@@ -218,14 +214,16 @@ QPushButton *ControlPanel::createButton( int x, int y, int width,
  * @brief Creates a generic spinbox.
  * @param x         Loc. x
  * @param y         Loc. y
- * @param member    Signal connected to the spinbox.
+ * @param slot      Signal connected to the spinbox.
  * @return
  */
-QSpinBox *ControlPanel::createSpinBox(int x, int y, const char *member)
+template<typename Func>
+QSpinBox *ControlPanel::createSpinBox(int x, int y, Func slot)
 {
     QSpinBox *iter = new QSpinBox(this);
     iter->move(x,y);
-    connect(iter, SIGNAL(valueChanged(int)), this, member);
+    // qOverload: valueChanged has int+QString overloads in Qt5, int only in Qt6.
+    connect(iter, qOverload<int>(&QSpinBox::valueChanged), this, slot);
     return iter;
 }
 
@@ -236,15 +234,16 @@ QSpinBox *ControlPanel::createSpinBox(int x, int y, const char *member)
  * @param x         Loc. x
  * @param y         Loc. y
  * @param text      Checkbox text
- * @param member    Signal connected to the checkbox.
+ * @param slot      Signal connected to the checkbox.
  * @return
  */
+template<typename Func>
 QCheckBox *ControlPanel::createCheckBox( int x, int y, const QString &text,
-                                         const char *member )
+                                         Func slot )
 {
     QCheckBox *checkbox = new QCheckBox(text, this);
     checkbox->move(x, y);
-    connect(checkbox, SIGNAL(stateChanged(int)), this, member);
+    connect(checkbox, &QCheckBox::stateChanged, this, slot);
     return checkbox;
 }
 
@@ -765,8 +764,7 @@ void ControlPanel::enableHistory(int i)
 void ControlPanel::setViewModeBox( const std::vector<model::view_mode>& modes,
                                    int viewmode )
 {
-    disconnect( viewMode, SIGNAL(currentIndexChanged(int)), this,
-                SLOT(changeViewMode(int)) );
+    disconnect( viewMode, qOverload<int>(&QComboBox::currentIndexChanged), this, &ControlPanel::changeViewMode );
     viewMode->clear();
 
     for (auto& m : modes)
@@ -774,8 +772,7 @@ void ControlPanel::setViewModeBox( const std::vector<model::view_mode>& modes,
     viewMode->setCurrentIndex(viewmode);
     changeViewMode(viewmode);
 
-    connect( viewMode, SIGNAL(currentIndexChanged(int)), this,
-             SLOT(changeViewMode(int)) );
+    connect( viewMode, qOverload<int>(&QComboBox::currentIndexChanged), this, &ControlPanel::changeViewMode );
 }
 
 

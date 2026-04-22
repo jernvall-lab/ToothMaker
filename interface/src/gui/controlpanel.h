@@ -36,7 +36,7 @@ class ControlPanel : public QWidget
     Q_OBJECT
 
     public:
-        ControlPanel( QWidget *parent=0, std::vector<Model*> *m=NULL ) ;
+        ControlPanel( QWidget *parent=nullptr, std::vector<Model*> *m=nullptr ) ;
         void updateRunStatus(QString);
         void setSliderMinMax(int, int);
         void setSliderValue(int);
@@ -110,12 +110,12 @@ class ControlPanel : public QWidget
         void paintEvent(QPaintEvent*);
         bool eventFilter(QObject *, QEvent *);
 
-        QPushButton *createButton(int, int, int, const QString &, const char *);
+        template<typename Func> QPushButton *createButton(int, int, int, const QString &, Func);
         QComboBox *modelBox(std::vector<Model*>*, int, int);
         void viewModeBox(int, int);
         QComboBox *orientationBox(int, int);
-        QSpinBox *createSpinBox(int, int, const char *);
-        QCheckBox *createCheckBox(int, int, const QString &, const char *);
+        template<typename Func> QSpinBox *createSpinBox(int, int, Func);
+        template<typename Func> QCheckBox *createCheckBox(int, int, const QString &, Func);
 
         // Control menus etc.
         QComboBox *viewMode;

@@ -260,29 +260,29 @@ void GLWidget::keyPressEvent(QKeyEvent *event)
         ss << "Distance: " << obj.zoomMultip;
         emit msgStatusBar(ss.str());
     }
-    if (event->key()==53) {
+    if (event->key()==Qt::Key_5) {
         obj.zoomMultip=100.6;
         ss << "Distance: " << obj.zoomMultip;
         emit msgStatusBar(ss.str());
     }
-    if (event->key()==67) {  // Center object
+    if (event->key()==Qt::Key_C) {  // Center object
         obj.viewPosX=0.0;
         obj.viewPosY=0.0;
         ss << "Position: (" << obj.viewPosX << ", " << obj.viewPosY << ")";
         emit msgStatusBar(ss.str());
     }
-    if (event->key()==16777234) {  // Left
+    if (event->key()==Qt::Key_Left) {  // Left
         emit changeStepView(-1);
     }
-    if (event->key()==16777236) {  // Right
+    if (event->key()==Qt::Key_Right) {  // Right
         emit changeStepView(1);
     }
-    if (event->key()==16777235) { // Up
+    if (event->key()==Qt::Key_Up) { // Up
         obj.zoomMultip = obj.zoomMultip+0.01;
         ss << "Distance: " << obj.zoomMultip;
         emit msgStatusBar(ss.str());
     }
-    if (event->key()==16777237) { // Down
+    if (event->key()==Qt::Key_Down) { // Down
         obj.zoomMultip = obj.zoomMultip-0.01;
         ss << "Distance: " << obj.zoomMultip;
         emit msgStatusBar(ss.str());

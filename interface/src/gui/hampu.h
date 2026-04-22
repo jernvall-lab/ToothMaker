@@ -35,7 +35,7 @@ class Hampu : public QMainWindow
 Q_OBJECT
 
 public:
-    explicit Hampu(QWidget *parent = 0)  : QMainWindow(parent) {};
+    explicit Hampu(QWidget *parent = nullptr)  : QMainWindow(parent) {};
     ~Hampu();
     int init_GUI();
 

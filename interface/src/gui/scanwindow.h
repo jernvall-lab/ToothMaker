@@ -10,7 +10,6 @@
 #include <QPushButton>
 #include <QDir>
 #include <QFileDialog>
-#include <QSignalMapper>
 #include <QLineEdit>
 #include "misc/scanlist.h"
 
@@ -34,7 +33,7 @@ class ScanWindow : public QDialog
     Q_OBJECT
 
     public:
-        ScanWindow(QWidget *parent=0);
+        ScanWindow(QWidget *parent=nullptr);
         void setParameters(Parameters *);
         void updateParameterValues(Parameters *);
         void resetScanList();
@@ -79,5 +78,5 @@ class ScanWindow : public QDialog
         void printNofJobs(int);
         void addParameterRow(QString, double);
         void paintEvent(QPaintEvent*);
-        QPushButton *createButton(int, int, const QString &, const char *);
+        template<typename Func> QPushButton *createButton(int, int, const QString &, Func);
 };

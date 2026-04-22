@@ -26,7 +26,7 @@ class GLWidget : public QOpenGLWidget, protected QOpenGLFunctions
     Q_OBJECT
 
     public:
-        GLWidget(QWidget *parent=0);
+        GLWidget(QWidget *parent=nullptr);
         ~GLWidget();
 
         void paintGL();

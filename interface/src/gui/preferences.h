@@ -30,7 +30,7 @@ class Preferences : public QDialog
 class System : public QWidget
 {
     public:
-        System(QWidget *parent=0);
+        System(QWidget *parent=nullptr);
 };
 
 

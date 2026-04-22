@@ -197,7 +197,7 @@ int Hampu::init_GUI()
     // Model progress polling.
     progressTimer = new QTimer(this);
     progressTimer->setInterval(UPDATE_INTERVAL);
-    connect(progressTimer, SIGNAL(timeout()), this, SLOT(updateProgress()));
+    connect(progressTimer, &QTimer::timeout, this, &Hampu::updateProgress);
 
     // Enable drag & drop for parameters.
     setAcceptDrops(true);
@@ -1155,56 +1155,35 @@ void Hampu::setSignals_()
     qRegisterMetaType<uint>("uint");
 
     // Signals for control panel actions.
-    connect(controlPanel, SIGNAL(viewmode(int)), this,
-            SLOT(Panel_ViewMode(int)));
-    connect(controlPanel, SIGNAL(thresholdChange(double)), this,
-            SLOT(Panel_ViewThreshold(double)));
-    connect(controlPanel, SIGNAL(viewOrientation(int)), this,
-            SLOT(Panel_Orientation(int)));
-    connect(controlPanel, SIGNAL(showMesh(int)), this,
-            SLOT(Panel_CellConnections(int)));
-    connect(controlPanel, SIGNAL(changeModel(int)), this,
-            SLOT(Panel_Model(int)));
-    connect(controlPanel, SIGNAL(historyIndex(int)), this,
-            SLOT(Panel_History(int)));
-    connect(controlPanel, SIGNAL(importFile(std::string)), this,
-            SLOT(Panel_Import(std::string)));
-    connect(controlPanel, SIGNAL(exportFile(std::string)), this,
-            SLOT(Panel_Export(std::string)));
-    connect(controlPanel, SIGNAL(changeStepView(int)), this,
-            SLOT(Panel_Development(int)));
-    connect(controlPanel, SIGNAL(setIterations(int)), this,
-            SLOT(Panel_Iterations(int)));
-    connect(controlPanel, SIGNAL(startModel(int)), this,
-            SLOT(Panel_Run(int)));
-    connect(controlPanel, SIGNAL(killModel()), this,
-            SLOT(Panel_Stop()));
-    connect(controlPanel, SIGNAL(followDevel(int)), this,
-            SLOT(Panel_FollowDevelopment(int)));
-    connect(controlPanel, SIGNAL(msgStatusBar(std::string)), this,
-            SLOT(writeStatusBar(std::string)));
+    connect(controlPanel, &ControlPanel::viewmode, this, &Hampu::Panel_ViewMode);
+    connect(controlPanel, &ControlPanel::thresholdChange, this, &Hampu::Panel_ViewThreshold);
+    connect(controlPanel, &ControlPanel::viewOrientation, this, &Hampu::Panel_Orientation);
+    connect(controlPanel, &ControlPanel::showMesh, this, &Hampu::Panel_CellConnections);
+    connect(controlPanel, &ControlPanel::changeModel, this, &Hampu::Panel_Model);
+    connect(controlPanel, &ControlPanel::historyIndex, this, &Hampu::Panel_History);
+    connect(controlPanel, &ControlPanel::importFile, this, &Hampu::Panel_Import);
+    connect(controlPanel, &ControlPanel::exportFile, this, &Hampu::Panel_Export);
+    connect(controlPanel, &ControlPanel::changeStepView, this, &Hampu::Panel_Development);
+    connect(controlPanel, &ControlPanel::setIterations, this, &Hampu::Panel_Iterations);
+    connect(controlPanel, &ControlPanel::startModel, this, &Hampu::Panel_Run);
+    connect(controlPanel, &ControlPanel::killModel, this, &Hampu::Panel_Stop);
+    connect(controlPanel, &ControlPanel::followDevel, this, &Hampu::Panel_FollowDevelopment);
+    connect(controlPanel, &ControlPanel::msgStatusBar, this, &Hampu::writeStatusBar);
 
     // Signals with the renderer.
-    connect(glwidget, SIGNAL(changeStepView(int)), this,
-            SLOT(viewIntSteps(int)));
-    connect(glwidget, SIGNAL(resetOrientation(int)), this,
-            SLOT(resetOrientation(int)));
-    connect(glwidget, SIGNAL(msgStatusBar(std::string)), this,
-            SLOT(writeStatusBar(std::string)));
+    connect(glwidget, &GLWidget::changeStepView, this, &Hampu::viewIntSteps);
+    connect(glwidget, &GLWidget::resetOrientation, this, &Hampu::resetOrientation);
+    connect(glwidget, &GLWidget::msgStatusBar, this, &Hampu::writeStatusBar);
 
     // Signals with models, progress monitoring.
     for (auto model : models) {
-        connect(model, SIGNAL(msgStatusBar(std::string)), this,
-                SLOT(writeStatusBar(std::string)));
-        connect(model, SIGNAL(finished()), this,
-                SLOT(updateModel()));
+        connect(model, &Model::msgStatusBar, this, &Hampu::writeStatusBar);
+        connect(model, &Model::finished, this, &Hampu::updateModel);
     }
 
     // Signals with parameter scanning window.
-    connect(scanWindow, SIGNAL(startScan()), this,
-            SLOT(startParameterScan()));
-    connect(scanWindow, SIGNAL(stopScan()), this,
-            SLOT(stopParameterScan()));
+    connect(scanWindow, &ScanWindow::startScan, this, &Hampu::startParameterScan);
+    connect(scanWindow, &ScanWindow::stopScan, this, &Hampu::stopParameterScan);
 
     if (DEBUG_MODE) fprintf(stderr, "Signals set.\n");
 }
@@ -1218,30 +1197,26 @@ void Hampu::setMenuBar_()
 {
     // File menu.
     QMenu *file = new QMenu("File");
-    file->addAction("Exit", this, SLOT(File_Exit()),
+    file->addAction("Exit", this, &Hampu::File_Exit,
                     QKeySequence(Qt::CTRL + Qt::Key_Q));
     menuBar()->addMenu(file);
 
     // Tools.
     QMenu *tools = new QMenu("Tools");
-    tools->addAction("Export data", this, SLOT(Tools_ExportObjects()),
+    tools->addAction("Export data", this, &Hampu::Tools_ExportObjects,
                      QKeySequence(Qt::CTRL + Qt::Key_D));
-    tools->addAction("Export images", this, SLOT(Tools_ExportImages()),
+    tools->addAction("Export images", this, &Hampu::Tools_ExportImages,
                      QKeySequence(Qt::CTRL + Qt::Key_I));
-    tools->addAction("Take screenshot", this, SLOT(screenshotWidget()),
+    tools->addAction("Take screenshot", this, &Hampu::screenshotWidget,
                      QKeySequence(Qt::CTRL + Qt::Key_S));
-    tools->addAction("Scan parameters", this, SLOT(Tools_ScanParameters()),
+    tools->addAction("Scan parameters", this, &Hampu::Tools_ScanParameters,
                      QKeySequence(Qt::CTRL + Qt::Key_N));
     menuBar()->addMenu(tools);
 
     // Options.
     QMenu *options = new QMenu("Options");
-    options->addAction("Purge history", this, SLOT(Options_PurgeHistory()),
+    options->addAction("Purge history", this, &Hampu::Options_PurgeHistory,
                        QKeySequence(Qt::CTRL + Qt::Key_P));
-
-    // Preferences disabled for now.
-    // options->addAction("Preferences", this, SLOT(Options_Preferences()),
-    //                    QKeySequence(Qt::CTRL + Qt::Key_R));
 
     menuBar()->addMenu(options);
 }
@@ -1362,10 +1337,10 @@ unsigned int Hampu::getMaxHistorySize_()
 void Hampu::keyPressEvent(QKeyEvent *event)
 {
     if (DEBUG_MODE) fprintf(stderr, "kevent: %d\n", event->key());
-    if (event->key()==16777234) {  // Left
+    if (event->key()==Qt::Key_Left) {
         viewIntSteps(-1);
     }
-    if (event->key()==16777236) {  // Right
+    if (event->key()==Qt::Key_Right) {
         viewIntSteps(1);
     }
 }

@@ -43,27 +43,27 @@ ScanWindow::ScanWindow(QWidget *parent) : QDialog(parent)
     table->setMinimumHeight(MAX_TABLE_HEIGHT);
     table->setMaximumWidth(ROW_WIDTH+25);
     table->setMaximumHeight(MAX_TABLE_HEIGHT);
-    connect(table, SIGNAL(cellChanged(int, int)), this, SLOT(cellValueChanged(int, int)));
+    connect(table, &QTableWidget::cellChanged, this, &ScanWindow::cellValueChanged);
 
     // Additional settings.
     exportCheckbox = new QCheckBox("Export vertices/cell data", this);
     exportCheckbox->move(400, 40);
     exportCheckbox->setMinimumWidth(100);
     exportCheckbox->setChecked(true);
-    connect(exportCheckbox, SIGNAL(stateChanged(int)), this, SLOT(exportModelData()));
+    connect(exportCheckbox, &QCheckBox::stateChanged, this, &ScanWindow::exportModelData);
 
     combCheckbox = new QCheckBox("Scan combinations", this);
     combCheckbox->setCheckState(Qt::Unchecked);
     combScanning=0;
     combCheckbox->move(400, 70);
     combCheckbox->setMinimumWidth(100);
-    connect(combCheckbox, SIGNAL(stateChanged(int)), this, SLOT(scanCombinations()));
+    connect(combCheckbox, &QCheckBox::stateChanged, this, &ScanWindow::scanCombinations);
 
     stepsCheckbox = new QCheckBox("Store intermediate steps", this);
     stepsCheckbox->move(400, 100);
     stepsCheckbox->setMinimumWidth(100);
     stepsCheckbox->setChecked(false);
-    connect(stepsCheckbox, SIGNAL(stateChanged(int)), this, SLOT(exportIntSteps()));
+    connect(stepsCheckbox, &QCheckBox::stateChanged, this, &ScanWindow::exportIntSteps);
 
     orientCheckbox = new QCheckBox("Store all orientations", this);
     orientCheckbox->move(400, 130);
@@ -84,7 +84,7 @@ ScanWindow::ScanWindow(QWidget *parent) : QDialog(parent)
     validator->setLocale(QLocale("C"));
     timeLimitBox->setValidator(validator);
 
-    createButton(393, 300, "Save to..", SLOT(selectStorageFolder()));
+    createButton(393, 300, "Save to..", &ScanWindow::selectStorageFolder);
     int frameStyle = QFrame::Sunken | QFrame::Panel;
     resLabel = new QLabel(this);
     resLabel->setFrameStyle(frameStyle);
@@ -92,7 +92,7 @@ ScanWindow::ScanWindow(QWidget *parent) : QDialog(parent)
     resLabel->setFixedWidth(200);
 
     scanStatus = "Start";
-    startButton = createButton(5, 365, scanStatus, SLOT(handleStartButton()));
+    startButton = createButton(5, 365, scanStatus, &ScanWindow::handleStartButton);
 }
 
 
@@ -471,13 +471,14 @@ void ScanWindow::paintEvent(QPaintEvent*)
  * @param x         Location x.
  * @param y         Location y.
  * @param text      Button text.
- * @param member    Button signal slot.
+ * @param slot      Button signal slot.
  * @return          Created button.
  */
-QPushButton *ScanWindow::createButton(int x, int y, const QString &text, const char *member)
+template<typename Func>
+QPushButton *ScanWindow::createButton(int x, int y, const QString &text, Func slot)
 {
     QPushButton *button = new QPushButton(text, this);
     button->move(x,y);
-    connect(button, SIGNAL(clicked()), this, member);
+    connect(button, &QPushButton::clicked, this, slot);
     return button;
 }
