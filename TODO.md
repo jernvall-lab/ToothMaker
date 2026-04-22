@@ -41,6 +41,13 @@ This document tracks code improvements, bug fixes, and modernization tasks for t
 - [x] **QProcess::start(QString)**: **DONE** - Using `splitCommand()` + `start(program, args)`.
 - [x] **sprintf**: **DONE** - All calls replaced with `QString::arg()` and `QDir::filePath()`.
 - [x] **std::bind2nd**: **DONE** - Replaced with lambda.
+- [x] **`Qt::CTRL + Qt::Key_X`**: **DONE** - Changed to `Qt::CTRL | Qt::Key_X` (works on both Qt5 and Qt6).
+
+### 2.10 Qt6-only Deprecations (requires dropping Qt5 support)
+- [ ] **`QCheckBox::stateChanged` → `checkStateChanged`** (deprecated Qt 6.9): 5 uses in scanwindow.cpp, parameterwindow.cpp, controlpanel.cpp. New signal passes `Qt::CheckState` instead of `int`.
+- [ ] **`QMouseEvent::x()`/`y()` → `position().x()`/`.y()`** (deprecated Qt 6.0): 6 uses in glwidget.cpp mouse handlers.
+- [ ] **`QMenu::addAction(text, obj, slot, shortcut)` argument order** (deprecated Qt 6.4): 6 uses in hampu.cpp. Qt6 wants `addAction(text, shortcut, obj, slot)`.
+- [ ] **`QImage::mirrored()` → `flipped()`** (deprecated Qt 6.13): 2 uses in glwidget.cpp and glengine.cpp.
 
 ---
 
@@ -118,6 +125,9 @@ These are intentional design decisions for compatibility, not bugs. Document her
 
 ### 6.4 Apple VAO Macros
 - [ ] `glcore.h` redefines `glBindVertexArray`/`glGenVertexArrays` to Apple extensions. May need updates for newer macOS.
+
+### 6.5 Apple OpenGL Deprecation
+- [ ] **All OpenGL APIs deprecated on macOS since 10.14.** Produces ~78 warnings with Qt6 builds. Can silence with `GL_SILENCE_DEPRECATION` define, but Apple may eventually remove OpenGL entirely. Long-term options: Metal via Qt's RHI backend, or Vulkan via MoltenVK. The webtooth (WebGL/Three.js) port sidesteps this for cross-platform use.
 
 See `docs/rendering_options.md` for detailed migration options.
 

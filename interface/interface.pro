@@ -104,8 +104,9 @@ win32 {
 # On macOS, we need OpenGL framework but not the deprecated AGL framework
 # AGL was removed in newer macOS SDKs
 macx {
-    # Target macOS 10.13 High Sierra (minimum for Qt 5.15)
-    QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.13
+    # Qt5 supports macOS 10.13+, Qt6 requires 10.15+
+    greaterThan(QT_MAJOR_VERSION, 5): QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15
+    else: QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.13
 
     # Override Qt's OpenGL framework settings to exclude AGL
     QMAKE_LIBS_OPENGL = -framework OpenGL

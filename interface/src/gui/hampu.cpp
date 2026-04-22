@@ -1198,25 +1198,25 @@ void Hampu::setMenuBar_()
     // File menu.
     QMenu *file = new QMenu("File");
     file->addAction("Exit", this, &Hampu::File_Exit,
-                    QKeySequence(Qt::CTRL + Qt::Key_Q));
+                    QKeySequence(Qt::CTRL | Qt::Key_Q));
     menuBar()->addMenu(file);
 
     // Tools.
     QMenu *tools = new QMenu("Tools");
     tools->addAction("Export data", this, &Hampu::Tools_ExportObjects,
-                     QKeySequence(Qt::CTRL + Qt::Key_D));
+                     QKeySequence(Qt::CTRL | Qt::Key_D));
     tools->addAction("Export images", this, &Hampu::Tools_ExportImages,
-                     QKeySequence(Qt::CTRL + Qt::Key_I));
+                     QKeySequence(Qt::CTRL | Qt::Key_I));
     tools->addAction("Take screenshot", this, &Hampu::screenshotWidget,
-                     QKeySequence(Qt::CTRL + Qt::Key_S));
+                     QKeySequence(Qt::CTRL | Qt::Key_S));
     tools->addAction("Scan parameters", this, &Hampu::Tools_ScanParameters,
-                     QKeySequence(Qt::CTRL + Qt::Key_N));
+                     QKeySequence(Qt::CTRL | Qt::Key_N));
     menuBar()->addMenu(tools);
 
     // Options.
     QMenu *options = new QMenu("Options");
     options->addAction("Purge history", this, &Hampu::Options_PurgeHistory,
-                       QKeySequence(Qt::CTRL + Qt::Key_P));
+                       QKeySequence(Qt::CTRL | Qt::Key_P));
 
     menuBar()->addMenu(options);
 }
