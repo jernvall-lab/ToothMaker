@@ -19,7 +19,7 @@ This document tracks code improvements, bug fixes, and modernization tasks for t
 - [x] **Missing Windows OpenGL includes**: **DONE** - Added Windows GLEW includes to glcore.h and glengine.h.
 
 ### 1.5 Locale Handling (`interface/src/utils/readparameters.cpp`)
-- [ ] **Linux-only locale setting**: The `setlocale()` call is only done on Linux. Should apply on Windows too for consistent decimal separator handling.
+- [ ] **Linux-only locale setting**: The `setlocale()` calls at lines 38–39, 61–62, 85–86, 149–150 are wrapped in `#if defined(__linux__)`. Should apply on Windows too for consistent decimal separator handling (and arguably on macOS as well).
 
 ---
 
@@ -44,10 +44,10 @@ This document tracks code improvements, bug fixes, and modernization tasks for t
 - [x] **`Qt::CTRL + Qt::Key_X`**: **DONE** - Changed to `Qt::CTRL | Qt::Key_X` (works on both Qt5 and Qt6).
 
 ### 2.10 Qt6-only Deprecations (requires dropping Qt5 support)
-- [ ] **`QCheckBox::stateChanged` → `checkStateChanged`** (deprecated Qt 6.9): 5 uses in scanwindow.cpp, parameterwindow.cpp, controlpanel.cpp. New signal passes `Qt::CheckState` instead of `int`.
-- [ ] **`QMouseEvent::x()`/`y()` → `position().x()`/`.y()`** (deprecated Qt 6.0): 6 uses in glwidget.cpp mouse handlers.
-- [ ] **`QMenu::addAction(text, obj, slot, shortcut)` argument order** (deprecated Qt 6.4): 6 uses in hampu.cpp. Qt6 wants `addAction(text, shortcut, obj, slot)`.
-- [ ] **`QImage::mirrored()` → `flipped()`** (deprecated Qt 6.13): 2 uses in glwidget.cpp and glengine.cpp.
+- [ ] **`QCheckBox::stateChanged` → `checkStateChanged`** (deprecated Qt 6.9): 5 uses — `scanwindow.cpp:53,60,66`, `parameterwindow.cpp:130`, `controlpanel.cpp:246`. New signal passes `Qt::CheckState` instead of `int`.
+- [ ] **`QMouseEvent::x()`/`y()` → `position().x()`/`.y()`** (deprecated Qt 6.0): 6 uses in `glwidget.cpp:163-164, 201-202, 224-225` (mouse handlers).
+- [ ] **`QMenu::addAction(text, obj, slot, shortcut)` argument order** (deprecated Qt 6.4): 6 uses in `hampu.cpp:1200, 1206, 1208, 1210, 1212, 1218`. Qt6 wants `addAction(text, shortcut, obj, slot)`.
+- [ ] **`QImage::mirrored()` → `flipped()`** (deprecated Qt 6.13): 2 uses — `glwidget.cpp:473`, `glengine.cpp:143`.
 
 ---
 
@@ -72,7 +72,13 @@ This document tracks code improvements, bug fixes, and modernization tasks for t
 - [x] **NULL/nullptr inconsistency**: **DONE** - Standardized to nullptr.
 
 ### 3.10 Parameters Constructor Dead Code (`common/parameters.cpp`)
-- [ ] **Constructor creates unused `parameter`**: In the loop, a `parameter p` is created but never added to any collection. Appears to be dead code.
+- [x] **Constructor creates unused `parameter`**: **DONE** (2026-05-09) — verified no caller ever passes a names vector (all use default-construct or the copy constructor), so the loop was doubly dead. Removed the `names` parameter entirely from `Parameters::Parameters()` and its declaration in `parameters.h`.
+
+### 3.11 Memory Leak in `ParameterWindow::paintEvent` (`interface/src/gui/parameterwindow.cpp:254`)
+- [x] **Heap-allocated `QDir` leaked on every repaint**: **DONE** (2026-05-09) — switched to stack allocation and `dir.filePath(...)` (also avoids the hardcoded `"/"` separator).
+
+### 3.12 Broken / hidden CLI flags (`interface/src/main.cpp:17`)
+- [ ] **`--step` and `--export-images` documented as broken**: Comment in `printHelp()` says these are "currently broken; hiding them from the help." Either fix and re-expose them or remove the dead code paths from `main.cpp`.
 
 ---
 
@@ -93,20 +99,20 @@ These are stylistic improvements with low priority. Address opportunistically.
 - [ ] UI strings not internationalized. Consider `tr()` macro if i18n needed in future.
 
 ### 4.5 Commented-Out Code
-- [ ] Dead code blocks in `glcore.cpp`, `binaryhandler.cpp`. Remove or document.
+- [ ] Dead code blocks in `glcore.cpp` (33 lines of commented OSMesa code at lines 257–289, plus a stray `glBindFragDataLocation` at line 626) and `binaryhandler.cpp`. Remove or document.
 
 ---
 
 ## 5. Memory Management
 
 ### 5.1 Raw Pointer Usage with `malloc`/`free`
-- [ ] **C-style memory allocation in OpenGL code** (`glcore.cpp`): Uses `malloc`/`free` for image buffers. Could use `std::vector<GLubyte>`.
+- [ ] **C-style memory allocation in OpenGL code** (`glcore.cpp:270, 709, 711, 749, 751`): 5 `malloc`/`free` calls for image buffers. Could use `std::vector<GLubyte>` for RAII.
 
 ### 5.2 Raw Pointer Ownership
 - [ ] **Unclear ownership semantics**: Many classes store raw pointers (`Model*`, `Parameters*`) without ownership documentation. Consider smart pointers where appropriate.
 
 ### 5.3 Virtual Destructor
-- [ ] **`Model` class**: Verify destructor is virtual for proper polymorphic deletion.
+- [x] **`Model` class**: **DONE** — destructor is `virtual` (`common/model.h:59`). Verified during 2026-05-09 audit.
 
 ---
 
@@ -139,7 +145,7 @@ See `docs/rendering_options.md` for detailed migration options.
 - [x] **Incomplete mutex coverage**: **DONE** - Added lock to `getLifeSize()`.
 
 ### 7.2 Progress Updates
-- [ ] **`currentIter` in BinaryHandler**: Written in `run()`, read in `getProgress()` without synchronization. Low risk but technically a race.
+- [x] **`currentIter` race**: **DONE** (2026-05-09) — changed `currentIter` to `std::atomic<int>` in `common/model.h` and updated `getProgress()` to use explicit `.load()`. Worker-thread writes (`binaryhandler.cpp:632, 688`) and GUI-thread reads now synchronize through atomic ops.
 
 ---
 
@@ -159,7 +165,11 @@ See `docs/rendering_options.md` for detailed migration options.
 ## 9. Documentation
 
 ### 9.1 Outdated References
-- [ ] Comments reference "MorphoMaker" (the original project name). Update to "ToothMaker".
+- [ ] Comments and user-facing strings still reference "MorphoMaker":
+  - `interface/src/main.cpp:22` — `printHelp()` prints `"** MorphoMaker %s **\n"` (user-visible CLI banner; should be "ToothMaker")
+  - `interface/src/utils/readparameters.cpp:7` — comment "Supported file formats: MorphoMaker"
+  - `interface/src/misc/binaryhandler.cpp:505` — XML `inputStyle` keyword `"MorphoMaker"`. NOTE: this is a programmatic identifier matched against XML interface files; renaming requires also updating every model's interface XML and is therefore breaking. Either keep for compatibility or coordinate a rename across all `*_interface.xml` files.
+  - `morphomaker::` namespace in `common/morphomaker.h` and call sites — internal, low priority.
 
 ---
 
@@ -192,19 +202,26 @@ See `docs/rendering_options.md` for detailed migration options.
 ### 11.3 Windows Strategy
 - [ ] **Native Windows vs Web-only**: Is Windows native build worth maintaining, or should effort go to web version which works everywhere?
 
+### 11.4 BinaryHandler Restructuring Plan
+- [ ] **Plan drafted but not executed**: `docs/binaryhandler_restructuring_plan.md` (2026-01-20 Session 4) proposes splitting `BinaryHandler` into `ProcessController`, `ParserPipeline`, and `OutputReader`. Only `OutputReader` was implemented (`interface/src/misc/binaryhandler.h:45`); the rest of the plan is dormant. Decide: execute, narrow scope, or close.
+
 ---
 
 ## Priority Recommendations
 
 **High Priority (functionality):**
 1. ~~Fix path separator handling (1.3)~~ **DONE**
-2. Fix command line argument bounds checking (3.1)
+2. ~~Fix command line argument bounds checking (3.1)~~ **DONE** (2026-04-22)
 3. Decide on webtooth commit strategy (11.1)
+4. ~~Fix `ParameterWindow::paintEvent` QDir leak (3.11)~~ **DONE** (2026-05-09)
+5. Decide what to do with broken `--step` / `--export-images` CLI flags (3.12).
 
 **Medium Priority (stability/quality):**
 1. ~~Signal/slot macro modernization (2.5)~~ **DONE**
-2. Magic key code constants (3.3)
-3. Thread safety for `currentIter` (7.2)
+2. ~~Magic key code constants (3.3)~~ **DONE** (2026-04-22)
+3. ~~Thread safety for `currentIter` (7.2)~~ **DONE** (2026-05-09)
+4. ~~Remove dead-code constructor loop in `Parameters` (3.10)~~ **DONE** (2026-05-09)
+5. Update user-facing "MorphoMaker" → "ToothMaker" in CLI banner (9.1).
 
 **Lower Priority (nice-to-have):**
 1. GUI unit tests (10.1)

@@ -24,6 +24,8 @@
  *  The rest of the methods are for internal use by MorphoMaker.
  */
 
+#include <atomic>
+
 #include <QThread>
 
 #include "parameters.h"
@@ -218,7 +220,9 @@ protected:
     Parameters *parameters;             // Current model parameters.
 
     int nIter;                          // Max. number of iterations.
-    int currentIter;                    // Current model iteration.
+    std::atomic<int> currentIter;       // Current model iteration. Written by
+                                        // worker thread, read by GUI thread
+                                        // via getProgress(); see TODO 7.2.
     int stepSize;                       // Step size for storing results.
 
     int renderMode;                     // RENDER_MESH or RENDER_PIXEL.

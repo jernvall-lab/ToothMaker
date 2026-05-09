@@ -11,17 +11,10 @@
 
 
 /**
- * @brief Constructs Parameters with list of parameter names.
- * @param names     Vector containing the model parameter names.
+ * @brief Constructs an empty Parameters with the four reserved keywords.
  */
-Parameters::Parameters(std::vector<std::string> *names)
+Parameters::Parameters()
 {
-    if (names != nullptr) {
-        for (uint32_t i=0; i<names->size(); i++) {
-            parameter p = { names->at(i), "", 0, {}, false, 0.0 };
-        }
-    }
-
     m_modelName = "";
     m_id = "";
 

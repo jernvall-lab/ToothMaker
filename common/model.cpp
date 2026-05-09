@@ -140,7 +140,7 @@ float Model::getProgress()
 {
     if (nIter == 0)
         return 100.0;
-    return (100.0*currentIter/nIter);
+    return (100.0 * currentIter.load() / nIter);
 }
 
 

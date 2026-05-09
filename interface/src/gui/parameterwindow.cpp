@@ -251,10 +251,10 @@ void ParameterWindow::importFile()
 void ParameterWindow::paintEvent(QPaintEvent*)
 {
     // Background image under ../Resources/ relative to the app. dir.
-    QDir *dir = new QDir(QCoreApplication::applicationDirPath());
-    dir->cd(RESOURCES);
+    QDir dir(QCoreApplication::applicationDirPath());
+    dir.cd(RESOURCES);
 
-    QString source = dir->path() + "/" + model->getBackgroundImage();
+    QString source = dir.filePath(model->getBackgroundImage());
     QPixmap pixmap;
     pixmap.load(source);
     QPainter p(this);
