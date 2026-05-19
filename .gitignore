@@ -1,0 +1,40 @@
+# Build directories
+build/
+webtooth/build/
+
+# Compiled objects and Fortran module files
+*.o
+*.obj
+*.mod
+*.smod
+
+# Binaries (built into models/*/bin by their Makefiles)
+models/tribosphenic/bin/
+models/triconodont/bin/
+*.exe
+*.dll
+*.dylib
+
+# qmake / MSVC scratch
+*.qmake.stash
+*.user
+Makefile.Debug
+Makefile.Release
+
+# Logs and stray files
+build.log
+run.log
+kk
+
+# Editor / OS
+.DS_Store
+*.swp
+.vscode/
+.idea/
+
+# Local-only / per-developer
+CLAUDE.md
+WINDOWS_HANDOVER.md
+.claude/
+CHANGELOG.md
+scripts/sign_macos_releases.sh

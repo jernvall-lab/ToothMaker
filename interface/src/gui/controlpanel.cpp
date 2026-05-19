@@ -93,24 +93,28 @@ ControlPanel::ControlPanel( QWidget *, std::vector<Model*> *models )
     connect(develSlider, &QSlider::sliderReleased, this, &ControlPanel::slider_inactive);
     sliderUpdate = false;
 
-    // Iterations & Run button
+    // Follow-development checkbox sits at x=513 to align with the Model/History
+    // labels in the rows above. y is 3px lower than the row's labels because a
+    // QCheckBox is taller than a QLabel; the offset puts its text baseline on
+    // the same line as the "Iterations:" label drawn at y=87.
+    QCheckBox *follow_devel = createCheckBox( 513, 84, "Follow development",
+                                              &ControlPanel::follow_development );
+    follow_devel->setChecked(FOLLOW_DEFAULT);
+
+    // Iterations label + spinbox: between the Follow checkbox and the Run button.
     QLabel *labelRun = new QLabel("Iterations:", this);
-    labelRun->move(513, 87);
-    iterations = createSpinBox(580, 84, &ControlPanel::readLineValue);
+    labelRun->move(680, 87);
+    iterations = createSpinBox(745, 84, &ControlPanel::readLineValue);
     iterations->setSingleStep(1000);
     iterations->setMinimum(0);
     iterations->setMaximum(MAX_ITER);
-    iterations->setFixedWidth(80);
     iterations->installEventFilter(this);
     connect( iterations, qOverload<int>(&QSpinBox::valueChanged), this, &ControlPanel::changeIterations );
 
+    // Run button: 50% wider than Import/Export (102 vs 68), right-aligned with
+    // the Export button. Export ends at x=984, so x = 984 - 102 = 882.
     runStatus = "Run";
-    runButton = createButton(673, 82, 68, runStatus, &ControlPanel::handleRunButton);
-
-    // Checkbox for following development: //
-    QCheckBox *follow_devel = createCheckBox( 758, 87, "Follow development",
-                                              &ControlPanel::follow_development );
-    follow_devel->setChecked(FOLLOW_DEFAULT);
+    runButton = createButton(882, 82, 102, runStatus, &ControlPanel::handleRunButton);
 
     currentRunIndex = 0;
     nIter = 0;
@@ -222,6 +226,20 @@ QSpinBox *ControlPanel::createSpinBox(int x, int y, Func slot)
 {
     QSpinBox *iter = new QSpinBox(this);
     iter->move(x,y);
+    // Size the edit field for ~6.5 digits; the active style adds whatever
+    // frame/button width it needs on top. Keeps the box compact regardless
+    // of the box's max value, and works for both Fusion (stacked buttons)
+    // and the native Windows style (side-by-side buttons).
+    QFontMetrics fm(iter->font());
+    int textWidth = qRound(fm.horizontalAdvance(QChar('0')) * 6.5);
+    QStyleOptionSpinBox opt;
+    opt.initFrom(iter);
+    opt.buttonSymbols = iter->buttonSymbols();
+    opt.frame = iter->hasFrame();
+    QSize total = iter->style()->sizeFromContents(QStyle::CT_SpinBox, &opt,
+                                                  QSize(textWidth, fm.height()),
+                                                  iter);
+    iter->setFixedWidth(total.width());
     // qOverload: valueChanged has int+QString overloads in Qt5, int only in Qt6.
     connect(iter, qOverload<int>(&QSpinBox::valueChanged), this, slot);
     return iter;

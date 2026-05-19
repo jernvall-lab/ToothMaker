@@ -13,6 +13,19 @@ ifeq ($(UNAME_M),x86_64)
   FFLAGS += -mfma
 endif
 
+# Windows/MinGW: fully static link so the binary doesn't need libquadmath-0.dll,
+# libwinpthread-1.dll, libgcc_s_seh-1.dll alongside it. -static-libgfortran/-libgcc
+# alone don't cover libquadmath and libwinpthread.
+# OS=Windows_NT is set by cmd.exe but stripped by MSYS2 bash, so also check uname.
+UNAME_S := $(shell uname -s 2>/dev/null)
+ifeq ($(OS),Windows_NT)
+  FFLAGS += -static
+else ifneq (,$(findstring MINGW,$(UNAME_S)))
+  FFLAGS += -static
+else ifneq (,$(findstring MSYS,$(UNAME_S)))
+  FFLAGS += -static
+endif
+
 # Source and target (output to bin/ directory)
 SOURCE = humppa_translate.f90
 TARGET = ../../bin/humppa_fortran_64bit

@@ -14,16 +14,31 @@ CXX = clang++
 CXXFLAGS = -std=c++17 -O3 -funroll-loops -ffp-contract=on -DNDEBUG
 LDFLAGS =
 
+# Windows detection: OS=Windows_NT is set by cmd.exe but stripped by MSYS2 bash,
+# so also check uname -s for MINGW/MSYS prefixes.
+UNAME_S := $(shell uname -s 2>/dev/null)
+ifeq ($(OS),Windows_NT)
+  IS_WINDOWS = 1
+else ifneq (,$(findstring MINGW,$(UNAME_S)))
+  IS_WINDOWS = 1
+else ifneq (,$(findstring MSYS,$(UNAME_S)))
+  IS_WINDOWS = 1
+endif
+
 # x86_64 needs -mfma to enable FMA3 hardware instructions
 UNAME_M := $(shell uname -m 2>/dev/null)
 ifeq ($(UNAME_M),x86_64)
   CXXFLAGS += -mfma
 endif
 
-# LTO on all platforms except Windows
-ifneq ($(OS),Windows_NT)
+ifndef IS_WINDOWS
+  # LTO on all platforms except Windows (MinGW's ld can't load LLVMgold.dll).
   CXXFLAGS += -flto
   LDFLAGS += -flto
+else
+  # MinGW: fully static link so the binary doesn't need libstdc++-6.dll,
+  # libgcc_s_seh-1.dll, libwinpthread-1.dll alongside it.
+  LDFLAGS += -static
 endif
 
 # Debug build flags (use: make debug)

@@ -25,7 +25,7 @@ jobs:
           - os: macos-14
             name: macOS-ARM
             artifact: ToothMaker-macOS-ARM
-          - os: windows-2019
+          - os: windows-2022
             name: Windows
             artifact: ToothMaker-Windows
 
@@ -115,6 +115,12 @@ jobs:
         working-directory: models/tribosphenic
         run: make
 
+      - name: Build triconodont model (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        working-directory: models/triconodont
+        run: make
+
       #
       # Run model tests
       #
@@ -166,13 +172,15 @@ jobs:
             Copy-Item "$($_.FullName)/*" $resourceDir/
           }
 
-          # Copy model binaries
+          # Copy model binaries (.exe only — skip any MinGW DLLs since model
+          # binaries are now statically linked).
           Get-ChildItem models/*/bin -Directory -ErrorAction SilentlyContinue | ForEach-Object {
-            Copy-Item "$($_.FullName)/*" "$resourceDir/bin/"
+            Copy-Item "$($_.FullName)/*.exe" "$resourceDir/bin/" -ErrorAction SilentlyContinue
           }
 
-          # Copy utility binaries
-          Get-ChildItem build/models/utils/*/*.exe -ErrorAction SilentlyContinue | ForEach-Object {
+          # Copy utility binaries. MSVC qmake puts release builds under
+          # build/models/utils/<name>/release/, not build/models/utils/<name>/.
+          Get-ChildItem build/models/utils/*/release/*.exe -ErrorAction SilentlyContinue | ForEach-Object {
             Copy-Item $_.FullName "$resourceDir/bin/"
           }
 

@@ -79,9 +79,9 @@ This runs all parameter combinations defined in the scan list and produces simul
 
 ### Requirements
 
-* Qt 5.15+ (Qt 6 untested)
+* Qt 5.15 or Qt 6
 * Clang 7+ (C++17 support required)
-* GCC 7+ with gfortran (for the legacy Fortran model)
+* gfortran (for the legacy Fortran models)
 * GLEW, GLM (included in [/ext](ext/))
 * macOS 10.13+, Ubuntu 20.04+, or Windows 10+
 * OpenGL 3.0 support
@@ -120,4 +120,16 @@ Model binaries are built automatically when building ToothMaker.
 
 ### Windows
 
-Windows builds are provided via GitHub Actions but are currently untested. Building from source requires Qt 5.15, MSVC (for the GUI), and MinGW with clang and gfortran (for the simulation models).
+Windows builds are provided via GitHub Actions. To build from source:
+
+* Visual Studio 2022 Build Tools (MSVC for the Qt GUI)
+* Qt 6.10+ (`msvc2022_64` kit), e.g. installed via `aqtinstall` to `C:\Qt\`
+* [MSYS2](https://www.msys2.org/) with `mingw-w64-x86_64-clang` and `mingw-w64-x86_64-gcc-fortran`
+
+Build steps, using the helper scripts in the repo root:
+
+1. `dev-shell.bat` — opens a cmd shell with MSVC and Qt on `PATH`
+2. `run-build.bat` — runs `qmake` and `nmake` to build the Qt GUI
+3. In an MSYS2 shell, `cd models/tribosphenic && make && cd ../triconodont && make`
+4. `run-deploy.bat` — runs `windeployqt` to bundle Qt DLLs
+5. `copy-resources-win.ps1` — stages model binaries, XML interfaces, and shaders under `build/interface/Resources/`

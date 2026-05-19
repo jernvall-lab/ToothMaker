@@ -4,6 +4,18 @@
 FC = gfortran
 FFLAGS = -O2 -static-libgfortran -static-libgcc -Jsrc
 
+# Windows/MinGW: fully static link so the binary doesn't need libquadmath-0.dll,
+# libwinpthread-1.dll, libgcc_s_seh-1.dll alongside it.
+# OS=Windows_NT is set by cmd.exe but stripped by MSYS2 bash, so also check uname.
+UNAME_S := $(shell uname -s 2>/dev/null)
+ifeq ($(OS),Windows_NT)
+  FFLAGS += -static
+else ifneq (,$(findstring MINGW,$(UNAME_S)))
+  FFLAGS += -static
+else ifneq (,$(findstring MSYS,$(UNAME_S)))
+  FFLAGS += -static
+endif
+
 # Source and target
 SOURCE = src/humppa.f90
 
