@@ -76,15 +76,11 @@ QMAKE_CXXFLAGS_X86_64  -= -arch x86_64 -Xarch_x86_64
 QMAKE_LFLAGS -= -arch x86_64 -Xarch_x86_64
 QMAKE_LFLAGS_X86_64 -= -arch x86_64 -Xarch_x86_64
 
-# Platform-specific compiler flags
-win32-msvc* {
-    # MSVC uses different flag syntax
-    QMAKE_CXXFLAGS_RELEASE += /std:c++17
-    QMAKE_CXXFLAGS_DEBUG += /std:c++17
-} else {
+CONFIG += c++17
+
+!win32-msvc* {
     QMAKE_CXXFLAGS_RELEASE -= -O2
-    QMAKE_CXXFLAGS_RELEASE += -O3 -std=c++17
-    QMAKE_CXXFLAGS_DEBUG += -std=c++17
+    QMAKE_CXXFLAGS_RELEASE += -O3
     QMAKE_CFLAGS_RELEASE -= -O2
     QMAKE_CFLAGS_RELEASE += -O3
 }
