@@ -239,16 +239,24 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # Run windeployqt to copy Qt DLLs
-          windeployqt build/interface/release/ToothMaker.exe
+          # Stage Qt DLLs alongside the exe.
+          windeployqt --release --no-translations build/interface/release/ToothMaker.exe
 
-          # Create versioned package directory
+          # Package only deployment artifacts — the exe, the DLLs windeployqt
+          # placed next to it, and the subdirectories windeployqt created
+          # (platforms/, imageformats/, styles/, ...). MSVC build intermediates
+          # (.obj, moc_*.cpp, object_script.*, .res) sit flat in release/ and
+          # are skipped.
           $packageDir = "ToothMaker_${{ steps.version.outputs.VERSION_NODOTS }}"
-          New-Item -ItemType Directory -Force -Path $packageDir
-          Copy-Item build/interface/release/* $packageDir/ -Recurse
+          $buildOut = "build/interface/release"
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+          Copy-Item "$buildOut/ToothMaker.exe" $packageDir/
+          Copy-Item "$buildOut/*.dll" $packageDir/ -ErrorAction SilentlyContinue
+          Get-ChildItem $buildOut -Directory | ForEach-Object {
+              Copy-Item $_.FullName $packageDir/ -Recurse
+          }
           Copy-Item build/interface/Resources $packageDir/ -Recurse
 
-          # Create zip containing the versioned folder
           Compress-Archive -Path $packageDir -DestinationPath ToothMaker-Windows.zip
 
       #

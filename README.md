@@ -120,7 +120,7 @@ Model binaries are built automatically when building ToothMaker.
 
 ### Windows
 
-Windows builds are provided via GitHub Actions. To build from source:
+To build from source on Windows:
 
 * Visual Studio 2022 Build Tools (MSVC for the Qt GUI)
 * Qt 6.10+ (`msvc2022_64` kit), e.g. installed via `aqtinstall` to `C:\Qt\`
