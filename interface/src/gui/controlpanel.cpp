@@ -226,12 +226,12 @@ QSpinBox *ControlPanel::createSpinBox(int x, int y, Func slot)
 {
     QSpinBox *iter = new QSpinBox(this);
     iter->move(x,y);
-    // Size the edit field for ~6.5 digits; the active style adds whatever
+    // Size the edit field for 7 digits; the active style adds whatever
     // frame/button width it needs on top. Keeps the box compact regardless
     // of the box's max value, and works for both Fusion (stacked buttons)
     // and the native Windows style (side-by-side buttons).
     QFontMetrics fm(iter->font());
-    int textWidth = qRound(fm.horizontalAdvance(QChar('0')) * 6.5);
+    int textWidth = fm.horizontalAdvance(QChar('0')) * 7;
     QStyleOptionSpinBox opt;
     opt.initFrom(iter);
     opt.buttonSymbols = iter->buttonSymbols();
