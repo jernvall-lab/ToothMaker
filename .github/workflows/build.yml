@@ -160,7 +160,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $resourceDir = "build/interface/Resources"
+          # Resources/ must sit next to ToothMaker.exe (RESOURCES macro = "Resources/")
+          $resourceDir = "build/interface/release/Resources"
           New-Item -ItemType Directory -Force -Path "$resourceDir/bin"
 
           # Copy interface resources
@@ -204,6 +205,9 @@ jobs:
       #
       # Package artifacts
       #
+      # Stage final package directory per platform. We do NOT create our own
+      # archive — actions/upload-artifact@v4 already zips on download, so any
+      # archive we create here would produce a double-wrapped download.
       - name: Package (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -215,8 +219,6 @@ jobs:
 
           # Remove macOS-specific library
           rm -f "$PACKAGE_DIR/Resources/bin/libquadmath.0.dylib"
-
-          tar -czvf ToothMaker-${{ matrix.name }}.tar.gz "$PACKAGE_DIR"
 
       - name: Package (macOS)
         if: runner.os == 'macOS'
@@ -232,8 +234,14 @@ jobs:
           mkdir -p "$PACKAGE_DIR"
           mv build/interface/ToothMaker.app "$PACKAGE_DIR/"
 
-          # Create zip using ditto (preserves symlinks in frameworks)
-          ditto -c -k --keepParent "$PACKAGE_DIR" ToothMaker-${{ matrix.name }}.zip
+          # Note: previously we ran `ditto -c -k --keepParent` here to preserve
+          # framework symlinks (QtCore.framework/Versions/Current → A, etc).
+          # upload-artifact@v4 follows symlinks rather than preserving them,
+          # so the framework dirs in the downloaded zip will be flatter than
+          # the original. The app usually still runs because dyld resolves
+          # the (now-real) files at the same paths. If a future macOS package
+          # ever fails to launch after download, revert to the ditto approach
+          # and accept the double-wrap for macOS only.
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -252,33 +260,18 @@ jobs:
           New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
           Copy-Item "$buildOut/ToothMaker.exe" $packageDir/
           Copy-Item "$buildOut/*.dll" $packageDir/ -ErrorAction SilentlyContinue
+          # Picks up windeployqt subdirs (platforms/, imageformats/, ...) and Resources/
           Get-ChildItem $buildOut -Directory | ForEach-Object {
               Copy-Item $_.FullName $packageDir/ -Recurse
           }
-          Copy-Item build/interface/Resources $packageDir/ -Recurse
-
-          Compress-Archive -Path $packageDir -DestinationPath ToothMaker-Windows.zip
 
       #
-      # Upload artifacts
+      # Upload artifacts — upload the directory; upload-artifact@v4 wraps it in
+      # a single zip on download. Do not feed it a pre-made archive (that
+      # produces the double-zip we want to avoid).
       #
-      - name: Upload artifact (Linux)
-        if: runner.os == 'Linux'
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ToothMaker-${{ matrix.name }}.tar.gz
-
-      - name: Upload artifact (macOS)
-        if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: ToothMaker-${{ matrix.name }}.zip
-
-      - name: Upload artifact (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: ToothMaker-Windows.zip
+          path: ToothMaker_${{ steps.version.outputs.VERSION_NODOTS }}

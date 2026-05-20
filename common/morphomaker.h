@@ -72,12 +72,12 @@
 #define MAIN_WINDOW_HEIGHT 650
 
 // Resource folder.
-#if defined(__linux__)
-#define RESOURCES "Resources/"
-#elif defined(__APPLE__)
+#if defined(__APPLE__)
+// macOS .app bundle: exe at ToothMaker.app/Contents/MacOS/, resources at ToothMaker.app/Contents/Resources/
 #define RESOURCES "../Resources/"
 #else
-#define RESOURCES "../Resources/"
+// Linux & Windows: Resources/ sits next to the executable
+#define RESOURCES "Resources/"
 #endif
 
 // Binaries folder under the resources folder.
