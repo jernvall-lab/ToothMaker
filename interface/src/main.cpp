@@ -119,6 +119,14 @@ void message_output(QtMsgType type, const QMessageLogContext& context, const QSt
  */
 int main(int argc, char *argv[])
 {
+    // Qt 6 enables high-DPI scaling by default. Qt 5 does not — without this
+    // the GUI renders at physical pixels on high-DPI displays (small window,
+    // crammed widgets). Attributes must be set before QApplication construction.
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
+#endif
+
     int niter=-1, parfile=0, scanfile=0;
     int step=-1, expimg=0, res=SQUARE_WIN_SIZE;
 

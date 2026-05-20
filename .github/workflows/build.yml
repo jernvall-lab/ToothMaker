@@ -64,15 +64,19 @@ jobs:
       - name: Install Qt (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install qt@5
-          echo "$(brew --prefix qt@5)/bin" >> $GITHUB_PATH
-          echo "Qt5_DIR=$(brew --prefix qt@5)/lib/cmake/Qt5" >> $GITHUB_ENV
+          # Homebrew's "qt" formula is Qt 6 (currently 6.7+). Qt 6 enables
+          # high-DPI scaling by default, which Qt 5 does not; Linux CI stays
+          # on apt Qt 5 because that platform didn't exhibit the DPI symptom.
+          brew install qt
+          echo "$(brew --prefix qt)/bin" >> $GITHUB_PATH
 
       - name: Install Qt (Windows)
         if: runner.os == 'Windows'
         uses: jurplel/install-qt-action@v4
         with:
-          version: '5.15.2'
+          # Qt 6 to match local dev (Qt 6.10.3 on the Windows VM) and to get
+          # automatic high-DPI scaling. Linux CI stays on Qt 5 via apt.
+          version: '6.10.3'
           cache: true
 
       - name: Install dependencies (macOS)
