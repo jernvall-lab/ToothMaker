@@ -37,4 +37,5 @@ CLAUDE.md
 WINDOWS_HANDOVER.md
 .claude/
 CHANGELOG.md
+TODO.md
 scripts/sign_macos_releases.sh
