@@ -101,15 +101,26 @@ ControlPanel::ControlPanel( QWidget *, std::vector<Model*> *models )
                                               &ControlPanel::follow_development );
     follow_devel->setChecked(FOLLOW_DEFAULT);
 
-    // Iterations label + spinbox: between the Follow checkbox and the Run button.
+    // Iterations label + spinbox: centered as a cluster between the Follow
+    // checkbox text and the Run button. The spinbox width varies by style
+    // (side-by-side buttons on Windows native, stacked on Fusion), so a
+    // fixed-x layout would look lopsided on at least one platform.
     QLabel *labelRun = new QLabel("Iterations:", this);
-    labelRun->move(680, 87);
-    iterations = createSpinBox(745, 84, &ControlPanel::readLineValue);
+    labelRun->adjustSize();
+    iterations = createSpinBox(0, 84, &ControlPanel::readLineValue);
     iterations->setSingleStep(1000);
     iterations->setMinimum(0);
     iterations->setMaximum(MAX_ITER);
     iterations->installEventFilter(this);
     connect( iterations, qOverload<int>(&QSpinBox::valueChanged), this, &ControlPanel::changeIterations );
+
+    const int leftAnchor  = 670;   // approx. right edge of "Follow development"
+    const int rightAnchor = 882;   // left edge of Run button (see below)
+    const int labelGap    = 5;
+    const int clusterW    = labelRun->width() + labelGap + iterations->width();
+    const int clusterX    = (leftAnchor + rightAnchor - clusterW) / 2;
+    labelRun->move(clusterX, 87);
+    iterations->move(clusterX + labelRun->width() + labelGap, 84);
 
     // Run button: 50% wider than Import/Export (102 vs 68), right-aligned with
     // the Export button. Export ends at x=984, so x = 984 - 102 = 882.
