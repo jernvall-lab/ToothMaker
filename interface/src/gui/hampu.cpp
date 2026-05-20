@@ -17,6 +17,8 @@
 #include <ctime>
 
 #include <QDateTime>
+#include <QMimeData>
+#include <QUrl>
 
 #include "gui/hampu.h"
 #include "utils/writeparameters.h"
@@ -1353,7 +1355,7 @@ void Hampu::keyPressEvent(QKeyEvent *event)
  */
 void Hampu::dragEnterEvent(QDragEnterEvent *event)
 {
-    if (event->mimeData()->hasText()) {
+    if (event->mimeData()->hasUrls()) {
         event->acceptProposedAction();
     }
 }
@@ -1362,15 +1364,17 @@ void Hampu::dragEnterEvent(QDragEnterEvent *event)
 
 /**
  * @brief Called when a drag object is dropped into the window.
- * - TODO: A clean solution would be based on QMimeDatabase for guessing the
- *   file type, available since Qt 5.0.
  *
- * @param event
+ * Uses QUrl::toLocalFile() to get a correct native path on every platform.
+ * The previous approach (strip "file://" from mimeData()->text()) left a
+ * stray leading slash before the drive letter on Windows (e.g.
+ * "/C:/Users/..."), which fopen() rejected.
  */
 void Hampu::dropEvent(QDropEvent *event)
 {
-    QString parfile = event->mimeData()->text();
-    parfile = parfile.trimmed();
-    parfile = parfile.remove("file://");
+    const QList<QUrl> urls = event->mimeData()->urls();
+    if (urls.isEmpty()) return;
+    const QString parfile = urls.first().toLocalFile();
+    if (parfile.isEmpty()) return;
     Panel_Import(parfile.toStdString());
 }
