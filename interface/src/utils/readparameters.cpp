@@ -48,12 +48,14 @@ int morphomaker::Import_parameters(std::string file, Parameters *par)
 
         QStringList list = str.split("\n");
         list = list[0].split("==");
-        if (list.size()>=2 && !list[0].isEmpty() && !list[1].isEmpty()) {
-            if (par->isKeyword(list[0].toLower().toStdString())) {
-                par->setKey(list[0].toLower().toStdString(), list[1].toStdString());
+        if (list.size()>=2 && !list[0].trimmed().isEmpty() && !list[1].trimmed().isEmpty()) {
+            QString key = list[0].trimmed();
+            QString value = list[1].trimmed();
+            if (par->isKeyword(key.toLower().toStdString())) {
+                par->setKey(key.toLower().toStdString(), value.toStdString());
             }
             else {
-                par->setParameterValue( list[0].toStdString(), list[1].toDouble() );
+                par->setParameterValue( key.toStdString(), value.toDouble() );
             }
         }
     }
@@ -97,31 +99,33 @@ ScanList* morphomaker::Read_scanlist(std::string file)
         QStringList list = str.split("\n");
         list = list[0].split("==");
         if (list.size() < 2) continue;
+        QString key = list[0].trimmed();
+        QString value = list[1].trimmed();
 
-        if (!list[0].toLower().compare("model")) {
+        if (!key.toLower().compare("model")) {
             // TODO: Implement reading model name from the scan list.
-            // std::string model = list[1].toStdString();
+            // std::string model = value.toStdString();
         }
-        else if (!list[0].toLower().compare("viewmode")) {
-            if (!list[1].compare("BW") || !list[1].compare("1")
-                || !list[1].toLower().compare("differentiation")) {
+        else if (!key.toLower().compare("viewmode")) {
+            if (!value.compare("BW") || !value.compare("1")
+                || !value.toLower().compare("differentiation")) {
                 scanList->setViewMode(1);
             }
-            else if (!list[1].compare("2") || !list[1].toLower().compare("activator")) {
+            else if (!value.compare("2") || !value.toLower().compare("activator")) {
                 scanList->setViewMode(2);
             }
-            else if (!list[1].compare("3") || !list[1].toLower().compare("inhibitor")) {
+            else if (!value.compare("3") || !value.toLower().compare("inhibitor")) {
                 scanList->setViewMode(3);
             }
-            else if (!list[1].compare("4") || !list[1].toLower().compare("fgf")) {
+            else if (!value.compare("4") || !value.toLower().compare("fgf")) {
                 scanList->setViewMode(4);
             }
             else {
                 scanList->setViewMode(0);
             }
         }
-        else if (!list[0].toLower().compare("orientation")) {
-            QStringList orientations = list[1].split(",");
+        else if (!key.toLower().compare("orientation")) {
+            QStringList orientations = value.split(",");
             orientations.removeDuplicates();
             for (auto orient : orientations) {
                 scanList->addOrientation( orient.trimmed().toStdString() );
@@ -130,15 +134,16 @@ ScanList* morphomaker::Read_scanlist(std::string file)
         else {
             ScanItem *item = new ScanItem();
 
-            item->setParName(list[0].toStdString());
-            list = list[1].split(":");
+            item->setParName(key.toStdString());
+            list = value.split(":");
             if (list.length() < 3) {
                 fclose(input);
+                delete item;
                 return NULL;
             }
-            item->setMinValue(list[0].toDouble());
-            item->setStep(list[1].toDouble());
-            item->setMaxValue(list[2].toDouble());
+            item->setMinValue(list[0].trimmed().toDouble());
+            item->setStep(list[1].trimmed().toDouble());
+            item->setMaxValue(list[2].trimmed().toDouble());
 
             scanList->addScanItem(item);
             fprintf(stderr, "name: %s, %lf:%lf:%lf\n", item->getParName().c_str(),
