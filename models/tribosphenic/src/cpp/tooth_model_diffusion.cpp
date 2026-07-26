@@ -14,12 +14,12 @@ void ToothModel::reactionDiffusion() {
         }
     }
 
-    // Clear working arrays for this iteration
-    for (int i = 0; i < numCellsTotal; i++) {
-        rdWeight[i].fill(0.0);
-        rdAreaProj[i].fill(0.0);
-        for (auto& level : rdDeltaQ3D[i]) {
-            level.fill(0.0);
+    // Only the middle z-levels are accumulated with +=; kk=0 and kk=numZLevels-1
+    // are assigned with = further down, and rdWeight/rdAreaProj are cleared
+    // per-cell inside the loop below. Cells >= numCells are never read.
+    for (int i = 0; i < numCells; i++) {
+        for (int kk = 1; kk < numZLevels - 1; kk++) {
+            for (int k = 0; k < 4; k++) rdDeltaQ3D[i][kk][k] = 0.0;
         }
     }
 
@@ -100,40 +100,49 @@ void ToothModel::reactionDiffusion() {
             }
         }
 
-        // Diffusion for 3D quantities (indices 0-3)
+        // Compact list of occupied neighbour slots. The slot list does not
+        // change across k/kk, so hoist it out of the loop nest. Slots with
+        // neighbors[i][j]==0 contribute nothing, so skipping them is exact.
+        int slotJ[MAX_NEIGHBORS];
+        int slotII[MAX_NEIGHBORS];
+        int nSlots = 0;
+        for (int j = 0; j < MAX_NEIGHBORS; j++) {
+            if (neighbors[i][j] != 0) {
+                slotJ[nSlots] = j;
+                slotII[nSlots] = neighbors[i][j] - 1;
+                nSlots++;
+            }
+        }
+        const int lastZ = numZLevels - 1;
+
+        // Vertical (areaBelow) terms first, exactly as before: for every
+        // (kk,k) accumulator these are the first one or two additions.
         for (int k = 0; k < 4; k++) {
-            // Middle z levels
-            for (int kk = 1; kk < numZLevels - 1; kk++) {
+            for (int kk = 1; kk < lastZ; kk++) {
                 rdDeltaQ3D[i][kk][k] += areaBelow * (quantities3D[i][kk - 1][k] - quantities3D[i][kk][k]);
                 rdDeltaQ3D[i][kk][k] += areaBelow * (quantities3D[i][kk + 1][k] - quantities3D[i][kk][k]);
-
-                for (int j = 0; j < MAX_NEIGHBORS; j++) {
-                    if (neighbors[i][j] != 0) {
-                        int ii = neighbors[i][j] - 1;
-                        if (ii == numCellsTotal - 1) {
-                            // Boundary - sink term
-                            rdDeltaQ3D[i][kk][k] += rdWeight[i][j] * (-quantities3D[i][kk][k] * 0.44);  // Fortran: 0.044D1 = 0.44
-                        } else {
-                            rdDeltaQ3D[i][kk][k] += rdWeight[i][j] * (quantities3D[ii][kk][k] - quantities3D[i][kk][k]);
-                        }
-                    }
-                }
             }
+            rdDeltaQ3D[i][lastZ][k]  = areaBelow * (-quantities3D[i][lastZ][k] * 0.44);
+            rdDeltaQ3D[i][lastZ][k] += areaBelow * (quantities3D[i][lastZ - 1][k] - quantities3D[i][lastZ][k]);
+        }
 
-            // Bottom z level (numZLevels - 1)
-            int kk = numZLevels - 1;
-            rdDeltaQ3D[i][kk][k] = areaBelow * (-quantities3D[i][kk][k] * 0.44);  // Fortran: 0.044D1 = 0.44
-            rdDeltaQ3D[i][kk][k] += areaBelow * (quantities3D[i][kk - 1][k] - quantities3D[i][kk][k]);
-
-            for (int j = 0; j < MAX_NEIGHBORS; j++) {
-                if (neighbors[i][j] != 0) {
-                    int ii = neighbors[i][j] - 1;
-                    if (ii == numCellsTotal - 1) {
-                        rdDeltaQ3D[i][kk][k] += rdWeight[i][j] * (-quantities3D[i][kk][k] * 0.44);  // Fortran: 0.044D1 = 0.44
-                    } else {
-                        rdDeltaQ3D[i][kk][k] += rdWeight[i][j] * (quantities3D[ii][kk][k] - quantities3D[i][kk][k]);
-                    }
-                }
+        // Neighbour terms, j ascending -- same per-accumulator order as before.
+        for (int s = 0; s < nSlots; s++) {
+            const int j  = slotJ[s];
+            const int ii = slotII[s];
+            const double w = rdWeight[i][j];
+            if (ii == numCellsTotal - 1) {
+                for (int kk = 1; kk < lastZ; kk++)
+                    for (int k = 0; k < 4; k++)
+                        rdDeltaQ3D[i][kk][k] += w * (-quantities3D[i][kk][k] * 0.44);
+                for (int k = 0; k < 4; k++)
+                    rdDeltaQ3D[i][lastZ][k] += w * (-quantities3D[i][lastZ][k] * 0.44);
+            } else {
+                for (int kk = 1; kk < lastZ; kk++)
+                    for (int k = 0; k < 4; k++)
+                        rdDeltaQ3D[i][kk][k] += w * (quantities3D[ii][kk][k] - quantities3D[i][kk][k]);
+                for (int k = 0; k < 4; k++)
+                    rdDeltaQ3D[i][lastZ][k] += w * (quantities3D[ii][lastZ][k] - quantities3D[i][lastZ][k]);
             }
         }
 
@@ -155,16 +164,17 @@ void ToothModel::reactionDiffusion() {
         // Top z level (index 0)
         for (int k = 0; k < 4; k++) {
             rdDeltaQ3D[i][0][k] = areaBelow * (quantities3D[i][1][k] - quantities3D[i][0][k]);
-
-            for (int j = 0; j < MAX_NEIGHBORS; j++) {
-                if (neighbors[i][j] != 0) {
-                    int ii = neighbors[i][j] - 1;
-                    if (ii == numCellsTotal - 1) {
-                        rdDeltaQ3D[i][0][k] += rdWeight[i][j] * (-quantities3D[i][0][k] * 0.44);  // Fortran: 0.044D1 = 0.44
-                    } else {
-                        rdDeltaQ3D[i][0][k] += rdWeight[i][j] * (quantities3D[ii][0][k] - quantities3D[i][0][k]);
-                    }
-                }
+        }
+        for (int s = 0; s < nSlots; s++) {
+            const int j  = slotJ[s];
+            const int ii = slotII[s];
+            const double w = rdWeight[i][j];
+            if (ii == numCellsTotal - 1) {
+                for (int k = 0; k < 4; k++)
+                    rdDeltaQ3D[i][0][k] += w * (-quantities3D[i][0][k] * 0.44);
+            } else {
+                for (int k = 0; k < 4; k++)
+                    rdDeltaQ3D[i][0][k] += w * (quantities3D[ii][0][k] - quantities3D[i][0][k]);
             }
         }
     }
@@ -180,9 +190,7 @@ void ToothModel::reactionDiffusion() {
 
     // REACTION equations - clear deltas for reaction phase
     for (int i = 0; i < numCells; i++) {
-        for (auto& level : rdDeltaQ3D[i]) {
-            level.fill(0.0);
-        }
+        for (int k = 0; k < 4; k++) rdDeltaQ3D[i][0][k] = 0.0;
     }
 
     for (int i = 0; i < numCells; i++) {

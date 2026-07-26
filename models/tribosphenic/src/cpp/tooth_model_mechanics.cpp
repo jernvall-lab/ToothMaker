@@ -209,76 +209,60 @@ void ToothModel::calculateBuoyancy() {
 }
 
 void ToothModel::calculateNeighborRepulsion() {
-    std::vector<std::array<double, 3>> pushForce(MAX_NEIGHBORS);
-
+    // Fortran zeroes persu(nvmax,3) per cell and then sums all 30 slots.
+    // Slots that produce no force contribute exactly +0.0, so accumulating
+    // directly in ascending j gives the same sum (bar signed zero) without
+    // the 90-double scratch buffer.
     for (int i = 0; i < numCells; i++) {
         double ua = cellPositions[i][0];
         double ub = cellPositions[i][1];
         double uc = cellPositions[i][2];
 
-        for (auto& p : pushForce) p.fill(0.0);
+        double sumX = 0.0, sumY = 0.0, sumZ = 0.0;
 
         for (int j = 0; j < MAX_NEIGHBORS; j++) {
             int k = neighbors[i][j];
-            if (k > 0 && k <= numCells) {
-                k--;
+            if (k <= 0 || k > numCells) continue;
+            k--;
 
-                double ux = cellPositions[k][0] - ua;
-                double uy = cellPositions[k][1] - ub;
-                double uz = cellPositions[k][2] - uc;
+            double ux = cellPositions[k][0] - ua;
+            double uy = cellPositions[k][1] - ub;
+            double uz = cellPositions[k][2] - uc;
 
-                // Clean up tiny values
-                if (std::abs(ux) < 1e-15) ux = 0.0;
-                if (std::abs(uy) < 1e-15) uy = 0.0;
-                if (std::abs(uz) < 1e-15) uz = 0.0;
+            if (std::abs(ux) < 1e-15) ux = 0.0;
+            if (std::abs(uy) < 1e-15) uy = 0.0;
+            if (std::abs(uz) < 1e-15) uz = 0.0;
 
-                double dist = std::sqrt(ux * ux + uy * uy + uz * uz);
-                double restDist = cellMargins[i][j][4];
+            double dist = std::sqrt(ux * ux + uy * uy + uz * uz);
+            double restDist = cellMargins[i][j][4];
 
-                if (dist < 1e-8) dist = 0.0;
-                if (restDist < 1e-8) restDist = 0.0;
+            if (dist < 1e-8) dist = 0.0;
+            if (restDist < 1e-8) restDist = 0.0;
 
-                if (knotMarkers[i] == 1 && knotMarkers[k] == 1) {
-                    // Both are knots - always apply force
-                    double d = dist - restDist;
-                    if (dist > 0) {
-                        double dr = d / dist;
-                        pushForce[j][0] = ux * dr;
-                        pushForce[j][1] = uy * dr;
-                        pushForce[j][2] = uz * dr;
-                    }
-                } else {
-                    if (dist < restDist) {
-                        // Too close - repel
-                        double d = dist - restDist;
-                        if (dist > 0) {
-                            double dr = d / dist;
-                            pushForce[j][0] = ux * dr;
-                            pushForce[j][1] = uy * dr;
-                            pushForce[j][2] = uz * dr;
-                        }
-                    } else {
-                        // Not too close - apply traction for interior cells
-                        if (i >= numBorderCells) {
-                            pushForce[j][0] = ux * neighborTraction;
-                            pushForce[j][1] = uy * neighborTraction;
-                            pushForce[j][2] = uz * neighborTraction;
-                        }
-                    }
+            if (knotMarkers[i] == 1 && knotMarkers[k] == 1) {
+                double d = dist - restDist;
+                if (dist > 0) {
+                    double dr = d / dist;
+                    double fx = ux * dr, fy = uy * dr, fz = uz * dr;
+                    sumX += fx; sumY += fy; sumZ += fz;
                 }
+            } else if (dist < restDist) {
+                double d = dist - restDist;
+                if (dist > 0) {
+                    double dr = d / dist;
+                    double fx = ux * dr, fy = uy * dr, fz = uz * dr;
+                    sumX += fx; sumY += fy; sumZ += fz;
+                }
+            } else if (i >= numBorderCells) {
+                double fx = ux * neighborTraction;
+                double fy = uy * neighborTraction;
+                double fz = uz * neighborTraction;
+                sumX += fx; sumY += fy; sumZ += fz;
             }
         }
 
-        // Sum forces with stiffness coefficient
         double c = stiffness;
         if (c > 1) c = 1;
-
-        double sumX = 0.0, sumY = 0.0, sumZ = 0.0;
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
-            sumX += pushForce[j][0];
-            sumY += pushForce[j][1];
-            sumZ += pushForce[j][2];
-        }
 
         positionDeltas[i][0] += sumX * c;
         positionDeltas[i][1] += sumY * c;
@@ -287,19 +271,14 @@ void ToothModel::calculateNeighborRepulsion() {
 }
 
 void ToothModel::checkNonNeighborRepulsion() {
-    // Check if non-neighboring cells get too close
     constexpr double distThreshold = 1.4;
     constexpr double distThresholdSq = distThreshold * distThreshold;
 
     if (numCells < 2) return;
 
-    // Build spatial grid for O(N) neighbor lookup instead of O(N²).
-    // Grid cell size = distThreshold so checking 3x3x3 neighborhood
-    // guarantees finding all cells within distThreshold on each axis.
     constexpr double gridCellSize = distThreshold;
     constexpr double invGridCellSize = 1.0 / gridCellSize;
 
-    // Find bounding box
     double minX = cellPositions[0][0], maxX = minX;
     double minY = cellPositions[0][1], maxY = minY;
     double minZ = cellPositions[0][2], maxZ = minZ;
@@ -310,16 +289,24 @@ void ToothModel::checkNonNeighborRepulsion() {
         if (z < minZ) minZ = z; else if (z > maxZ) maxZ = z;
     }
 
-    // Grid dimensions (add 1 for cells exactly on the boundary)
     int gridX = static_cast<int>((maxX - minX) * invGridCellSize) + 2;
     int gridY = static_cast<int>((maxY - minY) * invGridCellSize) + 2;
     int gridZ = static_cast<int>((maxZ - minZ) * invGridCellSize) + 2;
     int gridYZ = gridY * gridZ;
     int gridTotal = gridX * gridYZ;
 
-    // Populate grid: first pass counts cells per bin, second pass fills
-    std::vector<int> binCount(gridTotal, 0);
-    std::vector<int> cellBin(numCells);  // which bin each cell is in
+    // Persistent scratch: avoids re-allocating five vectors every iteration.
+    static std::vector<int> binCount, cellBin, binOffset, binCells, binPos;
+    static std::vector<int> stamp;      // neighbour membership stamp
+    static std::vector<int> survivors;
+    static int stampGen = 0;
+
+    binCount.assign(gridTotal, 0);
+    cellBin.resize(numCells);
+    binOffset.resize(gridTotal + 1);
+    binCells.resize(numCells);
+    binPos.assign(gridTotal, 0);
+    if (static_cast<int>(stamp.size()) < numCellsTotal + 1) stamp.assign(numCellsTotal + 1, 0);
 
     for (int i = 0; i < numCells; i++) {
         int gx = static_cast<int>((cellPositions[i][0] - minX) * invGridCellSize);
@@ -330,119 +317,92 @@ void ToothModel::checkNonNeighborRepulsion() {
         binCount[bin]++;
     }
 
-    // Build bin offsets (prefix sum)
-    std::vector<int> binOffset(gridTotal + 1);
     binOffset[0] = 0;
-    for (int b = 0; b < gridTotal; b++) {
-        binOffset[b + 1] = binOffset[b] + binCount[b];
-    }
+    for (int b = 0; b < gridTotal; b++) binOffset[b + 1] = binOffset[b] + binCount[b];
 
-    // Fill sorted cell list (cells within each bin are in ascending index order
-    // because we iterate i = 0..numCells-1)
-    std::vector<int> binCells(numCells);
-    std::vector<int> binPos(gridTotal, 0);  // current fill position per bin
     for (int i = 0; i < numCells; i++) {
         int bin = cellBin[i];
         binCells[binOffset[bin] + binPos[bin]] = i;
         binPos[bin]++;
     }
 
-    // Flat array for neighbor lookup
-    std::array<int, MAX_NEIGHBORS> neighborList;
-
-    // Reusable buffer for collecting nearby candidates in sorted order
-    std::vector<int> candidates;
-    candidates.reserve(64);
-
     for (int i = 0; i < numCells; i++) {
         double ua = cellPositions[i][0];
         double ub = cellPositions[i][1];
         double uc = cellPositions[i][2];
 
-        // Build compact neighbor list for lookup
-        int neighborListSize = 0;
+        // O(1) neighbour membership via generation stamp.
+        stampGen++;
         for (int j = 0; j < MAX_NEIGHBORS; j++) {
-            if (neighbors[i][j] > 0) {
-                neighborList[neighborListSize++] = neighbors[i][j];
-            }
+            int n = neighbors[i][j];
+            if (n > 0) stamp[n] = stampGen;
         }
 
-        // Collect candidates from 3x3x3 grid neighborhood
         int gx = static_cast<int>((ua - minX) * invGridCellSize);
         int gy = static_cast<int>((ub - minY) * invGridCellSize);
         int gz = static_cast<int>((uc - minZ) * invGridCellSize);
 
-        candidates.clear();
-        for (int dx = -1; dx <= 1; dx++) {
-            int nx = gx + dx;
-            if (nx < 0 || nx >= gridX) continue;
-            for (int dy = -1; dy <= 1; dy++) {
-                int ny = gy + dy;
-                if (ny < 0 || ny >= gridY) continue;
-                for (int dz = -1; dz <= 1; dz++) {
-                    int nz = gz + dz;
-                    if (nz < 0 || nz >= gridZ) continue;
-                    int nbin = nx * gridYZ + ny * gridZ + nz;
-                    // Cells in each bin are already in ascending index order
+        // Collect only the cells that actually contribute, then sort those.
+        // Ordering the *contributors* by index reproduces the original
+        // ascending-index accumulation exactly; rejected cells cannot matter.
+        survivors.clear();
+        int xlo = gx - 1 < 0 ? 0 : gx - 1, xhi = gx + 1 >= gridX ? gridX - 1 : gx + 1;
+        int ylo = gy - 1 < 0 ? 0 : gy - 1, yhi = gy + 1 >= gridY ? gridY - 1 : gy + 1;
+        int zlo = gz - 1 < 0 ? 0 : gz - 1, zhi = gz + 1 >= gridZ ? gridZ - 1 : gz + 1;
+        for (int nx = xlo; nx <= xhi; nx++) {
+            for (int ny = ylo; ny <= yhi; ny++) {
+                int rowBase = nx * gridYZ + ny * gridZ;
+                for (int nz = zlo; nz <= zhi; nz++) {
+                    int nbin = rowBase + nz;
                     for (int p = binOffset[nbin]; p < binOffset[nbin + 1]; p++) {
                         int ii = binCells[p];
-                        if (ii != i) candidates.push_back(ii);
+                        if (ii == i) continue;
+                        // cheap axis rejections first
+                        double ux = cellPositions[ii][0] - ua;
+                        if (ux > distThreshold || ux < -distThreshold) continue;
+                        double uy = cellPositions[ii][1] - ub;
+                        if (uy > distThreshold || uy < -distThreshold) continue;
+                        double uz = cellPositions[ii][2] - uc;
+                        if (uz > distThreshold || uz < -distThreshold) continue;
+                        if (stamp[ii + 1] == stampGen) continue;   // is a neighbour
+                        if (std::abs(ux) < 1e-15) ux = 0.0;
+                        if (std::abs(uy) < 1e-15) uy = 0.0;
+                        if (std::abs(uz) < 1e-15) uz = 0.0;
+                        if (ux * ux + uy * uy + uz * uz < distThresholdSq) survivors.push_back(ii);
                     }
                 }
             }
         }
 
-        // Sort candidates by cell index to match original iteration order
-        // (preserves identical FP accumulation)
-        std::sort(candidates.begin(), candidates.end());
+        std::sort(survivors.begin(), survivors.end());
 
-        // Accumulate forces directly
         double sumX = 0.0, sumY = 0.0, sumZ = 0.0;
-
-        for (int ii : candidates) {
-            // Linear scan of ~6 neighbors (fits in one cache line)
-            int ii1 = ii + 1;
-            bool isNeighbor = false;
-            for (int n = 0; n < neighborListSize; n++) {
-                if (neighborList[n] == ii1) { isNeighbor = true; break; }
-            }
-            if (isNeighbor) continue;
-
+        for (int ii : survivors) {
             double ux = cellPositions[ii][0] - ua;
-            if (ux > distThreshold || ux < -distThreshold) continue;
             double uy = cellPositions[ii][1] - ub;
-            if (uy > distThreshold || uy < -distThreshold) continue;
             double uz = cellPositions[ii][2] - uc;
-            if (uz > distThreshold || uz < -distThreshold) continue;
-
             if (std::abs(ux) < 1e-15) ux = 0.0;
             if (std::abs(uy) < 1e-15) uy = 0.0;
             if (std::abs(uz) < 1e-15) uz = 0.0;
 
-            double dSq = ux * ux + uy * uy + uz * uz;
+            double d = std::sqrt(ux * ux + uy * uy + uz * uz);
+            double dp1 = d + 1.0;
+            double dp1_2 = dp1 * dp1;
+            double dp1_4 = dp1_2 * dp1_2;
+            double dp1_8 = dp1_4 * dp1_4;
+            double dd = 1.0 / dp1_8;
+            d = dd / d;
+            d = std::trunc(d * 1e8) * 1e-8;
 
-            if (dSq < distThresholdSq) {
-                // Only compute sqrt when we know we need it
-                double d = std::sqrt(dSq);
-
-                // Soft repulsion force that falls off with distance
-                double dp1 = d + 1.0;
-                double dp1_2 = dp1 * dp1;
-                double dp1_4 = dp1_2 * dp1_2;
-                double dp1_8 = dp1_4 * dp1_4;
-                double dd = 1.0 / dp1_8;
-                d = dd / d;
-                d = std::trunc(d * 1e8) * 1e-8;
-
-                sumX -= ux * d;
-                sumY -= uy * d;
-                sumZ -= uz * d;
-            }
+            sumX -= ux * d;
+            sumY -= uy * d;
+            sumZ -= uz * d;
         }
 
-        double c = stiffness;
-        if (c > 1) c = 1;
-
+        // NOTE: unlike calculateNeighborRepulsion, this applies stiffness
+        // unclamped. Fortran pushingnovei computes a clamped c=elas and then
+        // uses raw elas anyway (humppa_translate.f90:953-960); that quirk is
+        // reproduced deliberately. Clamping here would change the output.
         positionDeltas[i][0] += sumX * stiffness;
         positionDeltas[i][1] += sumY * stiffness;
         positionDeltas[i][2] += sumZ * stiffness;
