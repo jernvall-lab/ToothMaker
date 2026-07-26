@@ -112,7 +112,7 @@ to make a self-contained bundle.
 
 Three tooth models are included:
 
-* **Tribosphenic tooth** - The 2014 model for tribosphenic tooth morphologies. This is a C++ translation of the original Fortran code and is the recommended version. It runs faster and produces numerically equivalent output to the Fortran version.
+* **Tribosphenic tooth** - The 2014 model for tribosphenic tooth morphologies. This is a C++ translation of the original Fortran code and is the recommended version. It runs significantly faster than the Fortran version and produces functionally identical output (up to rounding differences).
 * **Tribosphenic tooth (Fortran/legacy)** - The original Fortran 90 implementation of the 2014 model, included for reference and validation.
 * **Triconodont tooth** - The 2010 model for triconodont tooth morphologies. For most purposes, the Tribosphenic model is a superset of this model.
 
