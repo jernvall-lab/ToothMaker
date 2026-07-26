@@ -30,6 +30,23 @@ int main(int argc, char* argv[]) {
     model.numZLevels = 4;
     model.initializeDefaults();
     fileIO.readInitialParameters();
+    if (fileIO.exitFlag != 0) {
+        return 1;
+    }
+
+    // allocateAndInit() derives numBorderCells = (radius-1)*6, which goes
+    // negative for radius < 1. The border/interior loops then start at a
+    // negative index and read cellPositions[] out of bounds. Any parameter
+    // file that fails to parse leaves every parameter at zero and lands here
+    // with radius == 0, so catch it before allocating anything.
+    if (model.radius < 1) {
+        std::cerr << "Error: invalid initial radius (Rad = " << model.radius
+                  << ") from '" << inputFile << "'." << std::endl;
+        std::cerr << "Either the parameter file could not be parsed, or it does "
+                     "not set Rad." << std::endl;
+        return 1;
+    }
+
     model.allocateAndInit();
 
     // Store initial parameters

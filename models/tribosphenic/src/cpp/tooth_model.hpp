@@ -248,7 +248,7 @@ public:
     //=========================================================================
     void readParametersText(std::istream& in);           // Humppa format (value name)
     void readParametersToothMaker(std::istream& in);     // ToothMaker format (name==value)
-    bool isToothMakerFormat(const std::string& filename); // Detect file format
+    bool isToothMakerFormat(const std::string& text);    // Detect format (normalised text)
     int getParameterIndex(const std::string& name);      // Map parameter name to index
     void writeParametersText(std::ostream& out);
     void readParametersBinary(std::istream& in);

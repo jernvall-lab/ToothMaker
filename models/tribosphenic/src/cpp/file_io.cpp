@@ -3,6 +3,70 @@
 
 #include "tooth_model.hpp"
 
+#include <cctype>
+
+namespace {
+
+// Strips leading and trailing whitespace. Removes only what is actually there,
+// so a string with no surrounding spaces comes through unchanged.
+std::string trim_(const std::string& s)
+{
+    size_t begin = 0;
+    size_t end = s.size();
+    while (begin < end && std::isspace(static_cast<unsigned char>(s[begin]))) {
+        begin++;
+    }
+    while (end > begin && std::isspace(static_cast<unsigned char>(s[end - 1]))) {
+        end--;
+    }
+    return s.substr(begin, end - begin);
+}
+
+// Reads a whole text file, converting every line ending to '\n': CRLF ("\r\n")
+// from Windows, lone CR ("\r") from classic Mac OS, and LF ("\n") all come out
+// as LF. Everything downstream can then assume Unix line endings regardless of
+// which platform wrote the file.
+//
+// This is the C++ equivalent of Python's universal newlines, which the standard
+// library does not provide: std::getline() splits on a single delimiter
+// character, and text-mode translation only handles the host's own convention
+// (it is a no-op outside Windows). Neither copes with a file that arrived from
+// another platform, so parameter files are normalised here, once, at the point
+// where their bytes enter the program.
+//
+// Returns false if the file could not be opened.
+bool readFileNormalized_(const std::string& filename, std::string& out)
+{
+    // Binary mode on purpose: do the translation here rather than inherit
+    // whatever the platform's text mode happens to do.
+    std::ifstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    std::ostringstream buffer;
+    buffer << file.rdbuf();
+    const std::string raw = buffer.str();
+
+    out.clear();
+    out.reserve(raw.size());
+    for (size_t i = 0; i < raw.size(); i++) {
+        if (raw[i] == '\r') {
+            if (i + 1 < raw.size() && raw[i + 1] == '\n') {
+                i++;            // CRLF: consume the LF as well
+            }
+            out += '\n';        // lone CR becomes LF too
+        }
+        else {
+            out += raw[i];
+        }
+    }
+
+    return true;
+}
+
+}   // END namespace
+
 //=============================================================================
 // FileIO Implementation
 //=============================================================================
@@ -141,12 +205,15 @@ void FileIO::readParametersText(std::istream& in) {
     }
 }
 
-bool FileIO::isToothMakerFormat(const std::string& filename) {
-    std::ifstream file(filename);
-    if (!file.is_open()) return false;
+// Takes the already newline-normalised file contents, not a file name.
+bool FileIO::isToothMakerFormat(const std::string& text) {
+    std::istringstream file(text);
 
-    std::string line;
-    while (std::getline(file, line)) {
+    std::string raw;
+    while (std::getline(file, raw)) {
+        // Trim first, so that indented comments and whitespace-only lines are
+        // recognised as such instead of ending the scan at the break below.
+        const std::string line = trim_(raw);
         // Skip empty lines and comments
         if (line.empty() || line[0] == '#') continue;
 
@@ -154,22 +221,20 @@ bool FileIO::isToothMakerFormat(const std::string& filename) {
         // Case-insensitive for "model", case-sensitive for model name
         size_t pos = line.find("==");
         if (pos != std::string::npos) {
-            std::string key = line.substr(0, pos);
-            std::string value = line.substr(pos + 2);
+            std::string key = trim_(line.substr(0, pos));
+            std::string value = trim_(line.substr(pos + 2));
 
             // Convert key to lowercase for comparison
             std::string keyLower = key;
             for (char& c : keyLower) c = std::tolower(c);
 
             if (keyLower == "model" && value == "Tribosphenic tooth") {
-                file.close();
                 return true;
             }
         }
         // If first non-comment line doesn't match, it's humppa format
         break;
     }
-    file.close();
     return false;
 }
 
@@ -235,21 +300,19 @@ void FileIO::readParametersToothMaker(std::istream& in) {
     parameterNames[26] = "Deg"; parameterNames[27] = "Dgr"; parameterNames[28] = "Ntr";
     parameterNames[29] = "Bwi"; parameterNames[30] = "Ina"; parameterNames[31] = "uMgr";
 
-    std::string line;
-    while (std::getline(in, line)) {
+    std::string raw;
+    while (std::getline(in, raw)) {
         // Skip empty lines and comments
+        const std::string line = trim_(raw);
         if (line.empty() || line[0] == '#') continue;
 
         // Parse name==value format
         size_t pos = line.find("==");
         if (pos == std::string::npos) continue;
 
-        std::string name = line.substr(0, pos);
-        std::string valueStr = line.substr(pos + 2);
-
         // Trim whitespace from name and value
-        while (!name.empty() && std::isspace(name.back())) name.pop_back();
-        while (!valueStr.empty() && std::isspace(valueStr.front())) valueStr.erase(0, 1);
+        std::string name = trim_(line.substr(0, pos));
+        std::string valueStr = trim_(line.substr(pos + 2));
 
         // Skip non-parameter keywords (model, viewthresh, viewmode, iter)
         std::string nameLower = name;
@@ -501,11 +564,12 @@ void FileIO::readDataFile() {
     for (auto& n : neighborHistory) n.clear();
     for (auto& k : knotsHistory) k.clear();
 
-    std::ifstream file(argInputFile);
-    if (!file.is_open()) {
+    std::string text;
+    if (!readFileNormalized_(argInputFile, text)) {
         std::cerr << "Error opening file: " << argInputFile << std::endl;
         return;
     }
+    std::istringstream file(text);
 
     int oldNumCells = model->numCells;
 
@@ -546,8 +610,6 @@ void FileIO::readDataFile() {
         if (exitFlag == 1) break;
     }
 
-    file.close();
-
     snapshotIndex = 0;
     loadParameters(snapshotIndex);
 
@@ -577,15 +639,17 @@ void FileIO::readDataFile() {
 }
 
 void FileIO::readInitialParameters() {
-    // Detect file format and use appropriate reader
-    bool useToothMakerFormat = isToothMakerFormat(argInputFile);
-
-    std::ifstream file(argInputFile);
-    if (!file.is_open()) {
+    std::string text;
+    if (!readFileNormalized_(argInputFile, text)) {
         std::cerr << "Error opening file: " << argInputFile << std::endl;
+        exitFlag = 1;
         return;
     }
 
+    // Detect file format and use appropriate reader
+    bool useToothMakerFormat = isToothMakerFormat(text);
+
+    std::istringstream file(text);
     snapshotIndex = 0;
 
     if (useToothMakerFormat) {
@@ -595,7 +659,6 @@ void FileIO::readInitialParameters() {
     }
 
     loadParameters(snapshotIndex);
-    file.close();
 }
 
 // NOTE: This function differs from the original Fortran 'guardaveinsoff' in two key respects:
