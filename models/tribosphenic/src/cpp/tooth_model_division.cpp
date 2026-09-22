@@ -179,20 +179,31 @@ void ToothModel::addNewCells() {
     };
 
     // Insert `value` between slots ij < ji of a neighbour list. Consecutive slots:
-    // shift the tail right by one (the rest lengths move with it; slot 29 is
-    // lost). Otherwise the gap slot ji+1 is used -- without a bounds check when
-    // ji == 29, exactly as in the Fortran (TODO.md 12.2 F1).
+    // shift the tail right by one (the rest lengths move with it). Otherwise the
+    // pair straddles the end of the list and the value goes after slot ji.
+    // Returns false when the list is full. The Fortran has no check here: it
+    // drops the last entry, or writes past the array (audit item F1).
     auto insertBetween = [](std::array<int, MAX_NEIGHBORS>& list, CellMargins& margins,
-                            int ij, int ji, int value) {
+                            int ij, int ji, int value) -> bool {
         if (ji - ij == 1) {
+            if (list[MAX_NEIGHBORS - 1] != 0) return false;
             for (int s = MAX_NEIGHBORS - 1; s > ji; s--) {
                 list[s] = list[s - 1];
                 margins[s][MARGIN_REST] = margins[s - 1][MARGIN_REST];
             }
             list[ji] = value;
         } else {
+            if (ji + 1 >= MAX_NEIGHBORS) return false;
             list[ji + 1] = value;
         }
+        return true;
+    };
+
+    // Message for a neighbour list that would exceed its capacity; `cell` is
+    // 0-based, reported 1-based like the .dad file.
+    auto overCapacity = [](const char* what, int cell) {
+        return std::string(what) + " " + std::to_string(cell + 1) + " would have more than "
+               + std::to_string(MAX_NEIGHBORS) + " neighbours";
     };
 
     for (int n = 0; n < numNewCells; n++) {
@@ -234,7 +245,7 @@ void ToothModel::addNewCells() {
         int iiii = nextRealNeighbor(iii, jjj);
 
         cj++;
-        if (cj >= MAX_NEIGHBORS) { panicFlag = true; return; }
+        if (cj >= MAX_NEIGHBORS) { panic(overCapacity("new cell", jj)); return; }
         pillats[cj] = iiii + 1;
 
         int jjjj = findSlot(newNeighbors[iiii], iii + 1);   // slot pointing back to ini
@@ -248,7 +259,7 @@ void ToothModel::addNewCells() {
             if (next >= 0) iiii = next;             // Fortran: iiii keeps its value if none is found
 
             cj++;
-            if (cj >= MAX_NEIGHBORS) { panicFlag = true; return; }
+            if (cj >= MAX_NEIGHBORS) { panic(overCapacity("new cell", jj)); return; }
             pillats[cj] = iiii + 1;
 
             int s = findSlot(newNeighbors[iiii], iii + 1);
@@ -300,7 +311,7 @@ void ToothModel::addNewCells() {
             if (iiii != ini) continue;              // goto 88
 
             // Back at ini: the ring is complete.
-            if (cj >= MAX_NEIGHBORS) { panicFlag = true; return; }
+            if (cj >= MAX_NEIGHBORS) { panic(overCapacity("new cell", jj)); return; }
             pillats[cj] = 0;                         // drop the repeated ini
             cj--;
             std::reverse(pillats.begin(), pillats.begin() + cj + 1);
@@ -330,7 +341,10 @@ void ToothModel::addNewCells() {
                             }
                         }
                     }
-                    if (ij >= 0 && ji >= 0) insertBetween(newNeighbors[k0], newMargins[k0], ij, ji, jj + 1);
+                    if (ij >= 0 && ji >= 0 && !insertBetween(newNeighbors[k0], newMargins[k0], ij, ji, jj + 1)) {
+                        panic(overCapacity("cell", k0));
+                        return;
+                    }
                 }
             } else {
                 // Other new cells among the caught ones: keep only ini, fi and
@@ -341,11 +355,9 @@ void ToothModel::addNewCells() {
                 int count = 0;
                 for (int idx = 0; idx <= cj; idx++) {
                     int v = pillats[idx];
-                    if (v == fi + 1) {
+                    if (v == fi + 1 || v > numCells) {
                         count++;
-                        tempNewNeighbors[n][count] = fi + 1;
-                    } else if (v > numCells) {
-                        count++;
+                        if (count >= MAX_NEIGHBORS) { panic(overCapacity("new cell", jj)); return; }
                         tempNewNeighbors[n][count] = v;
                     }
                 }
@@ -363,7 +375,10 @@ void ToothModel::addNewCells() {
                 int ji = findSlot(tempNewNeighbors[n], kk + 1);
                 if (ij >= 0 && ji >= 0) {
                     if (ij > ji) std::swap(ij, ji);
-                    insertBetween(tempNewNeighbors[n], newMargins[jj], ij, ji, newNumCellsTotal);
+                    if (!insertBetween(tempNewNeighbors[n], newMargins[jj], ij, ji, newNumCellsTotal)) {
+                        panic(overCapacity("new cell", jj));
+                        return;
+                    }
                 }
             }
             break;

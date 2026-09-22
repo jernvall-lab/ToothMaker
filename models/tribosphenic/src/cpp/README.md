@@ -323,22 +323,26 @@ compare parsed values, as `test/run_tests.sh` does.
 
 ### Bugs inherited from the Fortran original (present in both)
 
-- **F1. Neighbour-list overflow writes out of bounds.** In `addNewCells()`,
-  `newNeighbors[k0][ji + 1]` (and likewise `tempNewNeighbors[i][jiExt + 1]` and the `kkkkN`
-  counter) can index slot 30 of a 30-slot list, silently overwriting slot 0 of the next cell.
-  Inserting into a full list also drops its last neighbour without notice. Only the ring-walk
-  length is protected by `panicFlag`. Reproducible with extreme parameters (several thousand cells
-  with 30 neighbours); AddressSanitizer cannot see it because the overrun stays inside the
-  `std::vector` allocation — use `-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG`.
+- **F1.** *(guarded 2026-09-22)* Neighbour lists have a fixed capacity of `MAX_NEIGHBORS` = 30
+  (Fortran `nvmax`, a fixed array dimension with no physical meaning; a healthy cell has 6–13).
+  In `addNewCells()` the Fortran inserts into a full list without a check: it drops the last
+  entry or writes past the array. The C++ now stops instead: `insertBetween` and the new cell's
+  own list report over-capacity, `panic()` records the message, and the CLI exits with code 2
+  (`Error: cell N would have more than 30 neighbours …`). Only reachable in a degenerate mesh
+  (parameter scans far outside the biological range). AddressSanitizer alone does not see the
+  original overrun, which stays inside the `std::vector` allocation; libc++'s
+  `-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG` does.
 - **F2. `Not3` is overwritten by the cell count after the first output step.** `storeParameters()`
   puts `not3Rate` and then `numCellsTotal` into index 11, and `loadParameters()`, called after
   every step's output, reads `not3Rate` back from it. With `Not2 ≠ 0` a run split into steps
   therefore differs from the same run in one step, and the `.txt` echo always reports
   `Not3` = cell count. Masked in normal use because `Not2` is hidden and zero.
-- **F3. A division "panic" stops growth for good.** If a ring walk exceeds `MAX_NEIGHBORS`
-  entries, `addNewCells()` returns without dividing anything. The offending pair is still too far
-  apart in the next iteration, so every later iteration repeats the failed (and expensive) attempt
-  and the cell count never changes again. Seen in ~7% of parameter sets perturbed by up to 2x.
+- **F3.** *(resolved 2026-09-22)* In the Fortran a division "panic" (ring walk longer than
+  `nvmax`) abandons that iteration's divisions and the run continues; the offending pair is still
+  too far apart next time, so every later iteration repeats the failed attempt and the cell count
+  freezes. Seen in ~7% of parameter sets perturbed by up to 2x. The C++ now treats every panic —
+  ring walk, list capacity (F1), numerical overflow — as fatal: the run stops with a message and
+  exit code 2, leaving the files of the completed steps.
 - **F4. (Fortran only.)** `cmarge(i,kk,4:8)=…` in `afegircel` uses the ordinal of the new cell as a
   cell index and corrupts the rest lengths of an unrelated cell. The C++ shifts the new cell's own
   margins instead, i.e. it does *not* reproduce this. Never reached with the stock parameter
@@ -455,13 +459,11 @@ order.
 
 1. **Fix B1** (four indices in `getParameterIndex()`), after which both parameter formats give
    identical output and unit test 2 can share test 1's reference.
-2. **Guard the three neighbour-list overflow sites (F1)** by raising the existing `panicFlag`
-   (they are the two `insertBetween` calls and the `count` loop in `addNewCells()`).
-3. **Replace magic numbers with named constants** (values unchanged).
-4. **Add a memory-checked build target**: `-fsanitize=address,undefined` plus
+2. **Replace magic numbers with named constants** (values unchanged).
+3. **Add a memory-checked build target**: `-fsanitize=address,undefined` plus
    `-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG`. The hardening mode bounds-checks
-   `std::array`/`std::vector` indexing, which is what exposes F1.
-5. **Drop the per-iteration margin zeroing** in `calculateMargins()` (~1.07x).
+   `std::array`/`std::vector` indexing, which is what exposed F1.
+4. **Drop the per-iteration margin zeroing** in `calculateMargins()` (~1.07x).
 
 ### Medium Effort (Targeted improvements)
 

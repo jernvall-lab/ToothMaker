@@ -14,7 +14,7 @@ void ToothModel::runIteration(int numSteps) {
         panicFlag = false;
 
         reactionDiffusion();
-        if (panicFlag) return;   // numerical overflow; a failed division does not stop the run
+        if (panicFlag) return;   // numerical overflow
 
         applyBuccalLingualBias();
         updateDifferentiation();
@@ -25,6 +25,7 @@ void ToothModel::runIteration(int numSteps) {
         calculateNucleusTraction();
         updatePositions();
         addNewCells();
+        if (panicFlag) return;   // a neighbour list over capacity; nothing has been modified
         calculateMargins();
 
         timeStep++;

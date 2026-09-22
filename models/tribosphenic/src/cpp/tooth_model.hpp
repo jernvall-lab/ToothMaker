@@ -135,7 +135,13 @@ public:
     //=========================================================================
     // Run state
     //=========================================================================
-    bool panicFlag;                  // Set on numerical overflow or a failed division
+    // Set when the run cannot continue: numerical overflow in the reaction terms,
+    // or a cell that would need more than MAX_NEIGHBORS neighbours (a degenerate
+    // mesh; the Fortran writes past its arrays there). runIteration() returns at
+    // once and leaves the model in the state of the last completed iteration.
+    bool panicFlag;
+    std::string panicMessage;
+    void panic(const std::string& message) { panicFlag = true; panicMessage = message; }
 
     // Iteration state (for progress reporting)
     int iterationIndex, totalIterations;

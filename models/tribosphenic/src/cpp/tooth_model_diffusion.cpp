@@ -245,8 +245,7 @@ void ToothModel::reactionDiffusion() {
     }
 
     if (maxDelta > 1e100) {
-        std::cerr << "PANIC: numerical overflow, maxDelta=" << maxDelta << std::endl;
-        panicFlag = true;
+        panic("numerical overflow in the reaction terms (concentration change above 1e100)");
         return;
     }
 

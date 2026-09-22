@@ -77,6 +77,18 @@ int main(int argc, char* argv[]) {
         model.totalIterations = totalIterations;
         model.runIteration(totalIterations);
 
+        if (model.panicFlag) {
+            // The model is in the state of the last completed iteration; the
+            // files of the earlier steps, if any, are intact.
+            int iteration = totalIterations * (model.iterationIndex - 1) + model.timeStep + 1;
+            std::cerr << "Error: " << model.panicMessage << ".\n"
+                      << "Simulation stopped at iteration " << iteration << " with "
+                      << model.numCells << " cells; no output written for this step.\n"
+                      << "The mesh has degenerated: these parameters are outside the range "
+                         "in which the model produces a valid tooth." << std::endl;
+            return 2;
+        }
+
         // Write DAD output file
         std::ofstream dadFile(dadFilename);
         if (dadFile.is_open()) {
