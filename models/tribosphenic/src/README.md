@@ -84,12 +84,13 @@ From the `tribosphenic/` directory:
 make test
 ```
 
-This runs 3 tests (with Test 3 having two sub-parts):
-1. **C++ with humppa format** - Compares output against reference
-2. **C++ with ToothMaker format** - Compares output against reference
-3. **Fortran vs C++ cross-validation**:
-   - 3a: Connectivity comparison (exact match)
-   - 3b: Cell shapes comparison (tolerance 0.001)
+This runs 4 tests:
+1. **C++ with humppa format** - 6000 iterations, compared against a stored reference (tolerance 0.001)
+2. **C++ with ToothMaker format** - same, ToothMaker-format parameter file
+3. **Fortran vs C++, exact** - 10000 iterations; every value in the `.dad` must match the Fortran's
+4. **Fortran vs C++, exact, all parameters non-zero** - 4 steps of 2000 iterations; steps 2 and 4 compared
+
+Tests 3-4 require `bin/humppa_fortran_64bit` (`make fortran`) and are skipped without it.
 
 ## Running Simulations
 
@@ -116,7 +117,8 @@ cd <directory_with_param_file>
 /path/to/bin/humppa_fortran_64bit <param_file> <output_name> <iterations> <output_interval>
 ```
 
-Note: The Fortran binary requires the parameter file to be in the current working directory.
+Note: The Fortran binary truncates its arguments to 30 characters, so run it from the directory
+holding the parameter file and pass the bare file name (see `fortran/` above).
 
 ## Parameter File Formats
 

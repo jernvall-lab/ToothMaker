@@ -579,16 +579,18 @@ cd ..
 make test
 ```
 
-This runs 3 tests (with Test 3 having two sub-parts):
-1. **C++ with humppa format** - Compares output against reference
-2. **C++ with ToothMaker format** - Compares output against reference
-3. **Fortran vs C++ cross-validation**:
-   - 3a: Connectivity comparison (exact match)
-   - 3b: Cell shapes comparison (tolerance 0.001)
+This runs 4 tests:
+1. **C++ with humppa format** - 6000 iterations, compared against a stored reference (tolerance 0.001)
+2. **C++ with ToothMaker format** - same, ToothMaker-format parameter file
+3. **Fortran vs C++, exact** - 10000 iterations; every value of the `.dad` must match the Fortran's
+   (rounded to the 6 decimals the C++ writes)
+4. **Fortran vs C++, exact, all parameters non-zero** - 4 steps of 2000 iterations with the hidden
+   Not2/Not3/Not4 channel, Ina, uMgr and Swi all live; steps 2 and 4 are compared
 
 Test files are in `../test/`:
 - `mpar_no_umgr.txt` - Test parameters (humppa format)
 - `toothmaker_no_umgr.txt` - Test parameters (ToothMaker format)
-- `reference/` - Reference output files for comparison
+- `all_nonzero.txt` - Every parameter non-zero (humppa format)
+- `reference/` - Reference output files for tests 1-2
 
 See `../README.md` for more details.

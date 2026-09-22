@@ -1,6 +1,14 @@
 #!/bin/bash
 # run_tests.sh - Unit tests for humppa_cpp and humppa (Fortran)
-# All tests use 6000 iterations with umgr=0
+#
+# Tests 1-2 compare the C++ against stored references (6000 iterations,
+# tolerance 1e-3: the references were made on macOS and libm rounding may
+# differ elsewhere).
+# Tests 3-4 compare the C++ against the Fortran built on this machine and
+# require every number in the .dad file to match exactly (the C++ writes 6
+# decimals, so the Fortran values are rounded to 6 decimals first). Test 4
+# has every parameter non-zero -- the hidden Not2/Not3/Not4 channel, Ina,
+# uMgr and Swi are all live -- and runs in 4 steps.
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -100,8 +108,82 @@ compare_dad_files() {
     fi
 }
 
+# Every token of a .dad file, one per line, with the "cell shape" words removed.
+dad_tokens() {
+    sed 's/cell shape//' "$1" | tr -s ' \t\n' '\n' | sed '/^$/d'
+}
+
+# Exact comparison of a Fortran .dad (17 significant digits) with a C++ .dad
+# (6 decimals): every C++ token must equal the Fortran value printed with %.6f.
+# Token 32 (ncils) is skipped: the C++ writes ncils-1 there by design.
+# Returns 0 if identical. Prints result info.
+compare_dad_exact() {
+    local fortran_file="$1"
+    local cpp_file="$2"
+
+    dad_tokens "$fortran_file" > _tok_f.txt
+    dad_tokens "$cpp_file" > _tok_c.txt
+    local nf=$(wc -l < _tok_f.txt | tr -d ' ')
+    local nc=$(wc -l < _tok_c.txt | tr -d ' ')
+    if [ "$nf" != "$nc" ]; then
+        echo "token count differs: $nf vs $nc (topology differs)"
+        rm -f _tok_f.txt _tok_c.txt
+        return 1
+    fi
+
+    paste _tok_f.txt _tok_c.txt | awk '
+    NR == 32 { next }
+    {
+        if ($2 ~ /[.eE]/) { if (sprintf("%.6f", $1 + 0) != $2) bad++ }
+        else              { if ($1 + 0 != $2 + 0) bad++ }
+    }
+    END {
+        printf "%d values, %d mismatches", NR - 1, bad + 0
+        exit (bad > 0)
+    }'
+    local rv=$?
+    rm -f _tok_f.txt _tok_c.txt
+    return $rv
+}
+
+# Runs the Fortran and the C++ on the same parameter file and compares the
+# .dad of the given iteration counts exactly. The Fortran binary truncates
+# paths longer than 30 characters, so the parameter file is copied next to it.
+# $1 = parameter file (in SCRIPT_DIR), $2 = iterations per step, $3 = steps,
+# remaining args = iteration counts whose .dad files to compare.
+fortran_vs_cpp_exact() {
+    local par="$1"; local iters="$2"; local steps="$3"; shift 3
+
+    echo -n "  Running Fortran... "
+    cp "$SCRIPT_DIR/$par" .
+    "$FORTRAN_BIN" "$par" out_f.dad "$iters" "$steps" >/dev/null 2>&1 || true
+    if [ -z "$(ls $((iters * steps))*out_f*.dad 2>/dev/null)" ]; then
+        echo "SKIPPED (Fortran binary failed)"
+        rm -f *.dad *.off *.txt kk 2>/dev/null
+        return
+    fi
+    echo "done"
+
+    echo -n "  Running C++... "
+    "$CPP_BIN" "$SCRIPT_DIR/$par" out_c.dad "$iters" "$steps" >/dev/null 2>&1
+    echo "done"
+
+    for it in "$@"; do
+        echo -n "  Comparing every value at iteration $it... "
+        F_FILE=$(ls ${it}*out_f*.dad 2>/dev/null | head -1)
+        if result=$(compare_dad_exact "$F_FILE" "${it}_out_c.dad_.dad"); then
+            echo "PASS ($result)"
+            PASS=$((PASS + 1))
+        else
+            echo "FAIL ($result)"
+            FAIL=$((FAIL + 1))
+        fi
+    done
+    rm -f *.dad *.off *.txt kk 2>/dev/null
+}
+
 echo "========================================"
-echo "Running humppa unit tests (6000 iterations)"
+echo "Running humppa unit tests"
 echo "========================================"
 echo ""
 
@@ -144,56 +226,27 @@ fi
 rm -f *.dad *.off *.txt _*.txt
 
 #---------------------------------------------------------------------------
-# Test 3: Fortran vs C++ cross-validation (connectivity and positions)
+# Test 3: Fortran vs C++, exact match, default test parameters
 #---------------------------------------------------------------------------
 echo ""
-echo "TEST 3: Fortran vs C++ cross-validation"
+echo "TEST 3: Fortran vs C++ exact match (10000 iterations)"
 
 if [ ! -x "$FORTRAN_BIN" ]; then
     echo "  Skipping: Fortran binary not found"
 else
-    echo -n "  Running Fortran... "
-    cp "$SCRIPT_DIR/mpar_no_umgr.txt" .
-    "$FORTRAN_BIN" mpar_no_umgr.txt out_f.dad 6000 1 >/dev/null 2>&1 || true
-    F_FILE=$(ls 6000*out_f*.dad 2>/dev/null | head -1)
+    fortran_vs_cpp_exact mpar_no_umgr.txt 10000 1 10000
+fi
 
-    if [ -z "$F_FILE" ]; then
-        echo "SKIPPED (Fortran binary failed)"
-    else
-        echo "done"
+#---------------------------------------------------------------------------
+# Test 4: Fortran vs C++, exact match, every parameter non-zero, 4 steps
+#---------------------------------------------------------------------------
+echo ""
+echo "TEST 4: Fortran vs C++ exact match, all parameters non-zero (4 x 2000 iterations)"
 
-        echo -n "  Running C++... "
-        "$CPP_BIN" "$SCRIPT_DIR/mpar_no_umgr.txt" out_c.dad 6000 1 >/dev/null 2>&1
-        C_FILE=$(ls 6000*out_c*.dad 2>/dev/null | head -1)
-        echo "done"
-
-        # Test 3a: Connectivity
-        echo -n "  Comparing connectivity... "
-        extract_connectivity "$F_FILE" > f_conn.txt 2>/dev/null
-        extract_connectivity "$C_FILE" > c_conn.txt 2>/dev/null
-        if diff -q f_conn.txt c_conn.txt >/dev/null 2>&1; then
-            echo "PASS"
-            PASS=$((PASS + 1))
-        else
-            echo "FAIL"
-            FAIL=$((FAIL + 1))
-        fi
-        rm -f f_conn.txt c_conn.txt
-
-        # Test 3b: Cell shapes (with tolerance)
-        echo -n "  Comparing cell shapes (tol=$POSITION_TOLERANCE)... "
-        extract_cell_shapes "$F_FILE" > f_shapes.txt
-        extract_cell_shapes "$C_FILE" > c_shapes.txt
-        if result=$(compare_positions f_shapes.txt c_shapes.txt $POSITION_TOLERANCE); then
-            echo "PASS ($result)"
-            PASS=$((PASS + 1))
-        else
-            echo "FAIL ($result)"
-            FAIL=$((FAIL + 1))
-        fi
-        rm -f f_shapes.txt c_shapes.txt
-    fi
-    rm -f *.dad *.off *.txt kk 2>/dev/null
+if [ ! -x "$FORTRAN_BIN" ]; then
+    echo "  Skipping: Fortran binary not found"
+else
+    fortran_vs_cpp_exact all_nonzero.txt 2000 4 4000 8000
 fi
 
 echo ""
