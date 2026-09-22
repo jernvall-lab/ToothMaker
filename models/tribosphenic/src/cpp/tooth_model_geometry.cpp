@@ -4,12 +4,15 @@
 #include "tooth_model.hpp"
 
 void ToothModel::calculateMargins() {
-    // Reset margins to zero
+    // The Fortran zeroes every slot's margin here (marge(:,:,1:3)=0). Occupied
+    // slots are overwritten below, and of the empty slots only slot 0 is ever
+    // read (reactionDiffusion's wrap-around edge), so that is the only one that
+    // has to be reset.
     for (int i = 0; i < numCells; i++) {
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
-            cellMargins[i][j][0] = 0.0;
-            cellMargins[i][j][1] = 0.0;
-            cellMargins[i][j][2] = 0.0;
+        if (neighbors[i][0] == 0) {
+            cellMargins[i][0][0] = 0.0;
+            cellMargins[i][0][1] = 0.0;
+            cellMargins[i][0][2] = 0.0;
         }
     }
 
