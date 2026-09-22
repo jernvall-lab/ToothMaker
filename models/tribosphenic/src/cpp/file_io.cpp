@@ -4,8 +4,17 @@
 #include "tooth_model.hpp"
 
 #include <cctype>
+#include <limits>
 
 namespace {
+
+// The Fortran writes its data with list-directed output, i.e. 17 significant
+// digits for real*8, which reproduces every double exactly. Match that for
+// everything except the fixed-format parameter header.
+void fullPrecision_(std::ostream& out)
+{
+    out << std::defaultfloat << std::setprecision(std::numeric_limits<double>::max_digits10);
+}
 
 // Strips leading and trailing whitespace. Removes only what is actually there,
 // so a string with no surrounding spaces comes through unchanged.
@@ -84,8 +93,9 @@ FileIO::FileIO(ToothModel* modelPtr) :
 void FileIO::saveParameters(std::ostream& out) {
     parameters[0] = model->totalIterations * (model->iterationIndex - 1) + model->timeStep;
 
-    // Fortran: six records of 5F15.6. The fixed 6-decimal format set here stays
-    // in effect for everything written to the .dad afterwards (TODO.md 12.1 B2).
+    // Fortran: six records of 5F15.6, then list-directed output for the rest of
+    // the file. Restore full precision so that the header format does not leak
+    // into the data that follows.
     out << std::fixed << std::setprecision(6);
     for (int row = 0; row < 6; row++) {
         for (int i = 5 * row; i < 5 * row + 5; i++) {
@@ -94,9 +104,11 @@ void FileIO::saveParameters(std::ostream& out) {
         out << "\n";
     }
     out << model->numZLevels << " " << model->numBorderCells << "\n";
+    fullPrecision_(out);
 }
 
 void FileIO::saveMorphology(std::ostream& out) {
+    fullPrecision_(out);
     out << model->timeStep << " " << model->numCells << "\n";
     for (int i = 0; i < model->numCells; i++) {
         out << model->cellPositions[i][0] << " "
@@ -106,6 +118,7 @@ void FileIO::saveMorphology(std::ostream& out) {
 }
 
 void FileIO::saveConcentrations(std::ostream& out) {
+    fullPrecision_(out);
     out << NUM_3D_QUANTITIES << " " << model->numCells << "\n";
     for (int i = 0; i < model->numCells; i++) {
         for (int j = 0; j < model->numZLevels; j++) {
@@ -118,6 +131,7 @@ void FileIO::saveConcentrations(std::ostream& out) {
 }
 
 void FileIO::saveExtraData(std::ostream& out) {
+    fullPrecision_(out);
     out << NUM_2D_QUANTITIES << " " << model->numCells << "\n";
     for (int i = 0; i < model->numCells; i++) {
         for (int k = 0; k < NUM_2D_QUANTITIES; k++) {
@@ -158,6 +172,7 @@ void FileIO::saveNeighbors(std::ostream& out) {
 }
 
 void FileIO::saveMargins(std::ostream& out) {
+    fullPrecision_(out);
     out << model->timeStep << " " << model->numCells << "\n";
     for (int i = 0; i < model->numCells; i++) {
         const auto& list = model->neighbors[i];
@@ -176,6 +191,7 @@ void FileIO::saveMargins(std::ostream& out) {
 }
 
 void FileIO::writeParametersText(std::ostream& out) {
+    fullPrecision_(out);
     // Fortran writes parap(3:32), C++ uses [2:31] (inclusive)
     for (int i = 2; i <= 31; i++) {
         out << parameters[i] << " " << parameterNames[i] << "\n";
@@ -189,6 +205,8 @@ void FileIO::writeParametersText(std::ostream& out) {
 // 2) Writes each face TWICE (both orientations) to simplify visualization with renderers
 //    that expect consistently oriented faces
 void FileIO::saveAsOFF(std::ostream& out) {
+    fullPrecision_(out);
+
     // Calculate material values for coloring
     calculateMaterial();
 

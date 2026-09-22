@@ -297,10 +297,9 @@ builds, 500 randomised parameter sets and sanitizer/hardened builds.
 **Fidelity in one sentence:** since 2026-09-22 (D1 fixed, `-ffp-contract=off` like the Fortran
 build) the production binary reproduces the Fortran *bit for bit* on the same platform — positions,
 margins, concentrations, neighbour lists, knots — through at least 20 000 iterations, including
-runs with the hidden channels switched on and 20-step runs, verified against the shipped
-`humppa_fortran_64bit`. The `.dad` the C++ writes has only 6 decimals (B2), so a file-level
-comparison has to round the Fortran values to 6 decimals first
-(`docs/humppa_audit_2026-09-21/harness/cmp6.py`).
+runs with the hidden channels switched on and 20-step runs, verified value for value against the
+shipped `humppa_fortran_64bit`. Both write 17 significant digits but format them differently, so
+compare parsed values, as `test/run_tests.sh` does.
 
 ### Bugs in the C++ port
 
@@ -313,10 +312,11 @@ comparison has to round the Fortran values to 6 decimals first
   positional and unaffected. This is also why the two unit-test references differ. *Decision
   2026-09-22: kept for now, with the mapping documented in the code, so that nothing changes for
   existing users.*
-- **B2. `.dad` values are written with 6 decimals.** `saveParameters()` sets
-  `std::fixed << setprecision(6)` and the stream keeps it for margins, positions and
-  concentrations; the Fortran writes 17 significant digits. The `.off` and the `.txt` parameter
-  echo use the default 6 significant digits.
+- **B2.** *(fixed 2026-09-22)* The `.dad` body was written with 6 decimals — `saveParameters()`
+  set `std::fixed << setprecision(6)` for the header and the stream kept it — and the `.off` and
+  `.txt` with the default 6 significant digits, against 17 in the Fortran. All three now carry 17
+  significant digits (`max_digits10`); only the `5F15.6` parameter header keeps its fixed format,
+  as in the Fortran.
 - **B3. Argument parsing** (`main.cpp`): a non-numeric iteration or step count throws out of
   `std::stoi` uncaught; a negative step count runs `abs(steps)` steps (Fortran: none).
 
@@ -359,7 +359,8 @@ comparison has to round the Fortran values to 6 decimals first
   `n > 0`, `dist > 0`) the Fortran lacks, and a duplicate-pair check and index guards in
   `addNewCells()`. None of them executes with the mouse, seal or test parameters.
 - **D5.** Output naming (no underscore padding), no `kk` scratch file, header line 7 of the `.dad`
-  holds `numBorderCells` (= Fortran `ncils − 1`), OFF content (section 6), `.dad` precision (B2).
+  holds `numBorderCells` (= Fortran `ncils − 1`), OFF content (section 6), number formatting
+  (C++ `%g` style versus Fortran list-directed, same 17 significant digits).
 
 ### Minor
 
@@ -475,11 +476,7 @@ order.
    `quantities3D` and `rdDeltaQ3D` as already done for `cellMargins` (~1.1x), and compact local weight arrays in
    `reactionDiffusion()` (~1.14x; also removes its `goto` and two member arrays).
    Items 1–3 together: 2.5–3.4x, with slightly less code than today.
-4. **Bit-exact Fortran regression test**: a second build with `-ffp-contract=off` and full-precision
-   `.dad` output, compared against the Fortran with tolerance 0 at ≥ 12 000 iterations. Requires D1
-   (and B2). Far stronger than the current tolerance test, which sits ~300 iterations short of the
-   point where the production builds bifurcate.
-5. **Remaining input validation**: `std::stoi` failures, step count ≤ 0.
+4. **Remaining input validation**: `std::stoi` failures, step count ≤ 0.
 
 ### High Effort (Architectural changes)
 
@@ -600,8 +597,8 @@ make test
 This runs 4 tests:
 1. **C++ with humppa format** - 6000 iterations, compared against a stored reference (tolerance 0.001)
 2. **C++ with ToothMaker format** - same, ToothMaker-format parameter file
-3. **Fortran vs C++, exact** - 10000 iterations; every value of the `.dad` must match the Fortran's
-   (rounded to the 6 decimals the C++ writes)
+3. **Fortran vs C++, exact** - 10000 iterations; every value of the `.dad` must equal the Fortran's
+   (compared as parsed numbers; both files carry 17 significant digits)
 4. **Fortran vs C++, exact, all parameters non-zero** - 4 steps of 2000 iterations with the hidden
    Not2/Not3/Not4 channel, Ina, uMgr and Swi all live; steps 2 and 4 are compared
 

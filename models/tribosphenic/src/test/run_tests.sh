@@ -5,10 +5,11 @@
 # tolerance 1e-3: the references were made on macOS and libm rounding may
 # differ elsewhere).
 # Tests 3-4 compare the C++ against the Fortran built on this machine and
-# require every number in the .dad file to match exactly (the C++ writes 6
-# decimals, so the Fortran values are rounded to 6 decimals first). Test 4
-# has every parameter non-zero -- the hidden Not2/Not3/Not4 channel, Ina,
-# uMgr and Swi are all live -- and runs in 4 steps.
+# require every number in the .dad file to be identical (both write 17
+# significant digits, which identify a double uniquely; the values are
+# compared as numbers because the two format them differently). Test 4 has
+# every parameter non-zero -- the hidden Not2/Not3/Not4 channel, Ina, uMgr
+# and Swi are all live -- and runs in 4 steps.
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -113,10 +114,10 @@ dad_tokens() {
     sed 's/cell shape//' "$1" | tr -s ' \t\n' '\n' | sed '/^$/d'
 }
 
-# Exact comparison of a Fortran .dad (17 significant digits) with a C++ .dad
-# (6 decimals): every C++ token must equal the Fortran value printed with %.6f.
-# Token 32 (ncils) is skipped: the C++ writes ncils-1 there by design.
-# Returns 0 if identical. Prints result info.
+# Exact comparison of a Fortran .dad with a C++ .dad: every value, parsed as a
+# number, must be identical (both files carry 17 significant digits, so equal
+# parsed values means equal doubles). Token 32 (ncils) is skipped: the C++
+# writes ncils-1 there by design. Returns 0 if identical. Prints result info.
 compare_dad_exact() {
     local fortran_file="$1"
     local cpp_file="$2"
@@ -133,10 +134,7 @@ compare_dad_exact() {
 
     paste _tok_f.txt _tok_c.txt | awk '
     NR == 32 { next }
-    {
-        if ($2 ~ /[.eE]/) { if (sprintf("%.6f", $1 + 0) != $2) bad++ }
-        else              { if ($1 + 0 != $2 + 0) bad++ }
-    }
+    { if ($1 + 0 != $2 + 0) bad++ }
     END {
         printf "%d values, %d mismatches", NR - 1, bad + 0
         exit (bad > 0)
