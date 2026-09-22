@@ -3,33 +3,28 @@
 
 #include "tooth_model.hpp"
 
-void ToothModel::calculateMargins() {
-    // The Fortran zeroes every slot's margin here (marge(:,:,1:3)=0). Occupied
-    // slots are overwritten below, and of the empty slots only slot 0 is ever
-    // read (reactionDiffusion's wrap-around edge), so that is the only one that
-    // has to be reset.
-    for (int i = 0; i < numCells; i++) {
-        if (neighbors[i][0] == 0) {
-            cellMargins[i][0][0] = 0.0;
-            cellMargins[i][0][1] = 0.0;
-            cellMargins[i][0][2] = 0.0;
-        }
-    }
+// Records, for every occupied neighbour slot, which cells' positions make up its
+// margin point (Fortran calculmarges): the cell itself, then the cells visited
+// while walking around it from that neighbour. The walk is decided by the
+// neighbour lists alone, so it is recorded once per topology and re-summed by
+// calculateMargins() every iteration. The control flow below is the Fortran's,
+// including its fall-backs for a walk that does not close (kl > 100).
+void ToothModel::rebuildMarginWalks() {
+    walkCell.clear();
+    walkSlot.clear();
+    walkOffset.clear();
+    walkVertex.clear();
 
     for (int i = 0; i < numCells; i++) {
         int kl = 0;
 
         for (int j = 0; j < MAX_NEIGHBORS; j++) {
             if (neighbors[i][j] != 0) {
-                double a = 0.0, b = 0.0, c = 0.0;
-                double cont = 0.0;
+                walkCell.push_back(i);
+                walkSlot.push_back(j);
+                walkOffset.push_back(static_cast<int>(walkVertex.size()));
 
                 int iii = i;
-                a = cellPositions[i][0];
-                b = cellPositions[i][1];
-                c = cellPositions[i][2];
-                cont = 1.0;
-
                 int ii = neighbors[i][j] - 1;  // Convert to 0-based index
 
                 if (ii >= numCells) {
@@ -37,11 +32,7 @@ void ToothModel::calculateMargins() {
                     for (int jj = j - 1; jj >= 0; jj--) {
                         if (neighbors[i][jj] != 0) {
                             if (neighbors[i][jj] <= numCells) {
-                                ii = neighbors[i][jj] - 1;
-                                a += cellPositions[ii][0];
-                                b += cellPositions[ii][1];
-                                c += cellPositions[ii][2];
-                                cont += 1.0;
+                                walkVertex.push_back(neighbors[i][jj] - 1);
                                 goto done_searching;
                             } else {
                                 goto done_searching;
@@ -52,11 +43,7 @@ void ToothModel::calculateMargins() {
                     for (int jj = MAX_NEIGHBORS - 1; jj > j; jj--) {
                         if (neighbors[i][jj] != 0) {
                             if (neighbors[i][jj] <= numCells) {
-                                ii = neighbors[i][jj] - 1;
-                                a += cellPositions[ii][0];
-                                b += cellPositions[ii][1];
-                                c += cellPositions[ii][2];
-                                cont += 1.0;
+                                walkVertex.push_back(neighbors[i][jj] - 1);
                                 goto done_searching;
                             } else {
                                 goto done_searching;
@@ -66,7 +53,7 @@ void ToothModel::calculateMargins() {
                     goto done_searching;
                 }
 
-                // Walk around the cell to compute centroid of the margin region
+                // Walk around the cell to collect the corners of the margin region
                 {
                     int walkLimit = 100;
                     int walkCount = 0;
@@ -79,31 +66,20 @@ void ToothModel::calculateMargins() {
                             // Exceeded limit - fall back to simple neighbor average
                             for (int jj = j - 1; jj >= 0; jj--) {
                                 if (neighbors[i][jj] != 0 && neighbors[i][jj] <= numCells) {
-                                    ii = neighbors[i][jj] - 1;
-                                    a += cellPositions[ii][0];
-                                    b += cellPositions[ii][1];
-                                    c += cellPositions[ii][2];
-                                    cont += 1.0;
+                                    walkVertex.push_back(neighbors[i][jj] - 1);
                                     goto done_searching;
                                 }
                             }
                             for (int jj = MAX_NEIGHBORS - 1; jj > j; jj--) {
                                 if (neighbors[i][jj] != 0 && neighbors[i][jj] <= numCells) {
-                                    ii = neighbors[i][jj] - 1;
-                                    a += cellPositions[ii][0];
-                                    b += cellPositions[ii][1];
-                                    c += cellPositions[ii][2];
-                                    cont += 1.0;
+                                    walkVertex.push_back(neighbors[i][jj] - 1);
                                     goto done_searching;
                                 }
                             }
                             goto done_searching;
                         }
 
-                        a += cellPositions[ii][0];
-                        b += cellPositions[ii][1];
-                        c += cellPositions[ii][2];
-                        cont += 1.0;
+                        walkVertex.push_back(ii);
 
                         // Find which slot points back to iii
                         int jjj = -1;
@@ -142,12 +118,51 @@ void ToothModel::calculateMargins() {
                     }
                 }
 
-            done_searching:
-                cellMargins[i][j][0] = a / cont;
-                cellMargins[i][j][1] = b / cont;
-                cellMargins[i][j][2] = c / cont;
+            done_searching:;
             }
         }
+    }
+
+    walkOffset.push_back(static_cast<int>(walkVertex.size()));
+    marginWalksValid = true;
+}
+
+void ToothModel::calculateMargins() {
+    if (!marginWalksValid) rebuildMarginWalks();
+
+    // The Fortran zeroes every slot's margin here (marge(:,:,1:3)=0). Occupied
+    // slots are overwritten below, and of the empty slots only slot 0 is ever
+    // read (reactionDiffusion's wrap-around edge), so that is the only one that
+    // has to be reset.
+    for (int i = 0; i < numCells; i++) {
+        if (neighbors[i][0] == 0) {
+            cellMargins[i][0][0] = 0.0;
+            cellMargins[i][0][1] = 0.0;
+            cellMargins[i][0][2] = 0.0;
+        }
+    }
+
+    // Each margin point is the mean of the cell's position and the recorded
+    // corner cells' positions, summed in the recorded (Fortran) order.
+    const int nWalks = static_cast<int>(walkCell.size());
+    for (int w = 0; w < nWalks; w++) {
+        const int i = walkCell[w];
+        double a = cellPositions[i][0];
+        double b = cellPositions[i][1];
+        double c = cellPositions[i][2];
+        const int first = walkOffset[w];
+        const int last = walkOffset[w + 1];
+        for (int p = first; p < last; p++) {
+            const int ii = walkVertex[p];
+            a += cellPositions[ii][0];
+            b += cellPositions[ii][1];
+            c += cellPositions[ii][2];
+        }
+        const double cont = 1.0 + (last - first);
+        MarginSlot& m = cellMargins[i][walkSlot[w]];
+        m[0] = a / cont;
+        m[1] = b / cont;
+        m[2] = c / cont;
     }
 }
 

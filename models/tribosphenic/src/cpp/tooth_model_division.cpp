@@ -72,6 +72,7 @@ void ToothModel::addNewCells() {
     const int numNewCells = static_cast<int>(newNodePairs.size());
     if (numNewCells == 0) return;
 
+    marginWalksValid = false;       // the neighbour lists are about to change
     compactNeighborLists();
 
     const int newNumCellsTotal = numCellsTotal + numNewCells;

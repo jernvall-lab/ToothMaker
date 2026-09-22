@@ -79,6 +79,16 @@ public:
     std::vector<std::array<double, MAX_NEIGHBORS>> rdAreaProj;  // Area projections
     std::vector<std::vector<std::array<double, NUM_3D_QUANTITIES>>> rdDeltaQ3D;  // 3D quantity deltas
 
+    // The margin mesh walk (calculateMargins) depends only on the neighbour lists,
+    // which change at initialisation and at cell division. It is recorded once per
+    // topology as index lists and re-summed each iteration.
+    bool marginWalksValid = false;
+    std::vector<int> walkCell;      // per occupied slot: owning cell
+    std::vector<int> walkSlot;      // per occupied slot: slot index
+    std::vector<int> walkOffset;    // per occupied slot: start in walkVertex (size + 1)
+    std::vector<int> walkVertex;    // concatenated corner-cell indices, in summation order
+    void rebuildMarginWalks();
+
     //=========================================================================
     // Cell counts and grid parameters
     //=========================================================================
