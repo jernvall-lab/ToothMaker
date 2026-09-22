@@ -76,9 +76,7 @@ public:
     //=========================================================================
     std::vector<std::array<double, 3>> positionDeltas;     // Position changes per iteration
     std::vector<std::array<double, 3>> prevPositions;      // Staging area for calculateNucleusTraction
-    std::vector<std::array<double, MAX_NEIGHBORS>> rdWeight;    // Diffusion weights
-    std::vector<std::array<double, MAX_NEIGHBORS>> rdAreaProj;  // Area projections
-    std::vector<Q3DBlock> rdDeltaQ3D;                          // 3D quantity deltas
+    std::vector<Q3DBlock> rdDeltaQ3D;                          // Reaction-diffusion deltas
 
     // The margin mesh walk (calculateMargins) depends only on the neighbour lists,
     // which change at initialisation and at cell division. It is recorded once per

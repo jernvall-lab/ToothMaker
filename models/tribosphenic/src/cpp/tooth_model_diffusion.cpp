@@ -4,102 +4,22 @@
 #include "tooth_model.hpp"
 
 void ToothModel::reactionDiffusion() {
-    // Ensure working arrays are properly sized (only reallocates if size changed)
-    if (static_cast<int>(rdWeight.size()) < numCellsTotal) {
-        rdWeight.resize(numCellsTotal);
-        rdAreaProj.resize(numCellsTotal);
+    // The delta buffer is kept between iterations and only grows.
+    if (static_cast<int>(rdDeltaQ3D.size()) < numCellsTotal) {
         rdDeltaQ3D.resize(numCellsTotal, Q3DBlock{});
     }
 
-    // Only the middle z-levels are accumulated with +=; kk=0 and kk=NUM_Z_LEVELS-1
-    // are assigned with = further down, and rdWeight/rdAreaProj are cleared
-    // per-cell inside the loop below. Cells >= numCells are never read.
+    constexpr int lastZ = NUM_Z_LEVELS - 1;
+
+    // DIFFUSION (Fortran reaccio_difusio, first part). Only the first four
+    // quantities diffuse ("do k=1,4 !ng ATENCIO").
     for (int i = 0; i < numCells; i++) {
-        for (int kk = 1; kk < NUM_Z_LEVELS - 1; kk++) {
-            for (int k = 0; k < 4; k++) rdDeltaQ3D[i][kk][k] = 0.0;
-        }
-    }
+        const CellMargins& margins = cellMargins[i];
+        const Q3DBlock& qi = quantities3D[i];
+        Q3DBlock& di = rdDeltaQ3D[i];
 
-    // Calculate diffusion weights based on cell geometry
-    for (int i = 0; i < numCells; i++) {
-        rdWeight[i].fill(0.0);
-        rdAreaProj[i].fill(0.0);
-
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
-            if (neighbors[i][j] != 0) {
-                double ua = cellPositions[i][0];
-                double ub = cellPositions[i][1];
-                double uc = cellPositions[i][2];
-
-                // Find next non-zero neighbor for edge calculation
-                for (int jj = j + 1; jj < MAX_NEIGHBORS; jj++) {
-                    if (neighbors[i][jj] != 0) {
-                        // Edge length between margin points
-                        rdWeight[i][j] = std::sqrt(
-                            std::pow(cellMargins[i][j][0] - cellMargins[i][jj][0], 2) +
-                            std::pow(cellMargins[i][j][1] - cellMargins[i][jj][1], 2) +
-                            std::pow(cellMargins[i][j][2] - cellMargins[i][jj][2], 2));
-
-                        // Triangle area calculation using cross product
-                        double ux = cellMargins[i][j][0] - ua;
-                        double uy = cellMargins[i][j][1] - ub;
-                        double uz = cellMargins[i][j][2] - uc;
-                        double dx = cellMargins[i][jj][0] - ua;
-                        double dy = cellMargins[i][jj][1] - ub;
-                        double dz = cellMargins[i][jj][2] - uc;
-
-                        rdAreaProj[i][j] = 0.5 * std::sqrt(  // Fortran: 0.05D1 = 0.5
-                            std::pow(uy * dz - uz * dy, 2) +
-                            std::pow(uz * dx - ux * dz, 2) +
-                            std::pow(ux * dy - uy * dx, 2));
-                        goto next_neighbor;
-                    }
-                }
-
-                // Wrap around to first neighbor if no next found
-                rdWeight[i][j] = std::sqrt(
-                    std::pow(cellMargins[i][j][0] - cellMargins[i][0][0], 2) +
-                    std::pow(cellMargins[i][j][1] - cellMargins[i][0][1], 2) +
-                    std::pow(cellMargins[i][j][2] - cellMargins[i][0][2], 2));
-
-                double ux = cellMargins[i][j][0] - cellPositions[i][0];
-                double uy = cellMargins[i][j][1] - cellPositions[i][1];
-                double uz = cellMargins[i][j][2] - cellPositions[i][2];
-                double dx = cellMargins[i][0][0] - cellPositions[i][0];
-                double dy = cellMargins[i][0][1] - cellPositions[i][1];
-                double dz = cellMargins[i][0][2] - cellPositions[i][2];
-
-                rdAreaProj[i][j] = 0.5 * std::sqrt(  // Fortran: 0.05D1 = 0.5
-                    std::pow(uy * dz - uz * dy, 2) +
-                    std::pow(uz * dx - ux * dz, 2) +
-                    std::pow(ux * dy - uy * dx, 2));
-            }
-        next_neighbor:;
-        }
-
-        // Normalize weights
-        double areaBelow = 0.0;
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
-            areaBelow += rdAreaProj[i][j];
-        }
-
-        double suma = 0.0;
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
-            suma += rdWeight[i][j];
-        }
-        suma += 2 * areaBelow;
-        double originalSuma = suma;  // Save for later restoration
-
-        if (suma > 0) {
-            areaBelow /= suma;
-            for (int j = 0; j < MAX_NEIGHBORS; j++) {
-                rdWeight[i][j] /= suma;
-            }
-        }
-
-        // Compact list of occupied neighbour slots. The slot list does not
-        // change across k/kk, so hoist it out of the loop nest. Slots with
-        // neighbors[i][j]==0 contribute nothing, so skipping them is exact.
+        // Occupied neighbour slots, ascending. Empty slots would contribute
+        // exactly +0.0 to every sum below, so leaving them out is exact.
         int slotJ[MAX_NEIGHBORS];
         int slotII[MAX_NEIGHBORS];
         int nSlots = 0;
@@ -110,68 +30,108 @@ void ToothModel::reactionDiffusion() {
                 nSlots++;
             }
         }
-        const int lastZ = NUM_Z_LEVELS - 1;
 
-        // Vertical (areaBelow) terms first, exactly as before: for every
-        // (kk,k) accumulator these are the first one or two additions.
+        // Diffusion weights from the cell geometry (Fortran pes, areap): for each
+        // occupied slot, the length of the edge from its margin point to the next
+        // occupied slot's, and the area of the triangle they span with the cell
+        // centre. The last slot pairs with slot 0, occupied or not, as in the Fortran.
+        double weight[MAX_NEIGHBORS];
+        double areaProj[MAX_NEIGHBORS];
+        const double ua = cellPositions[i][0];
+        const double ub = cellPositions[i][1];
+        const double uc = cellPositions[i][2];
+        for (int s = 0; s < nSlots; s++) {
+            const MarginSlot& mj = margins[slotJ[s]];
+            const MarginSlot& mjj = (s + 1 < nSlots) ? margins[slotJ[s + 1]] : margins[0];
+
+            weight[s] = std::sqrt(
+                std::pow(mj[0] - mjj[0], 2) +
+                std::pow(mj[1] - mjj[1], 2) +
+                std::pow(mj[2] - mjj[2], 2));
+
+            double ux = mj[0] - ua;
+            double uy = mj[1] - ub;
+            double uz = mj[2] - uc;
+            double dx = mjj[0] - ua;
+            double dy = mjj[1] - ub;
+            double dz = mjj[2] - uc;
+
+            areaProj[s] = 0.5 * std::sqrt(  // Fortran: 0.05D1 = 0.5
+                std::pow(uy * dz - uz * dy, 2) +
+                std::pow(uz * dx - ux * dz, 2) +
+                std::pow(ux * dy - uy * dx, 2));
+        }
+
+        // Normalise: the cell's faces are its edges plus a floor and a ceiling.
+        double areaBelow = 0.0;
+        for (int s = 0; s < nSlots; s++) areaBelow += areaProj[s];
+
+        double suma = 0.0;
+        for (int s = 0; s < nSlots; s++) suma += weight[s];
+        suma += 2 * areaBelow;
+        const double originalSuma = suma;
+
+        if (suma > 0) {
+            areaBelow /= suma;
+            for (int s = 0; s < nSlots; s++) weight[s] /= suma;
+        }
+
+        // Vertical (areaBelow) terms first: for every (kk,k) accumulator these are
+        // the first additions. The middle levels start from zero and accumulate,
+        // as the Fortran does (a plain assignment would differ only in the sign
+        // of a zero).
         for (int k = 0; k < 4; k++) {
             for (int kk = 1; kk < lastZ; kk++) {
-                rdDeltaQ3D[i][kk][k] += areaBelow * (quantities3D[i][kk - 1][k] - quantities3D[i][kk][k]);
-                rdDeltaQ3D[i][kk][k] += areaBelow * (quantities3D[i][kk + 1][k] - quantities3D[i][kk][k]);
+                di[kk][k] = 0.0;
+                di[kk][k] += areaBelow * (qi[kk - 1][k] - qi[kk][k]);
+                di[kk][k] += areaBelow * (qi[kk + 1][k] - qi[kk][k]);
             }
-            rdDeltaQ3D[i][lastZ][k]  = areaBelow * (-quantities3D[i][lastZ][k] * 0.44);
-            rdDeltaQ3D[i][lastZ][k] += areaBelow * (quantities3D[i][lastZ - 1][k] - quantities3D[i][lastZ][k]);
+            di[lastZ][k]  = areaBelow * (-qi[lastZ][k] * 0.44);    // bottom: sink
+            di[lastZ][k] += areaBelow * (qi[lastZ - 1][k] - qi[lastZ][k]);
         }
 
-        // Neighbour terms, j ascending -- same per-accumulator order as before.
+        // Neighbour terms, slot ascending -- the Fortran's per-accumulator order.
+        // The virtual boundary cell is a sink.
         for (int s = 0; s < nSlots; s++) {
-            const int j  = slotJ[s];
             const int ii = slotII[s];
-            const double w = rdWeight[i][j];
+            const double w = weight[s];
             if (ii == numCellsTotal - 1) {
-                for (int kk = 1; kk < lastZ; kk++)
+                for (int kk = 1; kk <= lastZ; kk++)
                     for (int k = 0; k < 4; k++)
-                        rdDeltaQ3D[i][kk][k] += w * (-quantities3D[i][kk][k] * 0.44);
-                for (int k = 0; k < 4; k++)
-                    rdDeltaQ3D[i][lastZ][k] += w * (-quantities3D[i][lastZ][k] * 0.44);
+                        di[kk][k] += w * (-qi[kk][k] * 0.44);
             } else {
-                for (int kk = 1; kk < lastZ; kk++)
+                const Q3DBlock& qn = quantities3D[ii];
+                for (int kk = 1; kk <= lastZ; kk++)
                     for (int k = 0; k < 4; k++)
-                        rdDeltaQ3D[i][kk][k] += w * (quantities3D[ii][kk][k] - quantities3D[i][kk][k]);
-                for (int k = 0; k < 4; k++)
-                    rdDeltaQ3D[i][lastZ][k] += w * (quantities3D[ii][lastZ][k] - quantities3D[i][lastZ][k]);
+                        di[kk][k] += w * (qn[kk][k] - qi[kk][k]);
             }
         }
 
-        // Re-normalize for top layer (different boundary condition)
-        // Fortran: pes(i,:)=pes(i,:)*suma ; areasota=areasota*suma ; suma=suma-areasota
-        // First restore original weights, then re-normalize excluding areaBelow
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
-            rdWeight[i][j] *= originalSuma;  // Restore original weights
-        }
-        areaBelow *= originalSuma;  // Restore original areaBelow
-        suma = originalSuma - areaBelow;  // New normalization factor
+        // The top level has one vertical face instead of two, so its weights are
+        // normalised without one areaBelow -- by scaling back and dividing again,
+        // exactly as the Fortran does (pes=pes*suma ; areasota=areasota*suma ;
+        // suma=suma-areasota ; pes=pes/suma).
+        for (int s = 0; s < nSlots; s++) weight[s] *= originalSuma;
+        areaBelow *= originalSuma;
+        suma = originalSuma - areaBelow;
         if (suma > 0) {
-            for (int j = 0; j < MAX_NEIGHBORS; j++) {
-                rdWeight[i][j] /= suma;
-            }
+            for (int s = 0; s < nSlots; s++) weight[s] /= suma;
             areaBelow /= suma;
         }
 
-        // Top z level (index 0)
         for (int k = 0; k < 4; k++) {
-            rdDeltaQ3D[i][0][k] = areaBelow * (quantities3D[i][1][k] - quantities3D[i][0][k]);
+            di[0][k] = areaBelow * (qi[1][k] - qi[0][k]);
         }
         for (int s = 0; s < nSlots; s++) {
-            const int j  = slotJ[s];
             const int ii = slotII[s];
-            const double w = rdWeight[i][j];
+            const double w = weight[s];
             if (ii == numCellsTotal - 1) {
                 for (int k = 0; k < 4; k++)
-                    rdDeltaQ3D[i][0][k] += w * (-quantities3D[i][0][k] * 0.44);
+                    di[0][k] += w * (-qi[0][k] * 0.44);
             } else {
+                const Q3DBlock& qn = quantities3D[ii];
                 for (int k = 0; k < 4; k++)
-                    rdDeltaQ3D[i][0][k] += w * (quantities3D[ii][0][k] - quantities3D[i][0][k]);
+                    di[0][k] += w * (qn[0][k] - qi[0][k]);
             }
         }
     }
