@@ -65,7 +65,8 @@ public:
     // Concentration/quantity data
     //=========================================================================
     std::vector<std::array<double, NUM_2D_QUANTITIES>> quantities2D;  // 2D quantities per cell
-    std::vector<std::vector<std::array<double, NUM_3D_QUANTITIES>>> quantities3D;  // 3D quantities [cell][z][quantity]
+    using Q3DBlock = std::array<std::array<double, NUM_3D_QUANTITIES>, NUM_Z_LEVELS>;
+    std::vector<Q3DBlock> quantities3D;   // 3D quantities [cell][z][quantity]
     std::vector<double> diffusionCoeffs3D;    // Diffusion coefficients for 3D quantities
     std::vector<double> diffusionCoeffs2D;    // Diffusion coefficients for 2D quantities
                                               // NOTE: [1] is Boy (buoyancy), not a diffusion coeff!
@@ -77,7 +78,7 @@ public:
     std::vector<std::array<double, 3>> prevPositions;      // Staging area for calculateNucleusTraction
     std::vector<std::array<double, MAX_NEIGHBORS>> rdWeight;    // Diffusion weights
     std::vector<std::array<double, MAX_NEIGHBORS>> rdAreaProj;  // Area projections
-    std::vector<std::vector<std::array<double, NUM_3D_QUANTITIES>>> rdDeltaQ3D;  // 3D quantity deltas
+    std::vector<Q3DBlock> rdDeltaQ3D;                          // 3D quantity deltas
 
     // The margin mesh walk (calculateMargins) depends only on the neighbour lists,
     // which change at initialisation and at cell division. It is recorded once per
@@ -109,7 +110,6 @@ public:
     int numCells;           // Number of actual cells
     int numCellsTotal;      // Number of cells including the virtual boundary cell
     int numBorderCells;     // Border cells are indices 0..numBorderCells-1 (Fortran ncils-1)
-    int numZLevels;         // Number of depth z levels for quantity calculation
     int radius;             // Initial grid radius
     int timeStep;           // Current time step
 

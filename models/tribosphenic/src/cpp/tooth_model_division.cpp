@@ -85,8 +85,7 @@ void ToothModel::addNewCells() {
     std::vector<std::array<double, 3>> newPositions(newNumCellsTotal, {0.0, 0.0, 0.0});
     std::vector<std::array<int, MAX_NEIGHBORS>> newNeighbors(newNumCellsTotal, std::array<int, MAX_NEIGHBORS>{});
     std::vector<std::array<double, NUM_2D_QUANTITIES>> newQ2D(newNumCellsTotal, std::array<double, NUM_2D_QUANTITIES>{});
-    std::vector<std::vector<std::array<double, NUM_3D_QUANTITIES>>> newQ3D(newNumCellsTotal,
-        std::vector<std::array<double, NUM_3D_QUANTITIES>>(numZLevels, std::array<double, NUM_3D_QUANTITIES>{}));
+    std::vector<Q3DBlock> newQ3D(newNumCellsTotal, Q3DBlock{});
     std::vector<int> newKnots(newNumCellsTotal, 0);
     std::vector<CellMargins> newMargins(newNumCellsTotal, CellMargins{});
     std::vector<std::array<int, MAX_NEIGHBORS>> tempNewNeighbors(numNewCells, std::array<int, MAX_NEIGHBORS>{});  // Fortran ccvei
@@ -141,7 +140,7 @@ void ToothModel::addNewCells() {
         newPositions[jj][1] = d * b;
         newPositions[jj][2] = (cellPositions[ii][2] + cellPositions[kk][2]) * 0.5;   // Fortran: *0.05D1
 
-        for (int kz = 0; kz < numZLevels; kz++) {
+        for (int kz = 0; kz < NUM_Z_LEVELS; kz++) {
             for (int q = 0; q < NUM_3D_QUANTITIES; q++) {
                 newQ3D[jj][kz][q] = (newQ3D[ii][kz][q] + newQ3D[kk][kz][q]) * 0.5;
             }

@@ -8,7 +8,7 @@
 //=============================================================================
 
 ToothModel::ToothModel() :
-    numCells(0), numCellsTotal(0), numBorderCells(0), numZLevels(NUM_Z_LEVELS), radius(0),
+    numCells(0), numCellsTotal(0), numBorderCells(0), radius(0),
     timeStep(0),
     diffThresholdSet(0.0), diffThresholdInt(0.0),
     epithelialGrowthRate(0.0), mesenchymalGrowthRate(0.0), basalMesenchymalRate(0.0),
@@ -27,7 +27,6 @@ ToothModel::ToothModel() :
 }
 
 void ToothModel::initializeDefaults() {
-    numZLevels = NUM_Z_LEVELS;
     timeStep = 0;
     panicFlag = false;
 
@@ -52,8 +51,7 @@ void ToothModel::allocateAndInit() {
     knotMarkers.assign(numCellsTotal, 0);
     cellMargins.assign(numCellsTotal, CellMargins{});
     quantities2D.assign(numCellsTotal, std::array<double, NUM_2D_QUANTITIES>{});
-    quantities3D.assign(numCellsTotal,
-        std::vector<std::array<double, NUM_3D_QUANTITIES>>(numZLevels, std::array<double, NUM_3D_QUANTITIES>{}));
+    quantities3D.assign(numCellsTotal, Q3DBlock{});
     positionDeltas.assign(numCellsTotal, {0.0, 0.0, 0.0});
 
     // Build the grid: from every real cell, place a neighbour at unit distance in

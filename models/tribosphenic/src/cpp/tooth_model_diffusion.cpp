@@ -8,17 +8,14 @@ void ToothModel::reactionDiffusion() {
     if (static_cast<int>(rdWeight.size()) < numCellsTotal) {
         rdWeight.resize(numCellsTotal);
         rdAreaProj.resize(numCellsTotal);
-        rdDeltaQ3D.resize(numCellsTotal);
-        for (auto& cell : rdDeltaQ3D) {
-            cell.resize(numZLevels);
-        }
+        rdDeltaQ3D.resize(numCellsTotal, Q3DBlock{});
     }
 
-    // Only the middle z-levels are accumulated with +=; kk=0 and kk=numZLevels-1
+    // Only the middle z-levels are accumulated with +=; kk=0 and kk=NUM_Z_LEVELS-1
     // are assigned with = further down, and rdWeight/rdAreaProj are cleared
     // per-cell inside the loop below. Cells >= numCells are never read.
     for (int i = 0; i < numCells; i++) {
-        for (int kk = 1; kk < numZLevels - 1; kk++) {
+        for (int kk = 1; kk < NUM_Z_LEVELS - 1; kk++) {
             for (int k = 0; k < 4; k++) rdDeltaQ3D[i][kk][k] = 0.0;
         }
     }
@@ -113,7 +110,7 @@ void ToothModel::reactionDiffusion() {
                 nSlots++;
             }
         }
-        const int lastZ = numZLevels - 1;
+        const int lastZ = NUM_Z_LEVELS - 1;
 
         // Vertical (areaBelow) terms first, exactly as before: for every
         // (kk,k) accumulator these are the first one or two additions.
@@ -182,7 +179,7 @@ void ToothModel::reactionDiffusion() {
     // Apply diffusion updates
     for (int k = 0; k < 4; k++) {
         for (int i = 0; i < numCells; i++) {
-            for (int kk = 0; kk < numZLevels; kk++) {
+            for (int kk = 0; kk < NUM_Z_LEVELS; kk++) {
                 quantities3D[i][kk][k] += TIME_DELTA * diffusionCoeffs3D[k] * rdDeltaQ3D[i][kk][k];
             }
         }
@@ -258,7 +255,7 @@ void ToothModel::reactionDiffusion() {
 
     // Clamp negative values to zero
     for (int i = 0; i < numCells; i++) {
-        for (int kk = 0; kk < numZLevels; kk++) {
+        for (int kk = 0; kk < NUM_Z_LEVELS; kk++) {
             for (int k = 0; k < NUM_3D_QUANTITIES; k++) {
                 if (quantities3D[i][kk][k] < 0.0) {
                     quantities3D[i][kk][k] = 0.0;

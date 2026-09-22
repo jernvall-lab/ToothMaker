@@ -103,7 +103,7 @@ void FileIO::saveParameters(std::ostream& out) {
         }
         out << "\n";
     }
-    out << model->numZLevels << " " << model->numBorderCells << "\n";
+    out << NUM_Z_LEVELS << " " << model->numBorderCells << "\n";
     fullPrecision_(out);
 }
 
@@ -121,7 +121,7 @@ void FileIO::saveConcentrations(std::ostream& out) {
     fullPrecision_(out);
     out << NUM_3D_QUANTITIES << " " << model->numCells << "\n";
     for (int i = 0; i < model->numCells; i++) {
-        for (int j = 0; j < model->numZLevels; j++) {
+        for (int j = 0; j < NUM_Z_LEVELS; j++) {
             for (int k = 0; k < NUM_3D_QUANTITIES; k++) {
                 out << model->quantities3D[i][j][k] << " ";
             }
