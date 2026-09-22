@@ -89,6 +89,20 @@ public:
     std::vector<int> walkVertex;    // concatenated corner-cell indices, in summation order
     void rebuildMarginWalks();
 
+    // Candidate lists for checkNonNeighborRepulsion() (a Verlet list): per cell,
+    // every non-neighbour within the interaction range plus a skin at the last
+    // rebuild, in ascending index order. Valid until the topology changes or some
+    // cell has moved far enough for a pair outside the list to come into range.
+    int topologyVersion = 0;             // bumped whenever the neighbour lists change
+    int nnCandVersion = -1;              // topologyVersion the candidate lists were built for
+    std::vector<int> nnCandOffset;       // per cell: start in nnCand (size numCells + 1)
+    std::vector<int> nnCand;             // concatenated candidate cell indices
+    std::vector<std::array<double, 3>> nnRefPositions;   // positions at the last rebuild
+    std::vector<int> nnBinCount, nnCellBin, nnBinOffset, nnBinCells, nnBinPos;  // grid scratch
+    std::vector<int> nnStamp;            // neighbour-membership stamps
+    int nnStampGen = 0;
+    void rebuildNonNeighborCandidates();
+
     //=========================================================================
     // Cell counts and grid parameters
     //=========================================================================

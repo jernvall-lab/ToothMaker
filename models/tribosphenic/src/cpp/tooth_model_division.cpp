@@ -73,6 +73,7 @@ void ToothModel::addNewCells() {
     if (numNewCells == 0) return;
 
     marginWalksValid = false;       // the neighbour lists are about to change
+    topologyVersion++;
     compactNeighborLists();
 
     const int newNumCellsTotal = numCellsTotal + numNewCells;

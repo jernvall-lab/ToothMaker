@@ -281,15 +281,27 @@ void ToothModel::calculateNeighborRepulsion() {
     }
 }
 
-void ToothModel::checkNonNeighborRepulsion() {
-    constexpr double distThreshold = 1.4;
-    constexpr double distThresholdSq = distThreshold * distThreshold;
+namespace {
 
-    if (numCells < 2) return;
+// Non-neighbour repulsion acts between cells closer than NN_RANGE (Fortran
+// 0.14D1). The candidate lists are built for NN_RANGE + NN_SKIN and rebuilt once
+// any cell has moved more than 0.45 * NN_SKIN: two cells can then have approached
+// each other by less than NN_SKIN, so every pair now within range was within
+// NN_RANGE + NN_SKIN when the lists were built.
+constexpr double NN_RANGE = 1.4;
+constexpr double NN_RANGE_SQ = NN_RANGE * NN_RANGE;
+constexpr double NN_SKIN = 0.2;
+constexpr double NN_MAX_DISP_SQ = (0.45 * NN_SKIN) * (0.45 * NN_SKIN);
 
-    constexpr double gridCellSize = distThreshold;
-    constexpr double invGridCellSize = 1.0 / gridCellSize;
+}   // namespace
 
+void ToothModel::rebuildNonNeighborCandidates() {
+    constexpr double range = NN_RANGE + NN_SKIN;
+    constexpr double rangeSq = range * range;
+    constexpr double invBinSize = 1.0 / range;
+
+    // Bin the cells into a grid with bins of the candidate range, so that all
+    // candidates of a cell are in the 27 bins around it.
     double minX = cellPositions[0][0], maxX = minX;
     double minY = cellPositions[0][1], maxY = minY;
     double minZ = cellPositions[0][2], maxZ = minZ;
@@ -299,96 +311,108 @@ void ToothModel::checkNonNeighborRepulsion() {
         if (y < minY) minY = y; else if (y > maxY) maxY = y;
         if (z < minZ) minZ = z; else if (z > maxZ) maxZ = z;
     }
-
-    int gridX = static_cast<int>((maxX - minX) * invGridCellSize) + 2;
-    int gridY = static_cast<int>((maxY - minY) * invGridCellSize) + 2;
-    int gridZ = static_cast<int>((maxZ - minZ) * invGridCellSize) + 2;
+    int gridX = static_cast<int>((maxX - minX) * invBinSize) + 2;
+    int gridY = static_cast<int>((maxY - minY) * invBinSize) + 2;
+    int gridZ = static_cast<int>((maxZ - minZ) * invBinSize) + 2;
     int gridYZ = gridY * gridZ;
     int gridTotal = gridX * gridYZ;
 
-    // Persistent scratch: avoids re-allocating five vectors every iteration.
-    static std::vector<int> binCount, cellBin, binOffset, binCells, binPos;
-    static std::vector<int> stamp;      // neighbour membership stamp
-    static std::vector<int> survivors;
-    static int stampGen = 0;
-
-    binCount.assign(gridTotal, 0);
-    cellBin.resize(numCells);
-    binOffset.resize(gridTotal + 1);
-    binCells.resize(numCells);
-    binPos.assign(gridTotal, 0);
-    if (static_cast<int>(stamp.size()) < numCellsTotal + 1) stamp.assign(numCellsTotal + 1, 0);
+    nnBinCount.assign(gridTotal, 0);
+    nnCellBin.resize(numCells);
+    nnBinOffset.resize(gridTotal + 1);
+    nnBinCells.resize(numCells);
+    nnBinPos.assign(gridTotal, 0);
+    if (static_cast<int>(nnStamp.size()) < numCellsTotal + 1) nnStamp.assign(numCellsTotal + 1, 0);
 
     for (int i = 0; i < numCells; i++) {
-        int gx = static_cast<int>((cellPositions[i][0] - minX) * invGridCellSize);
-        int gy = static_cast<int>((cellPositions[i][1] - minY) * invGridCellSize);
-        int gz = static_cast<int>((cellPositions[i][2] - minZ) * invGridCellSize);
+        int gx = static_cast<int>((cellPositions[i][0] - minX) * invBinSize);
+        int gy = static_cast<int>((cellPositions[i][1] - minY) * invBinSize);
+        int gz = static_cast<int>((cellPositions[i][2] - minZ) * invBinSize);
         int bin = gx * gridYZ + gy * gridZ + gz;
-        cellBin[i] = bin;
-        binCount[bin]++;
+        nnCellBin[i] = bin;
+        nnBinCount[bin]++;
     }
-
-    binOffset[0] = 0;
-    for (int b = 0; b < gridTotal; b++) binOffset[b + 1] = binOffset[b] + binCount[b];
-
+    nnBinOffset[0] = 0;
+    for (int b = 0; b < gridTotal; b++) nnBinOffset[b + 1] = nnBinOffset[b] + nnBinCount[b];
     for (int i = 0; i < numCells; i++) {
-        int bin = cellBin[i];
-        binCells[binOffset[bin] + binPos[bin]] = i;
-        binPos[bin]++;
+        int bin = nnCellBin[i];
+        nnBinCells[nnBinOffset[bin] + nnBinPos[bin]] = i;
+        nnBinPos[bin]++;
     }
 
+    nnCandOffset.assign(numCells + 1, 0);
+    nnCand.clear();
     for (int i = 0; i < numCells; i++) {
         double ua = cellPositions[i][0];
         double ub = cellPositions[i][1];
         double uc = cellPositions[i][2];
 
         // O(1) neighbour membership via generation stamp.
-        stampGen++;
+        nnStampGen++;
         for (int j = 0; j < MAX_NEIGHBORS; j++) {
             int n = neighbors[i][j];
-            if (n > 0) stamp[n] = stampGen;
+            if (n > 0) nnStamp[n] = nnStampGen;
         }
 
-        int gx = static_cast<int>((ua - minX) * invGridCellSize);
-        int gy = static_cast<int>((ub - minY) * invGridCellSize);
-        int gz = static_cast<int>((uc - minZ) * invGridCellSize);
-
-        // Collect only the cells that actually contribute, then sort those.
-        // Ordering the *contributors* by index reproduces the original
-        // ascending-index accumulation exactly; rejected cells cannot matter.
-        survivors.clear();
+        int gx = static_cast<int>((ua - minX) * invBinSize);
+        int gy = static_cast<int>((ub - minY) * invBinSize);
+        int gz = static_cast<int>((uc - minZ) * invBinSize);
         int xlo = gx - 1 < 0 ? 0 : gx - 1, xhi = gx + 1 >= gridX ? gridX - 1 : gx + 1;
         int ylo = gy - 1 < 0 ? 0 : gy - 1, yhi = gy + 1 >= gridY ? gridY - 1 : gy + 1;
         int zlo = gz - 1 < 0 ? 0 : gz - 1, zhi = gz + 1 >= gridZ ? gridZ - 1 : gz + 1;
+        const size_t first = nnCand.size();
         for (int nx = xlo; nx <= xhi; nx++) {
             for (int ny = ylo; ny <= yhi; ny++) {
                 int rowBase = nx * gridYZ + ny * gridZ;
                 for (int nz = zlo; nz <= zhi; nz++) {
                     int nbin = rowBase + nz;
-                    for (int p = binOffset[nbin]; p < binOffset[nbin + 1]; p++) {
-                        int ii = binCells[p];
+                    for (int p = nnBinOffset[nbin]; p < nnBinOffset[nbin + 1]; p++) {
+                        int ii = nnBinCells[p];
                         if (ii == i) continue;
-                        // cheap axis rejections first
+                        if (nnStamp[ii + 1] == nnStampGen) continue;   // is a neighbour
                         double ux = cellPositions[ii][0] - ua;
-                        if (ux > distThreshold || ux < -distThreshold) continue;
                         double uy = cellPositions[ii][1] - ub;
-                        if (uy > distThreshold || uy < -distThreshold) continue;
                         double uz = cellPositions[ii][2] - uc;
-                        if (uz > distThreshold || uz < -distThreshold) continue;
-                        if (stamp[ii + 1] == stampGen) continue;   // is a neighbour
-                        if (std::abs(ux) < 1e-15) ux = 0.0;
-                        if (std::abs(uy) < 1e-15) uy = 0.0;
-                        if (std::abs(uz) < 1e-15) uz = 0.0;
-                        if (ux * ux + uy * uy + uz * uz < distThresholdSq) survivors.push_back(ii);
+                        if (ux * ux + uy * uy + uz * uz < rangeSq) nnCand.push_back(ii);
                     }
                 }
             }
         }
+        // Ascending index order reproduces the Fortran's accumulation order exactly.
+        std::sort(nnCand.begin() + first, nnCand.end());
+        nnCandOffset[i + 1] = static_cast<int>(nnCand.size());
+    }
 
-        std::sort(survivors.begin(), survivors.end());
+    nnRefPositions.assign(cellPositions.begin(), cellPositions.begin() + numCells);
+    nnCandVersion = topologyVersion;
+}
+
+void ToothModel::checkNonNeighborRepulsion() {
+    if (numCells < 2) return;
+
+    bool rebuild = nnCandVersion != topologyVersion ||
+                   static_cast<int>(nnRefPositions.size()) != numCells;
+    if (!rebuild) {
+        double maxDispSq = 0.0;
+        for (int i = 0; i < numCells; i++) {
+            double dx = cellPositions[i][0] - nnRefPositions[i][0];
+            double dy = cellPositions[i][1] - nnRefPositions[i][1];
+            double dz = cellPositions[i][2] - nnRefPositions[i][2];
+            double dispSq = dx * dx + dy * dy + dz * dz;
+            if (!(dispSq <= maxDispSq)) maxDispSq = dispSq;     // also catches NaN
+        }
+        rebuild = !(maxDispSq <= NN_MAX_DISP_SQ);
+    }
+    if (rebuild) rebuildNonNeighborCandidates();
+
+    for (int i = 0; i < numCells; i++) {
+        double ua = cellPositions[i][0];
+        double ub = cellPositions[i][1];
+        double uc = cellPositions[i][2];
 
         double sumX = 0.0, sumY = 0.0, sumZ = 0.0;
-        for (int ii : survivors) {
+        for (int p = nnCandOffset[i]; p < nnCandOffset[i + 1]; p++) {
+            int ii = nnCand[p];
             double ux = cellPositions[ii][0] - ua;
             double uy = cellPositions[ii][1] - ub;
             double uz = cellPositions[ii][2] - uc;
@@ -396,7 +420,10 @@ void ToothModel::checkNonNeighborRepulsion() {
             if (std::abs(uy) < 1e-15) uy = 0.0;
             if (std::abs(uz) < 1e-15) uz = 0.0;
 
-            double d = std::sqrt(ux * ux + uy * uy + uz * uz);
+            double dSq = ux * ux + uy * uy + uz * uz;
+            if (!(dSq < NN_RANGE_SQ)) continue;
+
+            double d = std::sqrt(dSq);
             double dp1 = d + 1.0;
             double dp1_2 = dp1 * dp1;
             double dp1_4 = dp1_2 * dp1_2;

@@ -126,6 +126,7 @@ void ToothModel::allocateAndInit() {
     }
 
     marginWalksValid = false;
+    topologyVersion++;
     calculateMargins();
     for (int i = 0; i < numCells; i++) {
         for (int jIdx = 0; jIdx < MAX_NEIGHBORS; jIdx++) {
