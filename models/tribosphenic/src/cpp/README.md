@@ -295,7 +295,8 @@ Status after a line-by-line audit against `humppa_translate.f90` (2026-09), back
 builds, 500 randomised parameter sets and sanitizer/hardened builds.
 
 **Fidelity in one sentence:** since 2026-09-22 (D1 fixed, `-ffp-contract=off` like the Fortran
-build) the production binary reproduces the Fortran *bit for bit* on the same platform — positions,
+build) the production binary reproduces the Fortran *bit for bit* — on macOS and on Linux, and the
+two platforms agree with each other (unit tests, 2026-09-22) — positions,
 margins, concentrations, neighbour lists, knots — through at least 20 000 iterations, including
 runs with the hidden channels switched on and 20-step runs, verified value for value against the
 shipped `humppa_fortran_64bit`. Both write 17 significant digits but format them differently, so
