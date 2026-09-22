@@ -10,16 +10,16 @@ Translated with Claude Opus 4.5.
 
 | File | Lines | Description |
 |------|-------|-------------|
-| `tooth_model.hpp` | 278 | Header with class declarations and constants |
-| `tooth_model_core.cpp` | 361 | Constructor, initialization, grid setup |
-| `tooth_model_geometry.cpp` | 236 | Cell margin/shape calculations |
-| `tooth_model_diffusion.cpp` | 296 | Reaction-diffusion equations |
-| `tooth_model_mechanics.cpp` | 475 | Mechanical forces (growth, buoyancy, repulsion) |
+| `tooth_model.hpp` | 279 | Header with class declarations and constants |
+| `tooth_model_core.cpp` | 356 | Constructor, initialization, grid setup |
+| `tooth_model_geometry.cpp` | 240 | Cell margin/shape calculations, triangle mesh |
+| `tooth_model_diffusion.cpp` | 304 | Reaction-diffusion equations |
+| `tooth_model_mechanics.cpp` | 518 | Mechanical forces (growth, buoyancy, repulsion) |
 | `tooth_model_division.cpp` | 843 | Cell division algorithm |
-| `tooth_model_iteration.cpp` | 36 | Main iteration loop |
-| `file_io.cpp` | 663 | File I/O operations (humppa + ToothMaker formats) |
-| `main.cpp` | 104 | Command-line entry point |
-| `Makefile` | 70 | Build system |
+| `tooth_model_iteration.cpp` | 40 | Main iteration loop |
+| `file_io.cpp` | 739 | File I/O operations (humppa + ToothMaker formats) |
+| `main.cpp` | 121 | Command-line entry point |
+| `Makefile` | 106 | Build system |
 
 ---
 
@@ -238,7 +238,9 @@ In `storeParameters()` and `loadParameters()`, the original Fortran code has ove
 - Index 11 is used for both `not3Rate` and `numCellsTotal`
 - Index assignments are not sequential
 
-This behavior is preserved for compatibility but may indicate a bug in the original code.
+This behavior is preserved for compatibility. The index-11 overlap is a genuine bug in the original
+(see *Known Issues*, F2): after the first output step `Not3` holds the cell count. The other
+overlaps are harmless, because the clobbered slots (`difq3d(5)`, `difq2d(1,3,4)`) are never used.
 
 ### 4. Goto Statement Conversion
 
@@ -283,34 +285,102 @@ The C++ port includes translated versions of these functions (`readDataFile()`, 
 
 If DAD file import is needed in the future, these functions would require:
 - Testing with actual `.dad` files
-- Array bounds validation (see Potential Issues below)
+- Array bounds validation (`readMorphology()`, `readNeighbors()` and `readKnots()` index with counts read from the file, unchecked)
 - Proper error handling
 
 ---
 
-## Potential Issues in Current C++ Code
+## Known Issues
 
-### Critical Issues
+Status after a line-by-line audit against `humppa_translate.f90` (2026-09), backed by instrumented
+builds, 500 randomised parameter sets and sanitizer/hardened builds.
 
-1. **File read array bounds** (`file_io.cpp`): `readMorphology()` reads `numCells` from the file, then uses it to index `cellPositions` without checking array capacity. A corrupted or malicious file specifying large `numCells` causes out-of-bounds memory access and undefined behavior. **Note:** This is part of the unimplemented DAD file import feature (see section 7) and is not currently reachable from the CLI.
+**Fidelity in one sentence:** since 2026-09-22 (D1 fixed, `-ffp-contract=off` like the Fortran
+build) the production binary reproduces the Fortran *bit for bit* on the same platform — positions,
+margins, concentrations, neighbour lists, knots — through at least 20 000 iterations, including
+runs with the hidden channels switched on and 20-step runs, verified against the shipped
+`humppa_fortran_64bit`. The `.dad` the C++ writes has only 6 decimals (B2), so a file-level
+comparison has to round the Fortran values to 6 decimals first
+(`docs/humppa_audit_2026-09-21/harness/cmp6.py`).
 
-2. **Neighbor array bounds** (`tooth_model_division.cpp`): The `addNewCells()` function has complex neighbor list manipulation. While some overflow conditions trigger `panicFlag`, not all insertion paths are protected. Rapid cell division with unusual geometry could write beyond `MAX_NEIGHBORS`.
+### Bugs in the C++ port
 
-3. **Array resize during iteration** (`tooth_model_division.cpp`): When cells divide, arrays are resized with `std::move()`. Any cached indices or pointers become invalid. The code correctly recomputes indices, but this pattern is error-prone for future modifications.
+- **B1. `Abi`/`Pbi` and `Lbi`/`Bbi` are swapped in the ToothMaker-format reader**
+  (`getParameterIndex()`, `file_io.cpp`). The GUI passes parameters positionally in XML order
+  (`… Bgr, Abi, Pbi, Lbi, Bbi, Rad …`), which feeds GUI `Abi` into Fortran `bip`, `Pbi` into `bia`,
+  `Lbi` into `bib` and `Bbi` into `bil`. The name-based reader follows the (misleading) Fortran
+  variable names instead, so a ToothMaker-format file given directly to `humppa_cpp` produces a
+  different tooth than the same file run through the GUI. GUI, `examples/cli` and webtooth are
+  positional and unaffected. This is also why the two unit-test references differ.
+- **B2. `.dad` values are written with 6 decimals.** `saveParameters()` sets
+  `std::fixed << setprecision(6)` and the stream keeps it for margins, positions and
+  concentrations; the Fortran writes 17 significant digits. The `.off` and the `.txt` parameter
+  echo use the default 6 significant digits.
+- **B3. Argument parsing** (`main.cpp`): a non-numeric iteration or step count throws out of
+  `std::stoi` uncaught; a negative step count runs `abs(steps)` steps (Fortran: none).
 
-### Moderate Issues
+### Bugs inherited from the Fortran original (present in both)
 
-1. **Floating-point precision in neighbor detection** (`tooth_model_core.cpp:318-319`): Neighbor matching uses `std::round(1000000 * position)` for comparison. This may miss matches or create false positives near the precision boundary (around 1e-6).
+- **F1. Neighbour-list overflow writes out of bounds.** In `addNewCells()`,
+  `newNeighbors[k0][ji + 1]` (and likewise `tempNewNeighbors[i][jiExt + 1]` and the `kkkkN`
+  counter) can index slot 30 of a 30-slot list, silently overwriting slot 0 of the next cell.
+  Inserting into a full list also drops its last neighbour without notice. Only the ring-walk
+  length is protected by `panicFlag`. Reproducible with extreme parameters (several thousand cells
+  with 30 neighbours); AddressSanitizer cannot see it because the overrun stays inside the
+  `std::vector` allocation — use `-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG`.
+- **F2. `Not3` is overwritten by the cell count after the first output step.** `storeParameters()`
+  puts `not3Rate` and then `numCellsTotal` into index 11, and `loadParameters()`, called after
+  every step's output, reads `not3Rate` back from it. With `Not2 ≠ 0` a run split into steps
+  therefore differs from the same run in one step, and the `.txt` echo always reports
+  `Not3` = cell count. Masked in normal use because `Not2` is hidden and zero.
+- **F3. A division "panic" stops growth for good.** If a ring walk exceeds `MAX_NEIGHBORS`
+  entries, `addNewCells()` returns without dividing anything. The offending pair is still too far
+  apart in the next iteration, so every later iteration repeats the failed (and expensive) attempt
+  and the cell count never changes again. Seen in ~7% of parameter sets perturbed by up to 2x.
+- **F4. (Fortran only.)** `cmarge(i,kk,4:8)=…` in `afegircel` uses the ordinal of the new cell as a
+  cell index and corrupts the rest lengths of an unrelated cell. The C++ shifts the new cell's own
+  margins instead, i.e. it does *not* reproduce this. Never reached with the stock parameter
+  sets; reached in ~3% of otherwise healthy randomised runs.
 
-2. **Hard-coded magic numbers**: Many coefficients like `0.44` (boundary sink), `0.85` (margin scale), `1.4` (proximity threshold) are scattered throughout without clear documentation of their physical meaning or derivation.
+### Deviations from the Fortran
 
-3. **Goto statements preserved** (`tooth_model_geometry.cpp`, `tooth_model_diffusion.cpp`): While functional, the remaining `goto` statements make control flow harder to reason about and could mask bugs during future maintenance.
+- **D1.** *(fixed 2026-09-22)* `calculateBuoyancy()` evaluated `ax*(dd*a)` where the Fortran
+  `ax=ax*dd*a` evaluates `(ax*dd)*a`. It was the only arithmetic deviation in normally exercised
+  code; the C++ now multiplies left to right.
+- **D2.** *(resolved 2026-09-22)* The Makefile used `-ffp-contract=on` while the Fortran is built
+  with `off`; FMA contraction made the two outputs differ from iteration 2 onward and diverge
+  around iteration 6300. The C++ is now built with `-ffp-contract=off` too (about 3% slower).
+- **D3.** Non-neighbour range test uses `d² < 1.4*1.4` instead of `sqrt(d²) < 1.4`; the two disagree
+  for exactly one representable value of `d²`.
+- **D4.** Paths that only execute once the mesh has already degenerated differ in detail: the
+  `kl > 100` fallback in `calculateMargins()`, zero-initialised border-cell locals in
+  `calculateGrowthPushing()` where the Fortran keeps stale values, NaN guards (`suma > 0`,
+  `n > 0`, `dist > 0`) the Fortran lacks, and a duplicate-pair check and index guards in
+  `addNewCells()`. None of them executes with the mouse, seal or test parameters.
+- **D5.** Output naming (no underscore padding), no `kk` scratch file, header line 7 of the `.dad`
+  holds `numBorderCells` (= Fortran `ncils − 1`), OFF content (section 6), `.dad` precision (B2).
 
-### Minor Issues
+### Minor
 
-1. **Memory allocation pattern**: Arrays are resized incrementally rather than reserved with estimated capacity. For simulations with many divisions, this causes repeated reallocations and memory fragmentation.
-
-2. **Redundant array clearing**: Several functions clear arrays that were just allocated with default values (e.g., `fill(0.0)` after `resize(n, {0.0, ...})`). Minor performance overhead but indicates code that could be simplified.
+1. **Dead code.** `markBorderCells()` and the anterior/posterior marker arrays are maintained but
+   never read (true of `perextrems`/`mmaa`/`mmap` in the Fortran as well); likewise
+   `neighborCount`, `centerCell`, margin components `[3]`, `[5]`, `[6]`, `[7]`,
+   `reinitialize()/reallocate()/reset()/deallocateAll()`, `increaseZDepth()` and the whole DAD
+   import path in `FileIO` (section 7), whose `readMorphology()/readNeighbors()/readKnots()` write
+   unchecked but are unreachable.
+2. **Hard-coded magic numbers**: `0.44` (boundary sink), `1.4` (non-neighbour range), `1e-4`
+   (z gap in growth pushing), `-0.3` (unset-angle sentinel) and the `1e-15`/`1e-13`/`1e-8` snap
+   thresholds are undocumented.
+3. **Goto statements preserved** in `calculateMargins()` (two labels) and `reactionDiffusion()`
+   (one).
+4. **Memory layout**: `quantities3D`, `cellMargins` and `rdDeltaQ3D` are vectors of vectors (one
+   heap block per cell), and every division event rebuilds and copies every per-cell array.
+5. **Redundant clearing**: `calculateMargins()` zeroes 30 margin slots per cell per iteration
+   although only slot 0 can ever be read while empty; `calculateGrowthPushing()` re-zeroes
+   `positionDeltas` that `runIteration()` has just zeroed; `allocateAndInit()` fills arrays it has
+   just value-initialised.
+6. `static` scratch buffers in `checkNonNeighborRepulsion()` are shared between `ToothModel`
+   instances; the spatial grid size is an unchecked `int` product of the bounding-box extents.
 
 ---
 
@@ -354,64 +424,63 @@ The following dead code was identified and removed during cleanup:
 
 ## Improvement Suggestions
 
+Every optimisation below was prototyped and verified to leave all output files byte-identical
+(four stock workloads plus 300 randomised parameter sets). Rule for anything that touches
+arithmetic: under `-ffp-contract=on` never merge a multiply and an add that were separate
+statements (or split ones that shared an expression), and keep every accumulation in its original
+order.
+
 ### Low Effort (Quick wins)
 
-1. **Validate file data before use** (`file_io.cpp`)
-   - Check `if (numCells > cellPositions.size()) { resize or error }`
-   - Prevents crashes from corrupted input files
-   - ~10 lines of code
-
-2. **Replace magic numbers with named constants**
-   - Define `BOUNDARY_SINK_COEFF = 0.44`, `PROXIMITY_THRESHOLD = 1.4`, etc.
-   - Add to constants section in header
-   - Improves readability and maintainability
-
-3. **Add debug assertions for array bounds**
-   - Use `assert(index < size)` in debug builds
-   - Catches indexing errors during development
-   - Zero runtime cost in release builds
+1. **Fix B1** (four indices in `getParameterIndex()`), after which both parameter formats give
+   identical output and unit test 2 can share test 1's reference.
+2. **Guard the three neighbour-list overflow sites (F1)** by raising the existing `panicFlag`.
+3. **Delete the unreachable DAD import path** rather than hardening it (~190 lines), and the other
+   dead code listed under *Minor* (~170 lines more).
+4. **Replace magic numbers with named constants** (values unchanged).
+5. **Add a memory-checked build target**: `-fsanitize=address,undefined` plus
+   `-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG`. The hardening mode bounds-checks
+   `std::array`/`std::vector` indexing, which is what exposes F1.
+6. **Drop the per-iteration margin zeroing** in `calculateMargins()` (~1.07x).
 
 ### Medium Effort (Targeted improvements)
 
-1. **Use spatial hashing for non-neighbor repulsion**
-   - Replace O(n²) pairwise check with grid-based spatial hash
-   - Cells only check neighbors in nearby grid cells
-   - ~100 lines, potential further speedup for very large simulations
-   - Note: `checkNonNeighborRepulsion()` has already been optimized with symmetric
-     early-exit checks, hash set for neighbor lookup, squared distance comparison,
-     and direct force accumulation (see C++ Optimizations section below)
-
-2. **Pre-allocate arrays with reserve()**
-   - Estimate maximum cell count: `reserve(initialCells * 4)`
-   - Reduces memory fragmentation and reallocation overhead
-   - ~20 lines across initialization functions
-
-3. **Add input validation and error handling**
-   - Validate parameter ranges in `loadParameters()`
-   - Check file format version in `readDataFile()`
-   - Return error codes instead of silent failures
-   - ~50-100 lines
+1. **Cache what depends only on topology.** Neighbour lists change only at initialisation and at a
+   division event, yet `calculateMargins()` re-walks the mesh every iteration and every neighbour
+   loop scans all 30 slots. Recording the walk as index lists (the per-iteration work becomes a
+   gather-add in the recorded order) gives ~1.15x; a per-cell "last occupied slot + 1" loop bound
+   gives another ~1.25x.
+2. **Verlet list for non-neighbour repulsion.** Keep, per cell, the non-neighbours within
+   `1.4 + skin` in ascending index order; rebuild on a topology change or once any cell has moved
+   more than `0.45·skin`. ~1.2x at 500 cells, ~1.6x at 2000 cells.
+3. **Flat per-cell storage** (`std::array` blocks instead of vectors of vectors) for
+   `quantities3D`, `cellMargins`, `rdDeltaQ3D` (~1.1x), and compact local weight arrays in
+   `reactionDiffusion()` (~1.14x; also removes its `goto` and two member arrays).
+   Items 1–3 together: 2.5–3.4x, with slightly less code than today.
+4. **Bit-exact Fortran regression test**: a second build with `-ffp-contract=off` and full-precision
+   `.dad` output, compared against the Fortran with tolerance 0 at ≥ 12 000 iterations. Requires D1
+   (and B2). Far stronger than the current tolerance test, which sits ~300 iterations short of the
+   point where the production builds bifurcate.
+5. **Remaining input validation**: `std::stoi` failures, step count ≤ 0.
 
 ### High Effort (Architectural changes)
 
-1. **Parallelize with OpenMP**
-   - Most loops in mechanics and diffusion are embarrassingly parallel
-   - Add `#pragma omp parallel for` to main computation loops
-   - Requires careful handling of shared state in `positionDeltas`
-   - ~200 lines, potential 4-8x speedup on multi-core
+1. **Take the parameters out of the I/O round trip.** `storeParameters()` → `saveParameters()` →
+   `loadParameters()` after every step exists only to mimic the Fortran `parap` array, and is where
+   F2 comes from. Parse once into the model, write the `.dad` header and `.txt` echo from the
+   model, and `FileIO` shrinks to a handful of free functions.
+2. **Grow per-cell arrays in place at division** instead of rebuilding and copying all of them
+   (~5% at 2000 cells; touches the most delicate routine, so low priority).
 
-2. **Separate simulation state from I/O**
-   - Create `SimulationState` class for pure data
-   - Make `ToothModel` stateless computation engine
-   - `FileIO` operates on state objects
-   - Enables cleaner testing, serialization, and checkpointing
-   - Major refactor, ~500+ lines
+### Considered and rejected
 
-3. **Implement adaptive time stepping**
-   - Monitor maximum position/concentration change per step
-   - Reduce `TIME_DELTA` when changes are large (numerical stability)
-   - Increase `TIME_DELTA` when changes are small (performance)
-   - Requires convergence analysis, ~300 lines
+- *OpenMP*: an iteration is 20–100 µs of work at typical sizes, force sums must keep their order,
+  and the division step is inherently serial — threading overhead would dominate below ~10⁴ cells.
+- *Adaptive time stepping*: changes the model; results would no longer correspond to the published
+  one.
+- *`reserve()` on the per-cell arrays*: they are rebuilt, not grown, so it would not help.
+- *Skipping the (normally all-zero) fourth quantity channel*: no gain; the fixed-width loops
+  vectorise better than a run-time bound.
 
 ---
 
@@ -421,19 +490,25 @@ The C++ port includes several performance optimizations not present in the origi
 
 ### `checkNonNeighborRepulsion()` (tooth_model_mechanics.cpp)
 
-This function checks if non-neighboring cells get too close and applies repulsion. It's the most expensive function in the simulation loop. The following optimizations were applied:
+This function checks if non-neighboring cells get too close and applies repulsion. In the Fortran it is an O(N²) loop over all cell pairs. The following optimizations were applied:
 
-1. **Symmetric early-exit checks**: The original Fortran only checked positive direction (`ux > 1.4`), missing early exit opportunities when cells are far apart in the negative direction. Changed to `ux > 1.4 || ux < -1.4` to skip ~50% more distant pairs.
+1. **Spatial grid**: Cells are binned into a 3D grid with bin size 1.4 (the interaction range), so each cell only examines the 27 surrounding bins instead of every other cell.
 
-2. **Hash set for neighbor lookup**: Replaced O(30) linear scan through neighbor array with O(1) `std::unordered_set` lookup for each cell pair.
+2. **Symmetric early-exit checks**: The original Fortran only checked positive direction (`ux > 1.4`). Changed to `ux > 1.4 || ux < -1.4`; pairs rejected this way could never pass the distance test anyway.
 
-3. **Squared distance comparison**: Compare `dSq < 1.96` before computing `sqrt()`. Only compute the square root when actually needed for force calculation.
+3. **Generation stamp for neighbor lookup**: Replaced the O(30) linear scan through the neighbor array with an O(1) stamp array (`stamp[n] == stampGen`).
 
-4. **Direct force accumulation**: Eliminated intermediate `pushForce` array. Forces are accumulated directly into `sumX/sumY/sumZ`, improving cache locality and removing allocation overhead.
+4. **Squared distance comparison**: Compare `dSq < 1.96` before computing `sqrt()` (see *Known Issues*, D3, for the one value where this differs from the Fortran test).
 
-5. **Named constants**: Replaced magic number `1.4` with `distThreshold` and `distThresholdSq` for clarity.
+5. **Contributors sorted by index**: Only cells that actually contribute a force are collected and sorted, so forces are accumulated in ascending cell index exactly as the Fortran does — floating-point summation order, and therefore the output, is unchanged.
 
-These optimizations maintain numerical compatibility with the Fortran output (within floating-point tolerance) while improving performance.
+6. **Direct force accumulation**: Eliminated the intermediate `persu` array and its reallocation logic.
+
+### `reactionDiffusion()` and `calculateNeighborRepulsion()`
+
+The list of occupied neighbour slots is built once per cell rather than re-scanned inside the quantity/depth loop nest, and the per-cell 30x3 scratch buffer of the neighbour repulsion was dropped. Per-accumulator summation order is unchanged.
+
+All of the above leave the C++ output byte-identical to the unoptimized C++.
 
 ---
 
@@ -445,10 +520,15 @@ make debug      # Debug build with symbols
 make clean      # Remove build artifacts
 ```
 
-Or manually:
+Or manually, with the same flags the Makefile uses (add `-mfma` on x86_64):
 ```bash
-g++ -std=c++17 -O3 -march=native -flto -ffast-math -o humppa_cpp *.cpp
+clang++ -std=c++17 -O3 -funroll-loops -ffp-contract=off -DNDEBUG -flto -o humppa_cpp *.cpp
 ```
+
+Do **not** add `-ffast-math`, `-march=native` or switch compilers casually: the simulation is
+chaotic, and anything that changes floating-point rounding (reassociation, allowing FMA
+contraction, GCC instead of Clang) changes the output, breaks the bit-identity with the Fortran
+and invalidates the reference files.
 
 ---
 

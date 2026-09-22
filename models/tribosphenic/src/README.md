@@ -29,7 +29,7 @@ See `cpp/README.md` for detailed documentation on the C++ code and parameter map
 
 ### fortran/
 
-Original Fortran 90 model code (`humppa_translate.f90`). Used for cross-validation against the C++ port. The Fortran binary requires input files to be in the current working directory.
+Original Fortran 90 model code (`humppa_translate.f90`). Used for cross-validation against the C++ port. The Fortran binary stores its command-line arguments in `character*30` variables, so the input file path must be at most 30 characters long (longer paths are silently truncated and the run starts with all parameters at zero) — in practice, copy the parameter file into the working directory. It also writes a scratch file named `kk` there.
 
 ### test/
 
