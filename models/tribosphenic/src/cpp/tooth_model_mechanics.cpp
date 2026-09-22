@@ -195,9 +195,11 @@ void ToothModel::calculateBuoyancy() {
                     double diffState = 1.0 - quantities2D[i][0];
                     if (diffState < 0) diffState = 0.0;
 
-                    ax *= dd * diffState;
-                    ay *= dd * diffState;
-                    d *= dd * diffState;
+                    // Fortran: ax=ax*dd*a, i.e. (ax*dd)*a. Written as `ax *= dd*a`
+                    // this would round dd*a first and drift from the Fortran.
+                    ax = ax * dd * diffState;
+                    ay = ay * dd * diffState;
+                    d = d * dd * diffState;
 
                     positionDeltas[i][0] -= ax;
                     positionDeltas[i][1] -= ay;

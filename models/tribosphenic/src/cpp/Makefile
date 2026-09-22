@@ -6,12 +6,12 @@
 # GCC and Clang make different FMA/optimization choices that cause small
 # floating-point differences which accumulate in this chaotic simulation.
 CXX = clang++
-# -ffp-contract=on enables FMA within single C expressions, matching Fortran
-# default behavior and ensuring numerical stability.
-# -mfma is needed on x86_64 so the compiler can actually emit FMA instructions;
-# without it, -ffp-contract=on is a no-op on x86_64.
+# -ffp-contract=off: never fuse a*b+c into an FMA, the same policy the Fortran is
+# built with (src/fortran/Makefile). With it the C++ reproduces the Fortran output
+# bit for bit on the same platform; any other contraction policy changes the
+# output from iteration 2 onward, and the two runs eventually diverge. Costs ~3%.
 # LTO is disabled on Windows because MinGW's ld cannot load the LLVM gold plugin.
-CXXFLAGS = -std=c++17 -O3 -funroll-loops -ffp-contract=on -DNDEBUG
+CXXFLAGS = -std=c++17 -O3 -funroll-loops -ffp-contract=off -DNDEBUG
 LDFLAGS =
 
 # Windows detection: OS=Windows_NT is set by cmd.exe but stripped by MSYS2 bash,
@@ -25,7 +25,8 @@ else ifneq (,$(findstring MSYS,$(UNAME_S)))
   IS_WINDOWS = 1
 endif
 
-# x86_64 needs -mfma to enable FMA3 hardware instructions
+# -mfma on x86_64: kept for parity with the Fortran build. With contraction off
+# the compiler emits no FMA for plain a*b+c, so it does not affect the output.
 UNAME_M := $(shell uname -m 2>/dev/null)
 ifeq ($(UNAME_M),x86_64)
   CXXFLAGS += -mfma
@@ -70,8 +71,10 @@ all: $(TARGET)
 $(TARGET): $(OBJECTS)
 	$(CXX) $(LDFLAGS) -o $@ $^
 
-# Compile
-%.o: %.cpp $(HEADERS)
+# Compile. Objects also depend on this Makefile so that a flag change (which
+# alters the floating-point result) rebuilds everything instead of linking a
+# mix of old and new objects.
+%.o: %.cpp $(HEADERS) Makefile
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 # Debug build
