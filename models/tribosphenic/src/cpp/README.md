@@ -595,12 +595,16 @@ make test
 ```
 
 This runs 4 tests:
-1. **C++ with humppa format** - 6000 iterations, compared against a stored reference (tolerance 0.001)
+1. **C++ with humppa format** - 6000 iterations, against the C++'s own stored output
 2. **C++ with ToothMaker format** - same, ToothMaker-format parameter file
-3. **Fortran vs C++, exact** - 10000 iterations; every value of the `.dad` must equal the Fortran's
-   (compared as parsed numbers; both files carry 17 significant digits)
-4. **Fortran vs C++, exact, all parameters non-zero** - 4 steps of 2000 iterations with the hidden
+3. **Fortran vs C++** - 10000 iterations, against the Fortran binary run live
+4. **Fortran vs C++, all parameters non-zero** - 4 steps of 2000 iterations with the hidden
    Not2/Not3/Not4 channel, Ina, uMgr and Swi all live; steps 2 and 4 are compared
+
+All four are exact: every value in the `.dad` is parsed and must be identical (the model is
+chaotic, so any rounding difference either is zero or grows to ~1e-4 within a few thousand
+iterations; a tolerance would only hide that). Tests 3-4 are skipped when `humppa_fortran_64bit`
+is not built.
 
 Test files are in `../test/`:
 - `mpar_no_umgr.txt` - Test parameters (humppa format)

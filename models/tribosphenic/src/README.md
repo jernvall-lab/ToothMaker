@@ -85,12 +85,13 @@ make test
 ```
 
 This runs 4 tests:
-1. **C++ with humppa format** - 6000 iterations, compared against a stored reference (tolerance 0.001)
+1. **C++ with humppa format** - 6000 iterations, against the C++'s own stored output
 2. **C++ with ToothMaker format** - same, ToothMaker-format parameter file
-3. **Fortran vs C++, exact** - 10000 iterations; every value in the `.dad` must match the Fortran's
-4. **Fortran vs C++, exact, all parameters non-zero** - 4 steps of 2000 iterations; steps 2 and 4 compared
+3. **Fortran vs C++** - 10000 iterations, against the Fortran binary run live
+4. **Fortran vs C++, all parameters non-zero** - 4 steps of 2000 iterations; steps 2 and 4 compared
 
-Tests 3-4 require `bin/humppa_fortran_64bit` (`make fortran`) and are skipped without it.
+All comparisons are exact (every value in the `.dad` parsed and identical). Tests 3-4 require
+`bin/humppa_fortran_64bit` (`make fortran`) and are skipped without it.
 
 ## Running Simulations
 

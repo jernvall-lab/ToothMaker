@@ -1,15 +1,19 @@
 #!/bin/bash
 # run_tests.sh - Unit tests for humppa_cpp and humppa (Fortran)
 #
-# Tests 1-2 compare the C++ against stored references (6000 iterations,
-# tolerance 1e-3: the references were made on macOS and libm rounding may
-# differ elsewhere).
-# Tests 3-4 compare the C++ against the Fortran built on this machine and
-# require every number in the .dad file to be identical (both write 17
-# significant digits, which identify a double uniquely; the values are
-# compared as numbers because the two format them differently). Test 4 has
-# every parameter non-zero -- the hidden Not2/Not3/Not4 channel, Ina, uMgr
-# and Swi are all live -- and runs in 4 steps.
+# Tests 1-2 compare the C++ against its own stored output (6000 iterations,
+# references made on macOS). Tests 3-4 compare the C++ against the Fortran
+# built on this machine (Test 4 with every parameter non-zero -- the hidden
+# Not2/Not3/Not4 channel, Ina, uMgr and Swi all live -- in 4 steps).
+#
+# Every comparison is exact: all numbers in the .dad files are parsed and must
+# be identical. Both programs write 17 significant digits, which identify a
+# double uniquely, and they format them differently, so bytes are never
+# compared. The model is chaotic, so any rounding difference -- a compiler
+# flag, a libm, a platform -- is either exactly zero or grows to ~1e-4 within
+# a few thousand iterations; a tolerance would only hide that. Since 2026-02
+# every platform builds with the same clang flags and has produced identical
+# results; if Tests 1-2 fail on one platform only, the platforms have diverged.
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -36,111 +40,46 @@ trap "rm -rf $TEST_TMP" EXIT
 PASS=0
 FAIL=0
 
-# Tolerance for floating-point comparisons (handles cross-platform differences)
-POSITION_TOLERANCE=0.001
-
-# Extract connectivity section (lines 8 to before "cell shape")
-extract_connectivity() {
-    local file="$1"
-    local end_line=$(grep -n "cell shape" "$file" | head -1 | cut -d: -f1)
-    if [ -z "$end_line" ]; then
-        echo "ERROR: Could not find 'cell shape' marker in $file" >&2
-        return 1
-    fi
-    sed -n "8,$((end_line-1))p" "$file" | tr -s ' ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
-}
-
-# Extract cell shape vertices (lines after "N cell shape" markers)
-extract_cell_shapes() {
-    local file="$1"
-    awk '/cell shape/ { n = $1; for (i = 0; i < n; i++) { getline; print } }' "$file"
-}
-
-# Compare positions with tolerance (returns 0 if all within tolerance)
-compare_positions() {
-    local file1="$1"
-    local file2="$2"
-    local tolerance="$3"
-
-    paste "$file1" "$file2" | awk -v tol="$tolerance" '
-    BEGIN { max = 0; fail = 0 }
-    {
-        dx = $1 - $4
-        dy = $2 - $5
-        dz = $3 - $6
-        dist = sqrt(dx*dx + dy*dy + dz*dz)
-        if (dist > max) max = dist
-        if (dist > tol) fail = 1
-    }
-    END {
-        printf "max_dist=%.6f ", max
-        exit fail
-    }'
-}
-
-# Compare two .dad files: exact connectivity match + cell shapes within tolerance
-# Returns 0 on success, 1 on failure. Prints result info.
-compare_dad_files() {
-    local file1="$1"
-    local file2="$2"
-    local tolerance="$3"
-
-    # Check connectivity (must match exactly)
-    extract_connectivity "$file1" > _conn1.txt 2>/dev/null
-    extract_connectivity "$file2" > _conn2.txt 2>/dev/null
-    if ! diff -q _conn1.txt _conn2.txt >/dev/null 2>&1; then
-        echo "connectivity mismatch"
-        rm -f _conn1.txt _conn2.txt
-        return 1
-    fi
-    rm -f _conn1.txt _conn2.txt
-
-    # Check cell shapes with tolerance
-    extract_cell_shapes "$file1" > _shapes1.txt
-    extract_cell_shapes "$file2" > _shapes2.txt
-    if result=$(compare_positions _shapes1.txt _shapes2.txt "$tolerance"); then
-        echo "$result"
-        rm -f _shapes1.txt _shapes2.txt
-        return 0
-    else
-        echo "$result"
-        rm -f _shapes1.txt _shapes2.txt
-        return 1
-    fi
-}
-
 # Every token of a .dad file, one per line, with the "cell shape" words removed.
 dad_tokens() {
     sed 's/cell shape//' "$1" | tr -s ' \t\n' '\n' | sed '/^$/d'
 }
 
-# Exact comparison of a Fortran .dad with a C++ .dad: every value, parsed as a
-# number, must be identical (both files carry 17 significant digits, so equal
-# parsed values means equal doubles). Token 32 (ncils) is skipped: the C++
-# writes ncils-1 there by design. Returns 0 if identical. Prints result info.
+# Exact comparison of two .dad files: every value, parsed as a number, must be
+# identical. Token 32 (ncils) is skipped because the C++ writes ncils-1 there
+# by design when compared with the Fortran. On failure the largest deviation
+# is reported, which tells a rounding divergence (~1e-4 and up) from a bug.
+# Returns 0 if identical. Prints result info.
 compare_dad_exact() {
-    local fortran_file="$1"
-    local cpp_file="$2"
+    local reference_file="$1"
+    local test_file="$2"
 
-    dad_tokens "$fortran_file" > _tok_f.txt
-    dad_tokens "$cpp_file" > _tok_c.txt
-    local nf=$(wc -l < _tok_f.txt | tr -d ' ')
-    local nc=$(wc -l < _tok_c.txt | tr -d ' ')
-    if [ "$nf" != "$nc" ]; then
-        echo "token count differs: $nf vs $nc (topology differs)"
-        rm -f _tok_f.txt _tok_c.txt
+    dad_tokens "$reference_file" > _tok_r.txt
+    dad_tokens "$test_file" > _tok_t.txt
+    local nr=$(wc -l < _tok_r.txt | tr -d ' ')
+    local nt=$(wc -l < _tok_t.txt | tr -d ' ')
+    if [ "$nr" != "$nt" ]; then
+        echo "token count differs: $nr vs $nt (topology differs)"
+        rm -f _tok_r.txt _tok_t.txt
         return 1
     fi
 
-    paste _tok_f.txt _tok_c.txt | awk '
+    paste _tok_r.txt _tok_t.txt | awk '
     NR == 32 { next }
-    { if ($1 + 0 != $2 + 0) bad++ }
+    {
+        if ($1 + 0 != $2 + 0) {
+            bad++
+            d = $1 - $2; if (d < 0) d = -d
+            if (d > maxd) maxd = d
+        }
+    }
     END {
-        printf "%d values, %d mismatches", NR - 1, bad + 0
+        if (bad > 0) printf "%d values, %d mismatches, max |diff| = %.3g", NR - 1, bad, maxd
+        else         printf "%d values, all identical", NR - 1
         exit (bad > 0)
     }'
     local rv=$?
-    rm -f _tok_f.txt _tok_c.txt
+    rm -f _tok_r.txt _tok_t.txt
     return $rv
 }
 
@@ -194,8 +133,8 @@ cd "$TEST_TMP"
 "$CPP_BIN" "$SCRIPT_DIR/mpar_no_umgr.txt" output.dad 6000 1 >/dev/null 2>&1
 echo "done"
 
-echo -n "  Comparing output (tol=$POSITION_TOLERANCE)... "
-if result=$(compare_dad_files "6000_output.dad_.dad" "$SCRIPT_DIR/reference/6000_cpp_humppa.dad" $POSITION_TOLERANCE); then
+echo -n "  Comparing every value with the stored reference... "
+if result=$(compare_dad_exact "$SCRIPT_DIR/reference/6000_cpp_humppa.dad" "6000_output.dad_.dad"); then
     echo "PASS ($result)"
     PASS=$((PASS + 1))
 else
@@ -213,8 +152,8 @@ echo -n "  Running simulation... "
 "$CPP_BIN" "$SCRIPT_DIR/toothmaker_no_umgr.txt" output.dad 6000 1 >/dev/null 2>&1
 echo "done"
 
-echo -n "  Comparing output (tol=$POSITION_TOLERANCE)... "
-if result=$(compare_dad_files "6000_output.dad_.dad" "$SCRIPT_DIR/reference/6000_cpp_toothmaker.dad" $POSITION_TOLERANCE); then
+echo -n "  Comparing every value with the stored reference... "
+if result=$(compare_dad_exact "$SCRIPT_DIR/reference/6000_cpp_toothmaker.dad" "6000_output.dad_.dad"); then
     echo "PASS ($result)"
     PASS=$((PASS + 1))
 else
