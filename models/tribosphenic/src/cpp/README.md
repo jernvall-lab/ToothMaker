@@ -10,16 +10,16 @@ Translated with Claude Opus 4.5.
 
 | File | Lines | Description |
 |------|-------|-------------|
-| `tooth_model.hpp` | 279 | Header with class declarations and constants |
-| `tooth_model_core.cpp` | 356 | Constructor, initialization, grid setup |
+| `tooth_model.hpp` | 233 | Header with class declarations and constants |
+| `tooth_model_core.cpp` | 168 | Constructor, initialization, grid setup |
 | `tooth_model_geometry.cpp` | 240 | Cell margin/shape calculations, triangle mesh |
 | `tooth_model_diffusion.cpp` | 304 | Reaction-diffusion equations |
-| `tooth_model_mechanics.cpp` | 518 | Mechanical forces (growth, buoyancy, repulsion) |
-| `tooth_model_division.cpp` | 843 | Cell division algorithm |
-| `tooth_model_iteration.cpp` | 40 | Main iteration loop |
-| `file_io.cpp` | 739 | File I/O operations (humppa + ToothMaker formats) |
-| `main.cpp` | 121 | Command-line entry point |
-| `Makefile` | 106 | Build system |
+| `tooth_model_mechanics.cpp` | 493 | Mechanical forces (growth, buoyancy, repulsion) |
+| `tooth_model_division.cpp` | 434 | Cell division algorithm |
+| `tooth_model_iteration.cpp` | 37 | Main iteration loop |
+| `file_io.cpp` | 518 | Parameter input, .dad/.off/.txt output (humppa + ToothMaker formats) |
+| `main.cpp` | 116 | Command-line entry point |
+| `Makefile` | 109 | Build system |
 
 ---
 
@@ -126,13 +126,11 @@ The Fortran variable names are historically misleading and do not reflect actual
 | Fortran | C++ | Description |
 |---------|-----|-------------|
 | `ciinicial` | `initializeDefaults` | Set default initial conditions |
-| `ci` | `reinitialize` | Reinitialize model |
 | `dime` | `allocateAndInit` | Allocate and initialize matrices |
-| `redime` | `reallocate` | Reallocate matrices |
-| `referci` | `reset` | Reset and reinitialize |
-| `refercid` | `deallocateAll` | Deallocate all memory |
 | `posar` | `placeCell` | Position cell in initial grid |
 | `initact` | `initializeActivator` | Set initial activator concentration |
+
+`ci`, `redime`, `referci` and `refercid` (re-initialisation for the Fortran GUI) have no counterpart.
 
 ### Simulation
 
@@ -150,8 +148,9 @@ The Fortran variable names are historically misleading and do not reflect actual
 | `promig` | `calculateNucleusTraction` | Nucleus traction by borders |
 | `actualitza` | `updatePositions` | Update cell positions |
 | `afegircel` | `addNewCells` | Add cells where division occurs |
-| `perextrems` | `markBorderCells` | Mark new border cells |
-| `controlz` | `increaseZDepth` | Increase z-depth |
+
+`perextrems` (maintains the `mmaa`/`mmap` marker arrays, which nothing reads) and `controlz` (never
+called) are not ported.
 
 ### File I/O
 
@@ -170,14 +169,8 @@ The Fortran variable names are historically misleading and do not reflect actual
 | - | `isToothMakerFormat` | Auto-detect parameter file format |
 | - | `getParameterIndex` | Map parameter names to indices |
 | `escriuparatxt` | `writeParametersText` | Write parameters (text) |
-| `llegirpara` | `readParametersBinary` | Read parameters (binary) |
-| `llegirforma` | `readMorphology` | Read cell positions |
-| `llegirex` | `readExtraData` | Read extra data |
-| `llegirknots` | `readKnots` | Read knot markers |
-| `llegirveins` | `readNeighbors` | Read neighbor data |
 | `agafarparap` | `storeParameters` | Copy model params to storage |
 | `posarparap` | `loadParameters` | Copy storage params to model |
-| `llegir` | `readDataFile` | Main read function |
 | `llegirinicial` | `readInitialParameters` | Read initial parameters |
 | `mat` | `calculateMaterial` | Calculate material values |
 | `get_rainbow` | `getColorMapping` | Map value to color |
@@ -277,16 +270,14 @@ The C++ `getColorMapping()` outputs colors that match what `dad_to_polygons` pro
 
 The original Fortran used alpha values to encode differentiation state (alpha 0.5 for differentiated, 0.8 for undifferentiated, 1.0 for knots), which `dad_to_polygons` and `binaryhandler` would detect and recolor. The C++ version outputs the final colors directly with alpha 1.0 for all cells, eliminating the need for post-processing by `dad_to_polygons`.
 
-### 7. DAD File Import (Not Implemented)
+### 7. DAD File Import (Not Ported)
 
-The original Fortran code has a `llegir` subroutine that reads complete `.dad` files to restore simulation state (parameters, cell positions, neighbors, knots). This was designed for GUI use - loading saved simulations for visualization or continuing a run.
-
-The C++ port includes translated versions of these functions (`readDataFile()`, `readMorphology()`, `readNeighbors()`, `readKnots()`, `readExtraData()`, `readParametersBinary()`), but they are **not called** from the CLI and have **not been tested**. The CLI only reads initial parameters and runs simulations from scratch.
-
-If DAD file import is needed in the future, these functions would require:
-- Testing with actual `.dad` files
-- Array bounds validation (`readMorphology()`, `readNeighbors()` and `readKnots()` index with counts read from the file, unchecked)
-- Proper error handling
+The original Fortran has a `llegir` subroutine (with `llegirpara`, `llegirforma`, `llegirex`,
+`llegirknots`, `llegirveins`) that reads complete `.dad` files to restore a simulation state for its
+GUI. The C++ port carried untested, unreachable translations of these routines until 2026-09, when
+they were removed; they indexed arrays with counts read from the file, unchecked. The CLI reads a
+parameter file and runs from scratch, and ToothMaker's GUI reads `.dad` files with its own parser
+(`common/readdata.cpp`).
 
 ---
 
@@ -362,23 +353,19 @@ comparison has to round the Fortran values to 6 decimals first
 
 ### Minor
 
-1. **Dead code.** `markBorderCells()` and the anterior/posterior marker arrays are maintained but
-   never read (true of `perextrems`/`mmaa`/`mmap` in the Fortran as well); likewise
-   `neighborCount`, `centerCell`, margin components `[3]`, `[5]`, `[6]`, `[7]`,
-   `reinitialize()/reallocate()/reset()/deallocateAll()`, `increaseZDepth()` and the whole DAD
-   import path in `FileIO` (section 7), whose `readMorphology()/readNeighbors()/readKnots()` write
-   unchecked but are unreachable.
+1. **Duplicated parameter tables.** `getParameterIndex()` and the default `parameterNames` list in
+   `readParametersToothMaker()` spell out the parameter order twice; one table in GUI order would
+   replace both, and is where B1 would be fixed.
 2. **Hard-coded magic numbers**: `0.44` (boundary sink), `1.4` (non-neighbour range), `1e-4`
    (z gap in growth pushing), `-0.3` (unset-angle sentinel) and the `1e-15`/`1e-13`/`1e-8` snap
    thresholds are undocumented.
 3. **Goto statements preserved** in `calculateMargins()` (two labels) and `reactionDiffusion()`
    (one).
-4. **Memory layout**: `quantities3D`, `cellMargins` and `rdDeltaQ3D` are vectors of vectors (one
-   heap block per cell), and every division event rebuilds and copies every per-cell array.
+4. **Memory layout**: `quantities3D` and `rdDeltaQ3D` are vectors of vectors (one heap block per
+   cell, although the depth is always `NUM_Z_LEVELS`), and every division event rebuilds and copies
+   every per-cell array.
 5. **Redundant clearing**: `calculateMargins()` zeroes 30 margin slots per cell per iteration
-   although only slot 0 can ever be read while empty; `calculateGrowthPushing()` re-zeroes
-   `positionDeltas` that `runIteration()` has just zeroed; `allocateAndInit()` fills arrays it has
-   just value-initialised.
+   although only slot 0 can ever be read while empty.
 6. `static` scratch buffers in `checkNonNeighborRepulsion()` are shared between `ToothModel`
    instances; the spatial grid size is an unchecked `int` product of the bounding-box extents.
 
@@ -420,6 +407,28 @@ The following dead code was identified and removed during cleanup:
 ### Removed Constants
 - `MIN_VELOCITY` - defined but never referenced
 
+### 2026-09 dead-code removal (3546 → 2543 lines; output byte-identical on 500 parameter sets)
+
+- `markBorderCells()` with `anteriorMarkers`/`posteriorMarkers` and their counts (maintained, never
+  read; the Fortran `perextrems`/`mmaa`/`mmap` are dead in the same way)
+- `reinitialize()`, `reallocate()`, `reset()`, `deallocateAll()`, `increaseZDepth()`
+- `neighborCount` (maintained in six places, never read), `centerCell`, `stepNumber`; `numNewCells`
+  became a local
+- Margin components `[3]`, `[5]`, `[6]`, `[7]` (written and shifted, never read): a slot is now
+  `{x, y, z, restLength}` (`MarginSlot`, `MARGIN_REST`)
+- Initialisation temporaries held as members (`currX/currY/newX/newY`, `currentCellIndex`,
+  `centerCellIndex`, twelve `sin/cosDir`); `placeCell()` takes them as arguments
+- `FileIO`: the `.dad` import path (`readDataFile()` and five readers), the 5000-snapshot
+  `parameterHistory`/`positionHistory`/`knotsHistory`/`neighborHistory` (a single 32-entry
+  `parameters` array remains), `snapshotIndex`, `passFlag`, `argOutputFile`, `argIterations`, and
+  the `cellNeighbors` argument of the save functions
+- Duplicated code folded into helpers: `compactNeighborLists()`; `findSlot`, `nextRealNeighbor`,
+  `insertBetween` and `setRestLength` in `addNewCells()`; `directionAngle()` in
+  `calculateGrowthPushing()`; the interior/border loops of `calculateNucleusTraction()`; the six
+  copies of the row loop in `saveParameters()`; the second zeroing of `positionDeltas`
+
+No model parameter was removed: all 30 (`Egr` … `uMgr`) and the 32-slot parameter array are intact.
+
 ---
 
 ## Improvement Suggestions
@@ -434,14 +443,13 @@ order.
 
 1. **Fix B1** (four indices in `getParameterIndex()`), after which both parameter formats give
    identical output and unit test 2 can share test 1's reference.
-2. **Guard the three neighbour-list overflow sites (F1)** by raising the existing `panicFlag`.
-3. **Delete the unreachable DAD import path** rather than hardening it (~190 lines), and the other
-   dead code listed under *Minor* (~170 lines more).
-4. **Replace magic numbers with named constants** (values unchanged).
-5. **Add a memory-checked build target**: `-fsanitize=address,undefined` plus
+2. **Guard the three neighbour-list overflow sites (F1)** by raising the existing `panicFlag`
+   (they are the two `insertBetween` calls and the `count` loop in `addNewCells()`).
+3. **Replace magic numbers with named constants** (values unchanged).
+4. **Add a memory-checked build target**: `-fsanitize=address,undefined` plus
    `-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG`. The hardening mode bounds-checks
    `std::array`/`std::vector` indexing, which is what exposes F1.
-6. **Drop the per-iteration margin zeroing** in `calculateMargins()` (~1.07x).
+5. **Drop the per-iteration margin zeroing** in `calculateMargins()` (~1.07x).
 
 ### Medium Effort (Targeted improvements)
 
@@ -454,7 +462,7 @@ order.
    `1.4 + skin` in ascending index order; rebuild on a topology change or once any cell has moved
    more than `0.45·skin`. ~1.2x at 500 cells, ~1.6x at 2000 cells.
 3. **Flat per-cell storage** (`std::array` blocks instead of vectors of vectors) for
-   `quantities3D`, `cellMargins`, `rdDeltaQ3D` (~1.1x), and compact local weight arrays in
+   `quantities3D` and `rdDeltaQ3D` as already done for `cellMargins` (~1.1x), and compact local weight arrays in
    `reactionDiffusion()` (~1.14x; also removes its `goto` and two member arrays).
    Items 1–3 together: 2.5–3.4x, with slightly less code than today.
 4. **Bit-exact Fortran regression test**: a second build with `-ffp-contract=off` and full-precision

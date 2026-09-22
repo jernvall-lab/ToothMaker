@@ -8,8 +8,8 @@
 //=============================================================================
 
 ToothModel::ToothModel() :
-    numCells(0), numCellsTotal(0), numZLevels(4), radius(0),
-    timeStep(0), stepNumber(1),
+    numCells(0), numCellsTotal(0), numBorderCells(0), numZLevels(NUM_Z_LEVELS), radius(0),
+    timeStep(0),
     diffThresholdSet(0.0), diffThresholdInt(0.0),
     epithelialGrowthRate(0.0), mesenchymalGrowthRate(0.0), basalMesenchymalRate(0.0),
     activatorAutoActivation(0.0), ectodinRate(0.0), not3Rate(0.0),
@@ -19,13 +19,7 @@ ToothModel::ToothModel() :
     borderDistance(0.0), borderWidth(0.0),
     biasPosterior(0.0), biasAnterior(0.0), biasLingual(0.0), biasBuccal(0.0),
     biasCenterRadius(0.0), biasFactor(0.0),
-    currentCellIndex(0), centerCellIndex(0), centerCell(0), numBorderCells(0),
-    currX(0.0), currY(0.0), newX(0.0), newY(0.0),
-    sinDir0(0.0), cosDir0(0.0), sinDir60(0.0), cosDir60(0.0),
-    sinDir120(0.0), cosDir120(0.0), sinDir180(0.0), cosDir180(0.0),
-    sinDir240(0.0), cosDir240(0.0), sinDir300(0.0), cosDir300(0.0),
-    numNewCells(0), numAnteriorMarkers(0), numPosteriorMarkers(0),
-    panicFlag(0.0),
+    panicFlag(false),
     iterationIndex(0), totalIterations(0)
 {
     diffusionCoeffs3D.resize(NUM_3D_QUANTITIES, 0.0);
@@ -33,124 +27,61 @@ ToothModel::ToothModel() :
 }
 
 void ToothModel::initializeDefaults() {
-    // Core values
-    numZLevels = 4;
+    numZLevels = NUM_Z_LEVELS;
     timeStep = 0;
-    stepNumber = 1;
-    panicFlag = 0;
+    panicFlag = false;
 
     diffusionCoeffs3D.resize(NUM_3D_QUANTITIES, 0.0);
     diffusionCoeffs2D.resize(NUM_2D_QUANTITIES, 0.0);
 }
 
-void ToothModel::reinitialize() {
-    // Core values
-    timeStep = 0;
-    stepNumber = 1;
-    panicFlag = 0;
-
-    allocateAndInit();
-}
-
 void ToothModel::allocateAndInit() {
-    // Calculate cell counts based on radius
+    // Cell counts of a hexagonal grid of the given radius: 1 + 6*(1+2+...+r).
+    // The real cells fill radius-1 rings; the outermost ring is the virtual
+    // boundary, which every neighbour list refers to by the single index
+    // numCellsTotal.
     int j = 0;
-    for (int i = 1; i <= radius; i++) {
-        j += i;
-    }
+    for (int i = 1; i <= radius; i++) j += i;
     numCellsTotal = 6 * j + 1;
-
     j = 0;
-    for (int i = 1; i <= radius - 1; i++) {
-        j += i;
-    }
+    for (int i = 1; i <= radius - 1; i++) j += i;
     numCells = 6 * j + 1;
 
-    // Precompute sin/cos for hexagonal directions
-    double angleStep = PI * 2.0 / 360.0;
-    sinDir0   = std::sin(0 * angleStep);    cosDir0   = std::cos(0 * angleStep);
-    sinDir60  = std::sin(60 * angleStep);   cosDir60  = std::cos(60 * angleStep);
-    sinDir120 = std::sin(120 * angleStep);  cosDir120 = std::cos(120 * angleStep);
-    sinDir180 = std::sin(180 * angleStep);  cosDir180 = std::cos(180 * angleStep);
-    sinDir240 = std::sin(240 * angleStep);  cosDir240 = std::cos(240 * angleStep);
-    sinDir300 = std::sin(300 * angleStep);  cosDir300 = std::cos(300 * angleStep);
+    cellPositions.assign(numCellsTotal, {0.0, 0.0, 0.0});
+    neighbors.assign(numCellsTotal, std::array<int, MAX_NEIGHBORS>{});
+    knotMarkers.assign(numCellsTotal, 0);
+    cellMargins.assign(numCellsTotal, CellMargins{});
+    quantities2D.assign(numCellsTotal, std::array<double, NUM_2D_QUANTITIES>{});
+    quantities3D.assign(numCellsTotal,
+        std::vector<std::array<double, NUM_3D_QUANTITIES>>(numZLevels, std::array<double, NUM_3D_QUANTITIES>{}));
+    positionDeltas.assign(numCellsTotal, {0.0, 0.0, 0.0});
 
-    // Allocate all arrays
-    cellPositions.resize(numCellsTotal, {0.0, 0.0, 0.0});
-    neighbors.resize(numCellsTotal);
-    for (auto& n : neighbors) n.fill(0);
-    positionDeltas.resize(numCellsTotal, {0.0, 0.0, 0.0});
-
-    cellMargins.resize(numCellsTotal);
-    for (auto& m : cellMargins) {
-        m.resize(MAX_NEIGHBORS);
-        for (auto& arr : m) arr.fill(0.0);
+    // Build the grid: from every real cell, place a neighbour at unit distance in
+    // each of the six hexagonal directions (0, 60, ..., 300 degrees).
+    const double angleStep = PI * 2.0 / 360.0;
+    double dirSin[6], dirCos[6];
+    for (int k = 0; k < 6; k++) {
+        dirSin[k] = std::sin((60 * k) * angleStep);
+        dirCos[k] = std::cos((60 * k) * angleStep);
     }
-
-    knotMarkers.resize(numCellsTotal, 0);
-    neighborCount.resize(numCellsTotal, 0);
-
-    quantities2D.resize(numCellsTotal);
-    for (auto& q : quantities2D) q.fill(0.0);
-
-    quantities3D.resize(numCellsTotal);
-    for (auto& cell : quantities3D) {
-        cell.resize(numZLevels);
-        for (auto& level : cell) level.fill(0.0);
-    }
-
-    posteriorMarkers.resize(radius, 0);
-    anteriorMarkers.resize(radius, 0);
-
-    // Initialize all arrays to zero (already done by resize)
-    std::fill(neighborCount.begin(), neighborCount.end(), 0);
-
-    // Initial values
     cellPositions[0] = {0.0, 0.0, 1.0};
-    currentCellIndex = 1;
-    std::fill(neighborCount.begin(), neighborCount.end(), 6);
-
-    // Build initial grid by iterating through cells and placing neighbors
-    for (centerCellIndex = 0; centerCellIndex < numCells; centerCellIndex++) {
-        currX = cellPositions[centerCellIndex][0];
-        currY = cellPositions[centerCellIndex][1];
-
-        // Place neighbors in all 6 hexagonal directions
-        newX = currX + sinDir0 * BASE_DISTANCE;
-        newY = currY + cosDir0 * BASE_DISTANCE;
-        placeCell();
-
-        newX = currX + sinDir60 * BASE_DISTANCE;
-        newY = currY + cosDir60 * BASE_DISTANCE;
-        placeCell();
-
-        newX = currX + sinDir120 * BASE_DISTANCE;
-        newY = currY + cosDir120 * BASE_DISTANCE;
-        placeCell();
-
-        newX = currX + sinDir180 * BASE_DISTANCE;
-        newY = currY + cosDir180 * BASE_DISTANCE;
-        placeCell();
-
-        newX = currX + sinDir240 * BASE_DISTANCE;
-        newY = currY + cosDir240 * BASE_DISTANCE;
-        placeCell();
-
-        newX = currX + sinDir300 * BASE_DISTANCE;
-        newY = currY + cosDir300 * BASE_DISTANCE;
-        placeCell();
-    }
-
-    // Mark neighbors beyond numCells as boundary (numCellsTotal)
-    for (int i = 1; i < numCells; i++) {
-        for (int jIdx = 0; jIdx < MAX_NEIGHBORS; jIdx++) {
-            if (neighbors[i][jIdx] > numCells) {
-                neighbors[i][jIdx] = numCellsTotal;
-            }
+    int numPlaced = 1;
+    for (int center = 0; center < numCells; center++) {
+        const double cx = cellPositions[center][0];
+        const double cy = cellPositions[center][1];
+        for (int k = 0; k < 6; k++) {
+            placeCell(center, cx + dirSin[k] * BASE_DISTANCE, cy + dirCos[k] * BASE_DISTANCE, numPlaced);
         }
     }
 
-    // Remove duplicate boundary markers
+    // Neighbours beyond the real cells are the boundary. Where the construction
+    // left a cell with adjacent boundary entries, or with more than one in total,
+    // keep a single one (exactly the Fortran's three passes).
+    for (int i = 1; i < numCells; i++) {
+        for (int jIdx = 0; jIdx < MAX_NEIGHBORS; jIdx++) {
+            if (neighbors[i][jIdx] > numCells) neighbors[i][jIdx] = numCellsTotal;
+        }
+    }
     for (int k = 0; k < 3; k++) {
         for (int i = 1; i < numCells; i++) {
             for (int jIdx = 0; jIdx < MAX_NEIGHBORS - 1; jIdx++) {
@@ -162,195 +93,76 @@ void ToothModel::allocateAndInit() {
             }
         }
     }
-
-    // Remove trailing boundary markers after the first one
     for (int i = 1; i < numCells; i++) {
-        int foundFirst = 0;
+        bool foundFirst = false;
         for (int jIdx = 0; jIdx < MAX_NEIGHBORS; jIdx++) {
-            if (neighbors[i][jIdx] == numCellsTotal && foundFirst == 0) {
-                foundFirst = 1;
-                continue;
-            }
-            if (neighbors[i][jIdx] == numCellsTotal && foundFirst == 1) {
-                neighbors[i][jIdx] = 0;
-                break;
+            if (neighbors[i][jIdx] == numCellsTotal) {
+                if (foundFirst) {
+                    neighbors[i][jIdx] = 0;
+                    break;
+                }
+                foundFirst = true;
             }
         }
     }
 
-    // Round positions to avoid floating point issues
+    // Snap the positions to 14 decimals so that symmetric cells are exactly symmetric
     for (int i = 0; i < numCells; i++) {
         for (int jIdx = 0; jIdx < 3; jIdx++) {
             cellPositions[i][jIdx] = std::round(cellPositions[i][jIdx] * 1e14) * 1e-14;
-            if (std::abs(cellPositions[i][jIdx]) < 1e-14) {
-                cellPositions[i][jIdx] = 0.0;
-            }
+            if (std::abs(cellPositions[i][jIdx]) < 1e-14) cellPositions[i][jIdx] = 0.0;
         }
     }
 
-    // Invert order so border cells come first
-    std::vector<std::array<int, MAX_NEIGHBORS>> cvei = neighbors;
-    std::vector<std::array<double, 3>> cmalla = cellPositions;
-
-    for (int i = numCells - 1; i >= 0; i--) {
-        neighbors[i] = cvei[numCells - i - 1];
-        cellPositions[i] = cmalla[numCells - i - 1];
-    }
-
-    // Update neighbor references after inversion
-    cvei = neighbors;
-    for (int i = numCells - 1; i >= 0; i--) {
-        int ii = numCells - i - 1;
-        for (int jj = 0; jj < numCells; jj++) {
-            for (int jjj = 0; jjj < MAX_NEIGHBORS; jjj++) {
-                if (cvei[jj][jjj] == i + 1) {  // Fortran 1-based to 0-based adjustment
-                    neighbors[jj][jjj] = ii + 1;
-                }
-            }
-        }
-    }
-
-    calculateMargins();
-    std::fill(neighborCount.begin(), neighborCount.end(), 3);
-    neighborCount[0] = 6;
-
-    // Initialize margin distances
+    // Reverse the cell order so that the border cells come first, and renumber
+    // the neighbour lists to match (boundary entries stay as they are).
+    std::reverse(neighbors.begin(), neighbors.begin() + numCells);
+    std::reverse(cellPositions.begin(), cellPositions.begin() + numCells);
     for (int i = 0; i < numCells; i++) {
         for (int jIdx = 0; jIdx < MAX_NEIGHBORS; jIdx++) {
-            cellMargins[i][jIdx][3] = BASE_DISTANCE;
-            cellMargins[i][jIdx][4] = BASE_DISTANCE;
+            int v = neighbors[i][jIdx];
+            if (v >= 1 && v <= numCells) neighbors[i][jIdx] = numCells - v + 1;
         }
     }
-
-    centerCell = numCells;
-    // In Fortran, ncils = (radi-1)*6+1 gives the 1-based index of the first interior cell
-    // In C++ with 0-based indexing, we need the count of border cells = ncils - 1
-    numBorderCells = (radius - 1) * 6;  // ncils-1 in 0-based (Fortran ncils=(radi-1)*6+1)
-
-    // Set up anterior and posterior marker arrays
-    std::fill(anteriorMarkers.begin(), anteriorMarkers.end(), 0);
-    std::fill(posteriorMarkers.begin(), posteriorMarkers.end(), 0);
-
-    for (int i = 0; i < radius; i++) {
-        posteriorMarkers[i] = i + 1;
-    }
-
-    int ii = 0;
-    for (int i = numBorderCells / 2; i < numBorderCells / 2 + radius; i++) {
-        anteriorMarkers[ii] = i + 1;
-        ii++;
-    }
-
-    numAnteriorMarkers = radius;
-    numPosteriorMarkers = radius;
 
     calculateMargins();
-
-    // Initialize quantities to zero
-    for (auto& cell : quantities3D) {
-        for (auto& level : cell) {
-            level.fill(0.0);
+    for (int i = 0; i < numCells; i++) {
+        for (int jIdx = 0; jIdx < MAX_NEIGHBORS; jIdx++) {
+            cellMargins[i][jIdx][MARGIN_REST] = BASE_DISTANCE;
         }
     }
+
+    // Fortran ncils = (radi-1)*6+1 is the 1-based index of the first interior
+    // cell; the border cells are the indices below it.
+    numBorderCells = (radius - 1) * 6;
 }
 
-void ToothModel::reallocate() {
-    // Not commonly used - reallocate matrices with current sizes
-    cellPositions.resize(numCellsTotal, {0.0, 0.0, 0.0});
-    neighbors.resize(numCellsTotal);
-    for (auto& n : neighbors) n.fill(0);
-    positionDeltas.resize(numCellsTotal, {0.0, 0.0, 0.0});
+void ToothModel::placeCell(int center, double x, double y, int& numPlaced) {
+    auto firstFreeSlot = [this](int cell) {
+        int j = 0;
+        while (j < MAX_NEIGHBORS && neighbors[cell][j] != 0) j++;
+        return j;
+    };
 
-    cellMargins.resize(numCellsTotal);
-    for (auto& m : cellMargins) {
-        m.resize(MAX_NEIGHBORS);
-        for (auto& arr : m) arr.fill(0.0);
-    }
-
-    knotMarkers.resize(numCellsTotal, 0);
-    neighborCount.resize(numCellsTotal, 0);
-
-    quantities2D.resize(numCellsTotal);
-    for (auto& q : quantities2D) q.fill(0.0);
-
-    quantities3D.resize(numCellsTotal);
-    for (auto& cell : quantities3D) {
-        cell.resize(numZLevels);
-        for (auto& level : cell) level.fill(0.0);
-    }
-
-    posteriorMarkers.resize(radius, 0);
-    anteriorMarkers.resize(radius, 0);
-
-    cellPositions[0] = {0.0, 0.0, 1.0};
-    currentCellIndex = 1;
-}
-
-void ToothModel::reset() {
-    deallocateAll();
-    reinitialize();
-}
-
-void ToothModel::deallocateAll() {
-    cellPositions.clear();
-    quantities3D.clear();
-    quantities2D.clear();
-    cellMargins.clear();
-    neighbors.clear();
-    neighborCount.clear();
-    positionDeltas.clear();
-    knotMarkers.clear();
-    anteriorMarkers.clear();
-    posteriorMarkers.clear();
-}
-
-void ToothModel::placeCell() {
-    // Check if a cell already exists at the new position
-    for (int i = 0; i < currentCellIndex; i++) {
-        if (i == centerCellIndex) continue;
-
-        // Compare positions with tolerance
-        if (std::round(1000000 * cellPositions[i][0]) == std::round(1000000 * newX) &&
-            std::round(1000000 * cellPositions[i][1]) == std::round(1000000 * newY)) {
-
-            // Cell already exists - check if neighbor connection exists
+    // Is there a cell at (x, y) already? Compare at 1e-6 to absorb rounding.
+    for (int i = 0; i < numPlaced; i++) {
+        if (i == center) continue;
+        if (std::round(1000000 * cellPositions[i][0]) == std::round(1000000 * x) &&
+            std::round(1000000 * cellPositions[i][1]) == std::round(1000000 * y)) {
             for (int ii = 0; ii < MAX_NEIGHBORS; ii++) {
-                if (neighbors[centerCellIndex][ii] == i + 1) {  // Fortran 1-based indexing
-                    return;  // Already connected
-                }
+                if (neighbors[center][ii] == i + 1) return;   // already connected
             }
-
-            // Find the direction slot we're filling (j is the direction)
-            // This needs the direction variables that were set before calling placeCell
-            // For now, find first empty slot
-            int j = 0;
-            for (j = 0; j < MAX_NEIGHBORS; j++) {
-                if (neighbors[centerCellIndex][j] == 0) break;
-            }
-            int jj = (j + 3) % 6;  // Opposite direction
-
-            neighbors[centerCellIndex][j] = i + 1;
-            neighbors[i][jj] = centerCellIndex + 1;
-            neighborCount[i]++;
-            neighborCount[centerCellIndex]++;
+            int j = firstFreeSlot(center);
+            neighbors[center][j] = i + 1;
+            neighbors[i][(j + 3) % 6] = center + 1;          // opposite direction
             return;
         }
     }
 
-    // Cell doesn't exist - create new one
-    neighborCount[centerCellIndex]++;
-    currentCellIndex++;
-
-    int j = 0;
-    for (j = 0; j < MAX_NEIGHBORS; j++) {
-        if (neighbors[centerCellIndex][j] == 0) break;
-    }
-    int jj = (j + 3) % 6;
-
-    neighbors[centerCellIndex][j] = currentCellIndex;
-    neighbors[currentCellIndex - 1][jj] = centerCellIndex + 1;
-    cellPositions[currentCellIndex - 1][0] = newX;
-    cellPositions[currentCellIndex - 1][1] = newY;
-    cellPositions[currentCellIndex - 1][2] = 1.0;
-    neighborCount[currentCellIndex - 1]++;
+    // No: create it
+    numPlaced++;
+    int j = firstFreeSlot(center);
+    neighbors[center][j] = numPlaced;
+    neighbors[numPlaced - 1][(j + 3) % 6] = center + 1;
+    cellPositions[numPlaced - 1] = {x, y, 1.0};
 }

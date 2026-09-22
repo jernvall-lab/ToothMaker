@@ -2,24 +2,19 @@
 // Tooth development simulation model
 // Ported from Fortran 90 to modern C++
 //
-// FileIO class: Handles saving and loading parameter files and tooth morphology files
-// ToothModel class: The main model containing the following routines:
-//   - initializeDefaults: Specifies the default initial conditions
-//   - allocateAndInit: Allocates matrices for initial conditions and sets them
-//   - placeCell: Specifies the position of cells in the initial conditions
-//   - calculateMargins: Calculates the shape of each epithelial cell (position of its margins)
-//   - reactionDiffusion: Calculates diffusion of all molecules between cells
-//   - updateDifferentiation: Updates cells differentiation values
-//   - calculateGrowthPushing: Calculates pushing between cells from epithelial/border growth
-//   - calculateBuoyancy: Calculates pushing between cells from buoyancy
-//   - calculateNeighborRepulsion: Calculates repulsion between neighboring cells
-//   - checkNonNeighborRepulsion: Checks if non-neighbor cells get too close and applies repulsion
-//   - applyBuccalLingualBias: Applies BMP4 concentration in buccal and lingual borders
-//   - calculateNucleusTraction: Calculates the nucleus traction by the cell borders
-//   - updatePositions: Updates cell positions
-//   - addNewCells: Calculates where cell divisions occur and adds new cells
-//   - markBorderCells: Identifies which added cells are on the tooth border
-//   - runIteration: Determines the order in which subroutines are called
+// ToothModel: the simulation itself (Fortran module coreop2d). One iteration runs
+//   reactionDiffusion      diffusion and reaction of the signalling molecules
+//   applyBuccalLingualBias BMP4 concentration in the buccal and lingual borders
+//   updateDifferentiation  differentiation state of each cell
+//   calculateGrowthPushing pushing from epithelial and border growth
+//   calculateBuoyancy      pushing from the stellate reticulum (buoyancy)
+//   checkNonNeighborRepulsion  repulsion between non-neighbours that get too close
+//   calculateNeighborRepulsion repulsion/traction between neighbouring cells
+//   calculateNucleusTraction   pull of the cell nucleus towards its borders
+//   updatePositions        move the cells
+//   addNewCells            cell division where neighbours have drifted apart
+//   calculateMargins       shape (margin positions) of every cell
+// FileIO: parameter-file input and .dad/.off/.txt output (Fortran module esclec).
 
 #ifndef TOOTH_MODEL_HPP
 #define TOOTH_MODEL_HPP
@@ -35,14 +30,12 @@
 #include <sstream>
 #include <cstdlib>
 
-// Forward declarations
-class ToothModel;
-class FileIO;
-
 // Constants
 constexpr int MAX_NEIGHBORS = 30;       // Maximum number of neighbors per cell
 constexpr int NUM_3D_QUANTITIES = 5;    // Number of 3D quantities (act, inh, fgf, ect, p)
 constexpr int NUM_2D_QUANTITIES = 4;    // Number of 2D quantities
+constexpr int NUM_Z_LEVELS = 4;         // Depth levels of the 3D quantities (Fortran ncz)
+constexpr int NUM_PARAMETERS = 32;      // Size of the Fortran parameter array parap
 constexpr double BASE_DISTANCE = 1.0;   // Original distance between nodes
 constexpr double MAX_DIVISION_DIST = 2.0;  // Maximum distance before cell division
 constexpr double TIME_DELTA = 0.05;     // Time step delta (Fortran: 0.005D1 = 0.05)
@@ -54,11 +47,19 @@ public:
     //=========================================================================
     // Cell geometry data
     //=========================================================================
+    // Neighbour lists hold 1-based cell indices (0 = empty slot), as in the
+    // Fortran and in the .dad files. The value numCellsTotal marks the virtual
+    // boundary cell surrounding the tooth.
     std::vector<std::array<double, 3>> cellPositions;      // Node positions (x, y, z)
-    std::vector<std::vector<std::array<double, 8>>> cellMargins;  // Internode positions for each cell
     std::vector<std::array<int, MAX_NEIGHBORS>> neighbors; // Neighbor indices for each cell
     std::vector<int> knotMarkers;                          // Knot markers (1 = knot, 0 = not)
-    std::vector<int> neighborCount;                        // Number of neighbors per cell
+
+    // Per neighbour slot: the margin (cell corner) position x, y, z, recomputed
+    // every iteration, and the rest length of the connection, fixed when it is made.
+    static constexpr int MARGIN_REST = 3;
+    using MarginSlot = std::array<double, 4>;
+    using CellMargins = std::array<MarginSlot, MAX_NEIGHBORS>;
+    std::vector<CellMargins> cellMargins;
 
     //=========================================================================
     // Concentration/quantity data
@@ -70,14 +71,10 @@ public:
                                               // NOTE: [1] is Boy (buoyancy), not a diffusion coeff!
 
     //=========================================================================
-    // Working arrays for position updates
+    // Working arrays (reused each iteration)
     //=========================================================================
     std::vector<std::array<double, 3>> positionDeltas;     // Position changes per iteration
-    std::vector<std::array<double, 3>> prevPositions;      // Previous positions (reused by calculateNucleusTraction)
-
-    //=========================================================================
-    // Working arrays for reaction-diffusion (reused each iteration)
-    //=========================================================================
+    std::vector<std::array<double, 3>> prevPositions;      // Staging area for calculateNucleusTraction
     std::vector<std::array<double, MAX_NEIGHBORS>> rdWeight;    // Diffusion weights
     std::vector<std::array<double, MAX_NEIGHBORS>> rdAreaProj;  // Area projections
     std::vector<std::vector<std::array<double, NUM_3D_QUANTITIES>>> rdDeltaQ3D;  // 3D quantity deltas
@@ -86,11 +83,11 @@ public:
     // Cell counts and grid parameters
     //=========================================================================
     int numCells;           // Number of actual cells
-    int numCellsTotal;      // Number of cells including virtual border cells
+    int numCellsTotal;      // Number of cells including the virtual boundary cell
+    int numBorderCells;     // Border cells are indices 0..numBorderCells-1 (Fortran ncils-1)
     int numZLevels;         // Number of depth z levels for quantity calculation
-    int radius;             // Grid radius
+    int radius;             // Initial grid radius
     int timeStep;           // Current time step
-    int stepNumber;         // Step counter
 
     //=========================================================================
     // Model parameters (true parameters)
@@ -131,54 +128,21 @@ public:
     double biasFactor;               // Bgr (fac) - bias factor
 
     //=========================================================================
-    // Implementation state variables
+    // Run state
     //=========================================================================
-    int currentCellIndex;            // nca - current cell being processed
-    int centerCellIndex;             // icentre - center cell index during iteration
-    int centerCell;                  // centre - center cell
-    int numBorderCells;              // ncils - number of border cells
-
-    // Current position being processed
-    double currX, currY;             // x, y - current position
-    double newX, newY;               // xx, yy - new position being calculated
-
-    // Precomputed sin/cos values for hexagonal grid directions
-    double sinDir0, cosDir0;         // Direction 0 (0 degrees)
-    double sinDir60, cosDir60;       // Direction 60 degrees
-    double sinDir120, cosDir120;     // Direction 120 degrees
-    double sinDir180, cosDir180;     // Direction 180 degrees
-    double sinDir240, cosDir240;     // Direction 240 degrees
-    double sinDir300, cosDir300;     // Direction 300 degrees
-
-    // New cells tracking
-    int numNewCells;                 // nnous - number of new cells added
-    int numAnteriorMarkers;          // nmaa
-    int numPosteriorMarkers;         // nmap
-    std::vector<int> anteriorMarkers;   // mmaa - anterior marker cells
-    std::vector<int> posteriorMarkers;  // mmap - posterior marker cells
-
-    // Panic flag for overflow detection
-    double panicFlag;
+    bool panicFlag;                  // Set on numerical overflow or a failed division
 
     // Iteration state (for progress reporting)
     int iterationIndex, totalIterations;
     std::string progressFilename;
 
     //=========================================================================
-    // Constructor
+    // Constructor and initialization
     //=========================================================================
     ToothModel();
-
-    //=========================================================================
-    // Core initialization functions
-    //=========================================================================
     void initializeDefaults();       // Set up default initial conditions
-    void reinitialize();             // Reinitialize the model
-    void allocateAndInit();          // Allocate and initialize all matrices
-    void reallocate();               // Reallocate matrices (not in use)
-    void reset();                    // Reset and reinitialize
-    void deallocateAll();            // Deallocate all memory
-    void placeCell();                // Position a cell in initial conditions
+    void allocateAndInit();          // Allocate everything and build the initial hexagonal grid
+    void initializeActivator();      // Set the initial activator concentration (Ina)
 
     //=========================================================================
     // Core simulation functions
@@ -191,18 +155,22 @@ public:
     void calculateNeighborRepulsion();     // Calculate repulsion between neighbors
     void checkNonNeighborRepulsion();      // Check and apply repulsion for non-neighbors
     void applyBuccalLingualBias();         // Apply BMP4 concentration in buccal/lingual borders
-    void initializeActivator();            // Initialize activator concentration
     void calculateNucleusTraction();       // Calculate nucleus traction by cell borders
     void updatePositions();                // Update cell positions
     void addNewCells();                    // Add new cells where division occurs
-    void markBorderCells();                // Mark new border cells
-    void increaseZDepth();                 // Increase z depth for quantities
     void runIteration(int numSteps);       // Main iteration loop
 
     //=========================================================================
     // Mesh generation
     //=========================================================================
     std::vector<std::array<int, 3>> getTriangles() const;  // Get triangle mesh from cell neighbors
+
+private:
+    // Initial grid: connect `center` to the cell at (x, y), creating it if needed.
+    // `numPlaced` counts the cells created so far.
+    void placeCell(int center, double x, double y, int& numPlaced);
+    // Remove the zeros from every neighbour list (Fortran "treiem els zeros").
+    void compactNeighborLists();
 };
 
 // File I/O class (originally esclec module)
@@ -210,21 +178,17 @@ class FileIO {
 public:
     ToothModel* model;  // Reference to the main model
 
-    int snapshotIndex, exitFlag, passFlag;
+    int exitFlag;       // Set when the parameter file could not be read
 
-    static constexpr int MAX_SNAPSHOTS = 5000;
+    // The Fortran parameter array parap(:,1), 0-based: [0] time step, [1] cell
+    // count, [2..31] the parameters in file order (see storeParameters()).
+    std::array<double, NUM_PARAMETERS> parameters;
+    std::array<std::string, NUM_PARAMETERS> parameterNames;
 
-    // Storage arrays for multiple snapshots
-    std::vector<std::vector<std::array<double, 3>>> positionHistory;   // Position snapshots
-    std::vector<std::array<double, 32>> parameterHistory;              // Parameter snapshots
-    std::vector<std::string> parameterNames;                           // Parameter names
-    std::vector<std::vector<int>> knotsHistory;                        // Knots snapshots
-    std::vector<std::vector<std::array<int, MAX_NEIGHBORS>>> neighborHistory;  // Neighbor snapshots
-    std::vector<double> materialValues;                                // Material values for visualization
+    std::vector<double> materialValues;   // Material values for OFF colouring
     double materialMax, materialMin;
 
-    // Command line argument storage
-    std::string argInputFile, argOutputFile, argIterations;
+    std::string argInputFile;             // Parameter file name
 
     //=========================================================================
     // Constructor
@@ -239,9 +203,10 @@ public:
     void saveConcentrations(std::ostream& out);
     void saveExtraData(std::ostream& out);
     void saveKnots(std::ostream& out);
-    void saveNeighbors(std::ostream& out, const std::vector<std::array<int, MAX_NEIGHBORS>>& cellNeighbors);
-    void saveMargins(std::ostream& out, const std::vector<std::array<int, MAX_NEIGHBORS>>& cellNeighbors);
-    void saveAsOFF(std::ostream& out, const std::vector<std::array<int, MAX_NEIGHBORS>>& cellNeighbors);
+    void saveNeighbors(std::ostream& out);
+    void saveMargins(std::ostream& out);
+    void saveAsOFF(std::ostream& out);
+    void writeParametersText(std::ostream& out);
 
     //=========================================================================
     // Load functions
@@ -250,24 +215,13 @@ public:
     void readParametersToothMaker(std::istream& in);     // ToothMaker format (name==value)
     bool isToothMakerFormat(const std::string& text);    // Detect format (normalised text)
     int getParameterIndex(const std::string& name);      // Map parameter name to index
-    void writeParametersText(std::ostream& out);
-    void readParametersBinary(std::istream& in);
-    void readMorphology(std::istream& in);
-    void readExtraData(std::istream& in);
-    void readKnots(std::istream& in);
-    void readNeighbors(std::istream& in);
+    void readInitialParameters();                        // Read the parameter file into the model
 
     //=========================================================================
     // Parameter transfer functions
     //=========================================================================
-    void storeParameters(int snapshotIdx);    // Copy parameters from model to storage
-    void loadParameters(int snapshotIdx);     // Copy parameters from storage to model
-
-    //=========================================================================
-    // High-level I/O functions
-    //=========================================================================
-    void readDataFile();              // Main read function
-    void readInitialParameters();     // Read initial parameters only
+    void storeParameters();    // Copy parameters from model to `parameters`
+    void loadParameters();     // Copy `parameters` to the model
 
     //=========================================================================
     // Visualization helpers

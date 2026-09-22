@@ -3,6 +3,18 @@
 
 #include "tooth_model.hpp"
 
+namespace {
+
+// Direction angle in [0, 2*pi) from its cosine, mirrored into the lower half
+// plane when the y component is negative -- the Fortran's acos plus 2*pi
+// correction, used for the border-growth geometry.
+inline double directionAngle(double cosine, double y) {
+    double angle = std::acos(cosine);
+    if (y < 0) angle = 2 * PI - angle;
+    return angle;
+}
+
+}   // namespace
 
 void ToothModel::calculateGrowthPushing() {
     // Reset deltas
@@ -79,28 +91,25 @@ void ToothModel::calculateGrowthPushing() {
             if (k >= numBorderCells) {
                 // Neighbor is interior cell
                 if (d > 0) {
-                    c = std::acos(uux / d);
-                    if (uuy < 0) c = 2 * PI - c;
+                    c = directionAngle(uux / d, uuy);
                 }
             } else {
                 // Neighbor is border cell
                 if (d > 0) {
+                    // First border neighbour: its direction a and the
+                    // perpendicular (uuux, uuuy) at angle uaa. Second: b, ubb.
                     if (a == -0.3) {
-                        a = std::acos(uux / d);
-                        if (uuy < 0) a = 2 * PI - a;
+                        a = directionAngle(uux / d, uuy);
                         dd = 1.0 / d;
                         uuux = -uuy * dd;
                         uuuy = uux * dd;
-                        uaa = std::acos(uuux);
-                        if (uuuy < 0) uaa = 2 * PI - uaa;
+                        uaa = directionAngle(uuux, uuuy);
                     } else {
-                        b = std::acos(uux / d);
-                        if (uuy < 0) b = 2 * PI - b;
+                        b = directionAngle(uux / d, uuy);
                         dd = 1.0 / d;
                         duux = -uuy * dd;
                         duuy = uux * dd;
-                        ubb = std::acos(duux);
-                        if (duuy < 0) ubb = 2 * PI - ubb;
+                        ubb = directionAngle(duux, duuy);
                     }
                 }
             }
@@ -236,7 +245,7 @@ void ToothModel::calculateNeighborRepulsion() {
             if (std::abs(uz) < 1e-15) uz = 0.0;
 
             double dist = std::sqrt(ux * ux + uy * uy + uz * uz);
-            double restDist = cellMargins[i][j][4];
+            double restDist = cellMargins[i][j][MARGIN_REST];
 
             if (dist < 1e-8) dist = 0.0;
             if (restDist < 1e-8) restDist = 0.0;
@@ -412,20 +421,22 @@ void ToothModel::checkNonNeighborRepulsion() {
 }
 
 void ToothModel::calculateNucleusTraction() {
-    // Nucleus traction toward cell borders (averaging effect)
-    prevPositions.resize(cellPositions.size());
-    std::copy(cellPositions.begin(), cellPositions.end(), prevPositions.begin());
+    // Every cell that is not fully differentiated is pulled towards the centroid
+    // of its neighbours; a border cell only averages over the other border cells
+    // (Fortran: k<ncils). New positions are computed from the old ones, so they
+    // are staged in prevPositions and swapped in at the end.
+    prevPositions.assign(cellPositions.begin(), cellPositions.end());
 
-    // Interior cells
-    for (int i = numBorderCells; i < numCells; i++) {
+    for (int i = 0; i < numCells; i++) {
         if (quantities2D[i][0] == 1.0) continue;
 
+        const int maxNeighbor = (i < numBorderCells) ? numBorderCells : numCells;  // 1-based, inclusive
         double a = 0.0, b = 0.0, c = 0.0;
         double n = 0;
 
         for (int j = 0; j < MAX_NEIGHBORS; j++) {
             int k = neighbors[i][j];
-            if (k != 0 && k <= numCells) {
+            if (k > 0 && k <= maxNeighbor) {
                 k--;
                 a += cellPositions[k][0];
                 b += cellPositions[k][1];
@@ -451,45 +462,7 @@ void ToothModel::calculateNucleusTraction() {
         }
     }
 
-    // Border cells
-    for (int i = 0; i < numBorderCells; i++) {
-        if (quantities2D[i][0] == 1.0) continue;
-
-        double a = 0.0, b = 0.0, c = 0.0;
-        double n = 0;
-
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
-            int k = neighbors[i][j];
-            // Only consider other border cells for border averaging
-            // Fortran: if (k>0.and.k<ncils.and.k<ncels+1)
-            // k is 1-based here, ncils = numBorderCells + 1
-            if (k > 0 && k <= numBorderCells && k <= numCells) {
-                k--;
-                a += cellPositions[k][0];
-                b += cellPositions[k][1];
-                c += cellPositions[k][2];
-                n += 1.0;
-            }
-        }
-
-        if (n > 0) {
-            n = 1.0 / n;
-            a = (a * n) - cellPositions[i][0];
-            b = (b * n) - cellPositions[i][1];
-            c = (c * n) - cellPositions[i][2];
-
-            prevPositions[i][0] = cellPositions[i][0] + TIME_DELTA * nucleusTraction * a;
-            prevPositions[i][1] = cellPositions[i][1] + TIME_DELTA * nucleusTraction * b;
-
-            if (knotMarkers[i] == 0) {
-                double diffState = 1.0 - quantities2D[i][0];
-                if (diffState < 0) diffState = 0.0;
-                prevPositions[i][2] = cellPositions[i][2] + TIME_DELTA * nucleusTraction * c * diffState;
-            }
-        }
-    }
-
-    cellPositions = prevPositions;
+    std::swap(cellPositions, prevPositions);
 }
 
 void ToothModel::updatePositions() {

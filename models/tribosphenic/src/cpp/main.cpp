@@ -11,23 +11,17 @@ int main(int argc, char* argv[]) {
 
     std::string inputFile = argv[1];
     std::string outputFile = argv[2];
-    std::string iterStr = argv[3];
-    std::string stepsStr = argv[4];
 
     // Parse iteration count and steps
-    int totalIterations = std::stoi(iterStr);
-    int numSteps = std::stoi(stepsStr);
+    int totalIterations = std::stoi(argv[3]);
+    int numSteps = std::stoi(argv[4]);
 
     // Create model and file I/O handler
     ToothModel model;
     FileIO fileIO(&model);
-
-    // Store command line arguments
     fileIO.argInputFile = inputFile;
-    fileIO.argOutputFile = outputFile;
 
     // Initialize model
-    model.numZLevels = 4;
     model.initializeDefaults();
     fileIO.readInitialParameters();
     if (fileIO.exitFlag != 0) {
@@ -49,9 +43,10 @@ int main(int argc, char* argv[]) {
 
     model.allocateAndInit();
 
-    // Store initial parameters
+    // loadParameters() also copies the cell-count slot, which the parameter file
+    // leaves at zero, so keep the count allocateAndInit() derived.
     int savedNumCells = model.numCells;
-    fileIO.loadParameters(0);
+    fileIO.loadParameters();
     model.numCells = savedNumCells;
 
     // Set initial activator concentration
@@ -85,10 +80,10 @@ int main(int argc, char* argv[]) {
         // Write DAD output file
         std::ofstream dadFile(dadFilename);
         if (dadFile.is_open()) {
-            fileIO.storeParameters(0);
+            fileIO.storeParameters();
             fileIO.saveParameters(dadFile);
-            fileIO.saveNeighbors(dadFile, model.neighbors);
-            fileIO.saveMargins(dadFile, model.neighbors);
+            fileIO.saveNeighbors(dadFile);
+            fileIO.saveMargins(dadFile);
             fileIO.saveKnots(dadFile);
             fileIO.saveMorphology(dadFile);
             fileIO.saveConcentrations(dadFile);
@@ -99,21 +94,21 @@ int main(int argc, char* argv[]) {
         // Write OFF output file (mesh format)
         std::ofstream offFile(offFilename);
         if (offFile.is_open()) {
-            fileIO.saveAsOFF(offFile, model.neighbors);
+            fileIO.saveAsOFF(offFile);
             offFile.close();
         }
 
         // Write TXT output file (readable parameters)
         std::ofstream txtFile(txtFilename);
         if (txtFile.is_open()) {
-            fileIO.loadParameters(0);
+            fileIO.loadParameters();
             fileIO.writeParametersText(txtFile);
             txtFile.close();
         }
     }
 
     // Restore initial parameters
-    fileIO.loadParameters(0);
+    fileIO.loadParameters();
 
     std::cout << "Simulation complete." << std::endl;
 

@@ -11,13 +11,10 @@ void ToothModel::runIteration(int numSteps) {
     }
 
     for (int ite = 0; ite < numSteps; ite++) {
-        panicFlag = 0;
-
-        // Reset position deltas
-        for (auto& h : positionDeltas) h.fill(0.0);
+        panicFlag = false;
 
         reactionDiffusion();
-        if (panicFlag == 1) return;
+        if (panicFlag) return;   // numerical overflow; a failed division does not stop the run
 
         applyBuccalLingualBias();
         updateDifferentiation();

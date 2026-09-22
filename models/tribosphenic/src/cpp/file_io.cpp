@@ -1,5 +1,5 @@
 // file_io.cpp
-// File I/O operations for ToothModel
+// Parameter-file input and .dad/.off/.txt output for ToothModel
 
 #include "tooth_model.hpp"
 
@@ -72,34 +72,27 @@ bool readFileNormalized_(const std::string& filename, std::string& out)
 //=============================================================================
 
 FileIO::FileIO(ToothModel* modelPtr) :
-    model(modelPtr),
-    snapshotIndex(0), exitFlag(0), passFlag(0),
-    materialMax(0.0), materialMin(0.0)
+    model(modelPtr), exitFlag(0), materialMax(0.0), materialMin(0.0)
 {
-    positionHistory.resize(MAX_SNAPSHOTS);
-    parameterHistory.resize(MAX_SNAPSHOTS);
-    for (auto& p : parameterHistory) p.fill(0.0);
-    parameterNames.resize(32);
-    knotsHistory.resize(MAX_SNAPSHOTS);
-    neighborHistory.resize(MAX_SNAPSHOTS);
+    parameters.fill(0.0);
 }
 
-void FileIO::saveParameters(std::ostream& out) {
-    parameterHistory[snapshotIndex][0] = model->totalIterations * (model->iterationIndex - 1) + model->timeStep;
+//=============================================================================
+// Save functions
+//=============================================================================
 
+void FileIO::saveParameters(std::ostream& out) {
+    parameters[0] = model->totalIterations * (model->iterationIndex - 1) + model->timeStep;
+
+    // Fortran: six records of 5F15.6. The fixed 6-decimal format set here stays
+    // in effect for everything written to the .dad afterwards (TODO.md 12.1 B2).
     out << std::fixed << std::setprecision(6);
-    for (int i = 0; i < 5; i++) out << std::setw(15) << parameterHistory[snapshotIndex][i];
-    out << "\n";
-    for (int i = 5; i < 10; i++) out << std::setw(15) << parameterHistory[snapshotIndex][i];
-    out << "\n";
-    for (int i = 10; i < 15; i++) out << std::setw(15) << parameterHistory[snapshotIndex][i];
-    out << "\n";
-    for (int i = 15; i < 20; i++) out << std::setw(15) << parameterHistory[snapshotIndex][i];
-    out << "\n";
-    for (int i = 20; i < 25; i++) out << std::setw(15) << parameterHistory[snapshotIndex][i];
-    out << "\n";
-    for (int i = 25; i < 30; i++) out << std::setw(15) << parameterHistory[snapshotIndex][i];
-    out << "\n";
+    for (int row = 0; row < 6; row++) {
+        for (int i = 5 * row; i < 5 * row + 5; i++) {
+            out << std::setw(15) << parameters[i];
+        }
+        out << "\n";
+    }
     out << model->numZLevels << " " << model->numBorderCells << "\n";
 }
 
@@ -148,56 +141,95 @@ void FileIO::saveKnots(std::ostream& out) {
     }
 }
 
-void FileIO::saveNeighbors(std::ostream& out, const std::vector<std::array<int, MAX_NEIGHBORS>>& cellNeighbors) {
+void FileIO::saveNeighbors(std::ostream& out) {
     out << model->timeStep << " " << model->numCells << "\n";
     for (int i = 0; i < model->numCells; i++) {
+        const auto& list = model->neighbors[i];
         int count = 0;
-        std::array<int, MAX_NEIGHBORS> compactNeighbors;
-        compactNeighbors.fill(0);
-
         for (int j = 0; j < MAX_NEIGHBORS; j++) {
-            if (cellNeighbors[i][j] != 0) {
-                compactNeighbors[count++] = cellNeighbors[i][j];
-            }
+            if (list[j] != 0) count++;
         }
         out << count << "\n";
-        for (int j = 0; j < count; j++) {
-            out << compactNeighbors[j] << " ";
+        for (int j = 0; j < MAX_NEIGHBORS; j++) {
+            if (list[j] != 0) out << list[j] << " ";
         }
         out << "\n";
     }
 }
 
-void FileIO::saveMargins(std::ostream& out, const std::vector<std::array<int, MAX_NEIGHBORS>>& cellNeighbors) {
+void FileIO::saveMargins(std::ostream& out) {
     out << model->timeStep << " " << model->numCells << "\n";
     for (int i = 0; i < model->numCells; i++) {
+        const auto& list = model->neighbors[i];
         int count = 0;
-        std::vector<std::array<double, 8>> compactMargins;
-
         for (int j = 0; j < MAX_NEIGHBORS; j++) {
-            if (cellNeighbors[i][j] != 0) {
-                compactMargins.push_back(model->cellMargins[i][j]);
-                count++;
-            }
+            if (list[j] != 0) count++;
         }
         out << count << " cell shape\n";
-        for (int k = 0; k < count; k++) {
-            out << compactMargins[k][0] << " "
-                << compactMargins[k][1] << " "
-                << compactMargins[k][2] << "\n";
+        for (int j = 0; j < MAX_NEIGHBORS; j++) {
+            if (list[j] != 0) {
+                const auto& m = model->cellMargins[i][j];
+                out << m[0] << " " << m[1] << " " << m[2] << "\n";
+            }
         }
     }
 }
 
+void FileIO::writeParametersText(std::ostream& out) {
+    // Fortran writes parap(3:32), C++ uses [2:31] (inclusive)
+    for (int i = 2; i <= 31; i++) {
+        out << parameters[i] << " " << parameterNames[i] << "\n";
+    }
+    out << model->numCells << " number of cells\n";
+    out << model->timeStep << " number of iterations\n";
+}
+
+// NOTE: This function differs from the original Fortran 'guardaveinsoff' in two key respects:
+// 1) Fixes a bug with missing faces that existed in the original routine
+// 2) Writes each face TWICE (both orientations) to simplify visualization with renderers
+//    that expect consistently oriented faces
+void FileIO::saveAsOFF(std::ostream& out) {
+    // Calculate material values for coloring
+    calculateMaterial();
+
+    // Get triangles from model
+    auto triangles = model->getTriangles();
+
+    // Write OFF header (output both orientations since triangles are not oriented)
+    out << "COFF\n";
+    out << model->numCells << " " << triangles.size() * 2 << " " << model->numCells << "\n\n";
+
+    // Write vertices with colors
+    for (int i = 0; i < model->numCells; i++) {
+        std::array<double, 4> color;
+        getColorMapping(materialValues[i], materialMin, materialMax, color);
+        out << model->cellPositions[i][0] << " "
+            << model->cellPositions[i][1] << " "
+            << model->cellPositions[i][2] << " "
+            << color[0] << " " << color[1] << " " << color[2] << " " << color[3] << "\n";
+    }
+
+    out << "\n";
+
+    // Write faces (both orientations since triangles are not oriented)
+    for (const auto& tri : triangles) {
+        out << "3 " << tri[0] << " " << tri[1] << " " << tri[2] << "\n";
+        out << "3 " << tri[0] << " " << tri[2] << " " << tri[1] << "\n";
+    }
+}
+
+//=============================================================================
+// Load functions
+//=============================================================================
+
 void FileIO::readParametersText(std::istream& in) {
-    std::string line;
     // Fortran reads parap(3:32), C++ uses [2:31] (inclusive)
     // Fortran parap(n) -> C++ [n-1]
     for (int i = 2; i <= 31; i++) {
         double value;
         std::string name;
         if (in >> value >> name) {
-            parameterHistory[snapshotIndex][i] = value;
+            parameters[i] = value;
             parameterNames[i] = name;
         } else {
             break;
@@ -239,7 +271,7 @@ bool FileIO::isToothMakerFormat(const std::string& text) {
 }
 
 int FileIO::getParameterIndex(const std::string& name) {
-    // Map ToothMaker parameter names to parameterHistory indices
+    // Map ToothMaker parameter names to `parameters` indices
     // Based on what loadParameters() expects at each index
     // See README.md "Parameter Naming Confusion" section for details
 
@@ -284,7 +316,7 @@ int FileIO::getParameterIndex(const std::string& name) {
 void FileIO::readParametersToothMaker(std::istream& in) {
     // Initialize all parameters to zero
     for (int i = 2; i <= 31; i++) {
-        parameterHistory[snapshotIndex][i] = 0.0;
+        parameters[i] = 0.0;
         parameterNames[i] = "";
     }
 
@@ -327,7 +359,7 @@ void FileIO::readParametersToothMaker(std::istream& in) {
         if (index >= 0) {
             try {
                 double value = std::stod(valueStr);
-                parameterHistory[snapshotIndex][index] = value;
+                parameters[index] = value;
             } catch (const std::exception& e) {
                 std::cerr << "Warning: Could not parse value for parameter " << name << std::endl;
             }
@@ -335,307 +367,6 @@ void FileIO::readParametersToothMaker(std::istream& in) {
             std::cerr << "Warning: Unknown parameter name: " << name << std::endl;
         }
     }
-}
-
-void FileIO::writeParametersText(std::ostream& out) {
-    // Fortran writes parap(3:32), C++ uses [2:31] (inclusive)
-    for (int i = 2; i <= 31; i++) {
-        out << parameterHistory[snapshotIndex][i] << " " << parameterNames[i] << "\n";
-    }
-    out << model->numCells << " number of cells\n";
-    out << model->timeStep << " number of iterations\n";
-}
-
-// NOTE: Part of unimplemented DAD file import feature. Not called from CLI, untested.
-void FileIO::readParametersBinary(std::istream& in) {
-    std::cout << "Reading parameters..." << std::endl;
-    for (int i = 0; i < 5; i++) in >> parameterHistory[snapshotIndex][i];
-    for (int i = 5; i < 10; i++) in >> parameterHistory[snapshotIndex][i];
-    for (int i = 10; i < 15; i++) in >> parameterHistory[snapshotIndex][i];
-    for (int i = 15; i < 20; i++) in >> parameterHistory[snapshotIndex][i];
-    for (int i = 20; i < 25; i++) in >> parameterHistory[snapshotIndex][i];
-    for (int i = 25; i < 30; i++) in >> parameterHistory[snapshotIndex][i];
-    in >> parameterHistory[snapshotIndex][30];
-    in >> parameterHistory[snapshotIndex][31];
-}
-
-// NOTE: Part of unimplemented DAD file import feature. Not called from CLI, untested.
-void FileIO::readMorphology(std::istream& in) {
-    int tempTime, tempCells;
-    if (!(in >> tempTime >> tempCells)) {
-        std::cerr << "Error reading morphology header" << std::endl;
-        exitFlag = 1;
-        return;
-    }
-    model->timeStep = tempTime;
-    model->numCells = tempCells;
-
-    for (int i = 0; i < model->numCells; i++) {
-        if (!(in >> model->cellPositions[i][0]
-                 >> model->cellPositions[i][1]
-                 >> model->cellPositions[i][2])) {
-            std::cerr << "Error reading morphology data" << std::endl;
-            exitFlag = 1;
-            return;
-        }
-    }
-}
-
-// NOTE: Part of unimplemented DAD file import feature. Not called from CLI, untested.
-void FileIO::readExtraData(std::istream& in) {
-    int tempTime, tempCells;
-    if (!(in >> tempTime >> tempCells)) {
-        std::cerr << "Error reading extra data header" << std::endl;
-        exitFlag = 1;
-        return;
-    }
-
-    for (int i = 0; i < model->numCells; i++) {
-        for (int k = 0; k < NUM_3D_QUANTITIES; k++) {
-            if (!(in >> model->quantities3D[i][0][k])) {
-                std::cerr << "Error reading extra data" << std::endl;
-                exitFlag = 1;
-                return;
-            }
-        }
-    }
-}
-
-// NOTE: Part of unimplemented DAD file import feature. Not called from CLI, untested.
-void FileIO::readKnots(std::istream& in) {
-    int tempTime, tempCells;
-    if (!(in >> tempTime >> tempCells)) {
-        std::cerr << "Error reading knots header" << std::endl;
-        exitFlag = 1;
-        return;
-    }
-
-    int knotCount;
-    if (!(in >> knotCount)) {
-        std::cerr << "Error reading knot count" << std::endl;
-        exitFlag = 1;
-        return;
-    }
-
-    for (int i = 0; i < knotCount; i++) {
-        int knotIdx;
-        if (!(in >> knotIdx)) {
-            std::cerr << "Error reading knot index" << std::endl;
-            exitFlag = 1;
-            return;
-        }
-        model->knotMarkers[knotIdx - 1] = 1;  // Convert to 0-based
-    }
-}
-
-// NOTE: Part of unimplemented DAD file import feature. Not called from CLI, untested.
-void FileIO::readNeighbors(std::istream& in) {
-    int tempTime, tempCells;
-    if (!(in >> tempTime >> tempCells)) {
-        std::cerr << "Error reading neighbors header" << std::endl;
-        exitFlag = 1;
-        return;
-    }
-
-    for (auto& n : model->neighbors) n.fill(0);
-
-    for (int i = 0; i < model->numCells; i++) {
-        int count;
-        if (!(in >> count)) {
-            std::cerr << "Error reading neighbor count" << std::endl;
-            exitFlag = 1;
-            return;
-        }
-        for (int j = 0; j < count; j++) {
-            if (!(in >> model->neighbors[i][j])) {
-                std::cerr << "Error reading neighbor data" << std::endl;
-                exitFlag = 1;
-                return;
-            }
-        }
-    }
-}
-
-void FileIO::storeParameters(int snapshotIdx) {
-    // C++ uses 0-based indexing, Fortran parap uses 1-based
-    // Fortran parap(1:30) maps to C++ [0:29]
-    // saveParameters writes [0..29] in groups of 5, matching Fortran parap(1:5), (6:10), etc.
-    parameterHistory[snapshotIdx][0] = model->timeStep;                  // parap(1) = temps
-    parameterHistory[snapshotIdx][1] = model->numCells;                  // parap(2) = ncels
-    parameterHistory[snapshotIdx][2] = model->epithelialGrowthRate;      // parap(3) = tacre
-    parameterHistory[snapshotIdx][3] = model->mesenchymalGrowthRate;     // parap(4) = tahor
-    parameterHistory[snapshotIdx][4] = model->stiffness;                 // parap(5) = elas
-    parameterHistory[snapshotIdx][5] = model->borderDistance;            // parap(6) = tadi
-    parameterHistory[snapshotIdx][6] = model->neighborTraction;          // parap(7) = crema
-    parameterHistory[snapshotIdx][7] = model->activatorAutoActivation;   // parap(8) = acac
-    parameterHistory[snapshotIdx][8] = model->activatorInhibition;       // parap(9) = ihac
-    parameterHistory[snapshotIdx][9] = model->ectodinRate;               // parap(10) = acec
-    parameterHistory[snapshotIdx][10] = model->growthFactorSecretion;    // parap(11) = ih
-    parameterHistory[snapshotIdx][11] = model->not3Rate;                 // parap(12) = acaca
-
-    // Diffusion coefficients: parap(13-17) = difq3d(1-5) -> C++ [12-16]
-    // Only write [12-15]; [16] is overwritten below by diffThresholdInt
-    for (int j = 0; j < NUM_3D_QUANTITIES - 1; j++) {
-        parameterHistory[snapshotIdx][12 + j] = model->diffusionCoeffs3D[j];
-    }
-    // 2D diffusion coefficients: parap(18-21) = difq2d(1-4) -> C++ [17-20]
-    // Only write [18]; [17], [19], [20] are overwritten below
-    parameterHistory[snapshotIdx][18] = model->diffusionCoeffs2D[1];    // difq2d(2) = GUI "Boy" (buoyancy)
-
-    // Overlapping Fortran indices - these are the actual final values
-    parameterHistory[snapshotIdx][16] = model->diffThresholdInt;         // parap(17) = us
-    parameterHistory[snapshotIdx][17] = model->diffThresholdSet;         // parap(18) = ud
-    parameterHistory[snapshotIdx][19] = model->borderWidth;              // parap(20) = tadif - GUI "Dff" (differentiation rate!)
-    parameterHistory[snapshotIdx][20] = model->biasFactor;               // parap(21) = fac
-    parameterHistory[snapshotIdx][21] = model->biasPosterior;            // parap(22) = bip
-    parameterHistory[snapshotIdx][22] = model->biasAnterior;             // parap(23) = bia
-    parameterHistory[snapshotIdx][23] = model->biasBuccal;               // parap(24) = bib
-    parameterHistory[snapshotIdx][24] = model->biasLingual;              // parap(25) = bil
-    parameterHistory[snapshotIdx][25] = model->radius;                   // parap(26) = radi
-    parameterHistory[snapshotIdx][26] = model->degradationRate;          // parap(27) = mu
-    parameterHistory[snapshotIdx][27] = model->sharpnessMax;             // parap(28) = tazmax
-    parameterHistory[snapshotIdx][28] = model->nucleusTraction;          // parap(29) = radibi
-    parameterHistory[snapshotIdx][29] = model->biasCenterRadius;         // parap(30) = radibii - GUI "Bwi" maps here (XML error)
-    parameterHistory[snapshotIdx][30] = model->initialActivator;         // parap(31) = ina
-    parameterHistory[snapshotIdx][31] = model->basalMesenchymalRate;     // parap(32) = umgr
-
-    // Fortran agafarparap overwrites parap(12) with ncals at the end (line 1918)
-    // This is intentional in the original code - ncals replaces acaca
-    // parap(12) -> C++ [11]
-    parameterHistory[snapshotIdx][11] = model->numCellsTotal;
-}
-
-void FileIO::loadParameters(int snapshotIdx) {
-    // C++ uses 0-based indexing, Fortran parap uses 1-based
-    // Fortran parap(1:30) maps to C++ [0:29]
-    model->timeStep = static_cast<int>(parameterHistory[snapshotIdx][0]);   // parap(1)
-    model->numCells = static_cast<int>(parameterHistory[snapshotIdx][1]);   // parap(2)
-    model->epithelialGrowthRate = parameterHistory[snapshotIdx][2];         // parap(3) = tacre
-    model->mesenchymalGrowthRate = parameterHistory[snapshotIdx][3];        // parap(4) = tahor
-    model->stiffness = parameterHistory[snapshotIdx][4];                    // parap(5) = elas
-    model->borderDistance = parameterHistory[snapshotIdx][5];               // parap(6) = tadi
-    model->neighborTraction = parameterHistory[snapshotIdx][6];             // parap(7) = crema
-    model->activatorAutoActivation = parameterHistory[snapshotIdx][7];      // parap(8) = acac
-    model->activatorInhibition = parameterHistory[snapshotIdx][8];          // parap(9) = ihac
-    model->ectodinRate = parameterHistory[snapshotIdx][9];                  // parap(10) = acec
-    model->growthFactorSecretion = parameterHistory[snapshotIdx][10];       // parap(11) = ih
-    model->not3Rate = parameterHistory[snapshotIdx][11];                    // parap(12) = acaca
-
-    // Diffusion coefficients: parap(13-17) = difq3d(1-5) -> C++ [12-16]
-    for (int j = 0; j < NUM_3D_QUANTITIES; j++) {
-        model->diffusionCoeffs3D[j] = parameterHistory[snapshotIdx][12 + j];
-    }
-    // 2D diffusion coefficients: parap(18-21) = difq2d(1-4) -> C++ [17-20]
-    // NOTE: difq2d(2) at [18] is GUI "Boy" (buoyancy), not a diffusion coefficient!
-    for (int j = 0; j < NUM_2D_QUANTITIES; j++) {
-        model->diffusionCoeffs2D[j] = parameterHistory[snapshotIdx][17 + j];
-    }
-
-    // Note: Original Fortran has overlapping indices - these are preserved
-    model->diffThresholdInt = parameterHistory[snapshotIdx][16];            // parap(17) = us
-    model->diffThresholdSet = parameterHistory[snapshotIdx][17];            // parap(18) = ud
-    model->biasPosterior = parameterHistory[snapshotIdx][21];               // parap(22) = bip
-    model->biasAnterior = parameterHistory[snapshotIdx][22];                // parap(23) = bia
-    model->biasBuccal = parameterHistory[snapshotIdx][23];                  // parap(24) = bib
-    model->biasLingual = parameterHistory[snapshotIdx][24];                 // parap(25) = bil
-    model->radius = static_cast<int>(parameterHistory[snapshotIdx][25]);    // parap(26) = radi
-    model->degradationRate = parameterHistory[snapshotIdx][26];             // parap(27) = mu
-    model->sharpnessMax = parameterHistory[snapshotIdx][27];                // parap(28) = tazmax
-    model->nucleusTraction = parameterHistory[snapshotIdx][28];             // parap(29) = radibi
-    model->borderWidth = parameterHistory[snapshotIdx][19];                 // parap(20) = tadif - GUI "Dff" (differentiation rate!)
-    model->biasFactor = parameterHistory[snapshotIdx][20];                  // parap(21) = fac
-    model->biasCenterRadius = parameterHistory[snapshotIdx][29];            // parap(30) = radibii - GUI "Bwi" maps here (XML error)
-    model->initialActivator = parameterHistory[snapshotIdx][30];            // parap(31) = ina
-    model->basalMesenchymalRate = parameterHistory[snapshotIdx][31];        // parap(32) = umgr
-}
-
-// NOTE: Part of unimplemented DAD file import feature. Not called from CLI, untested.
-// Corresponds to Fortran 'llegir' subroutine for loading saved simulations.
-void FileIO::readDataFile() {
-    if (passFlag == 0) {
-        neighborHistory.resize(MAX_SNAPSHOTS);
-        exitFlag = 0;
-        passFlag = 1;
-    }
-
-    // Clear history arrays
-    for (auto& p : positionHistory) p.clear();
-    for (auto& p : parameterHistory) p.fill(0.0);
-    for (auto& n : neighborHistory) n.clear();
-    for (auto& k : knotsHistory) k.clear();
-
-    std::string text;
-    if (!readFileNormalized_(argInputFile, text)) {
-        std::cerr << "Error opening file: " << argInputFile << std::endl;
-        return;
-    }
-    std::istringstream file(text);
-
-    int oldNumCells = model->numCells;
-
-    for (snapshotIndex = 0; snapshotIndex < MAX_SNAPSHOTS; snapshotIndex++) {
-        oldNumCells = model->numCells;
-        readParametersText(file);
-        loadParameters(snapshotIndex);
-
-        if (exitFlag == 1) break;
-
-        if (model->numCells != oldNumCells) {
-            model->numCellsTotal = model->numCells;
-            model->cellPositions.resize(model->numCells, {0.0, 0.0, 0.0});
-            model->neighbors.resize(model->numCells);
-            for (auto& n : model->neighbors) n.fill(0);
-            model->knotMarkers.resize(model->numCells, 0);
-        }
-
-        readNeighbors(file);
-        neighborHistory[snapshotIndex].resize(model->numCells);
-        for (int i = 0; i < model->numCells; i++) {
-            neighborHistory[snapshotIndex][i] = model->neighbors[i];
-        }
-        if (exitFlag == 1) break;
-
-        readKnots(file);
-        knotsHistory[snapshotIndex].resize(model->numCells);
-        for (int i = 0; i < model->numCells; i++) {
-            knotsHistory[snapshotIndex][i] = model->knotMarkers[i];
-        }
-        if (exitFlag == 1) break;
-
-        readMorphology(file);
-        positionHistory[snapshotIndex].resize(model->numCells);
-        for (int i = 0; i < model->numCells; i++) {
-            positionHistory[snapshotIndex][i] = model->cellPositions[i];
-        }
-        if (exitFlag == 1) break;
-    }
-
-    snapshotIndex = 0;
-    loadParameters(snapshotIndex);
-
-    model->deallocateAll();
-    model->numCellsTotal = model->numCells;
-    model->reallocate();
-
-    for (int i = 0; i < model->numCells; i++) {
-        model->knotMarkers[i] = knotsHistory[snapshotIndex][i];
-        model->cellPositions[i] = positionHistory[snapshotIndex][i];
-        model->neighbors[i] = neighborHistory[snapshotIndex][i];
-    }
-
-    // Determine number of border cells
-    // Count cells that have at least one boundary neighbor (matches Fortran lines 2012-2017)
-    model->numBorderCells = 0;
-    for (int i = 0; i < model->numCells; i++) {
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
-            if (model->neighbors[i][j] >= model->numCellsTotal) {
-                model->numBorderCells++;
-                break;
-            }
-        }
-    }
-
-    passFlag = 1;
 }
 
 void FileIO::readInitialParameters() {
@@ -650,54 +381,102 @@ void FileIO::readInitialParameters() {
     bool useToothMakerFormat = isToothMakerFormat(text);
 
     std::istringstream file(text);
-    snapshotIndex = 0;
-
     if (useToothMakerFormat) {
         readParametersToothMaker(file);
     } else {
         readParametersText(file);
     }
 
-    loadParameters(snapshotIndex);
+    loadParameters();
 }
 
-// NOTE: This function differs from the original Fortran 'guardaveinsoff' in two key respects:
-// 1) Fixes a bug with missing faces that existed in the original routine
-// 2) Writes each face TWICE (both orientations) to simplify visualization with renderers
-//    that expect consistently oriented faces
-void FileIO::saveAsOFF(std::ostream& out, const std::vector<std::array<int, MAX_NEIGHBORS>>& cellNeighbors) {
-    // Calculate material values for coloring
-    calculateMaterial();
+//=============================================================================
+// Parameter transfer functions
+//=============================================================================
+// `parameters` is the Fortran parap(:,1) array, 0-based: Fortran parap(n) is
+// parameters[n-1]. The Fortran assigns some slots twice (agafarparap); the last
+// assignment wins, and that is what is reproduced here.
 
-    // Get triangles from model
-    auto triangles = model->getTriangles();
-
-    // Write OFF header (output both orientations since triangles are not oriented)
-    out << "COFF\n";
-    out << model->numCells << " " << triangles.size() * 2 << " " << model->numCells << "\n\n";
-
-    // Write vertices with colors
-    for (int i = 0; i < model->numCells; i++) {
-        std::array<double, 4> color;
-        getColorMapping(materialValues[i], materialMin, materialMax, color);
-        out << model->cellPositions[i][0] << " "
-            << model->cellPositions[i][1] << " "
-            << model->cellPositions[i][2] << " "
-            << color[0] << " " << color[1] << " " << color[2] << " " << color[3] << "\n";
+void FileIO::storeParameters() {
+    parameters[0] = model->timeStep;                  // parap(1) = temps
+    parameters[1] = model->numCells;                  // parap(2) = ncels
+    parameters[2] = model->epithelialGrowthRate;      // parap(3) = tacre
+    parameters[3] = model->mesenchymalGrowthRate;     // parap(4) = tahor
+    parameters[4] = model->stiffness;                 // parap(5) = elas
+    parameters[5] = model->borderDistance;            // parap(6) = tadi
+    parameters[6] = model->neighborTraction;          // parap(7) = crema
+    parameters[7] = model->activatorAutoActivation;   // parap(8) = acac
+    parameters[8] = model->activatorInhibition;       // parap(9) = ihac
+    parameters[9] = model->ectodinRate;               // parap(10) = acec
+    parameters[10] = model->growthFactorSecretion;    // parap(11) = ih
+    for (int j = 0; j < 4; j++) {
+        parameters[12 + j] = model->diffusionCoeffs3D[j];   // parap(13..16) = difq3d(1..4)
     }
+    parameters[16] = model->diffThresholdInt;         // parap(17) = us
+    parameters[17] = model->diffThresholdSet;         // parap(18) = ud
+    parameters[18] = model->diffusionCoeffs2D[1];     // parap(19) = difq2d(2) = GUI "Boy" (buoyancy)
+    parameters[19] = model->borderWidth;              // parap(20) = tadif = GUI "Dff" (differentiation rate)
+    parameters[20] = model->biasFactor;               // parap(21) = fac
+    parameters[21] = model->biasPosterior;            // parap(22) = bip
+    parameters[22] = model->biasAnterior;             // parap(23) = bia
+    parameters[23] = model->biasBuccal;               // parap(24) = bib
+    parameters[24] = model->biasLingual;              // parap(25) = bil
+    parameters[25] = model->radius;                   // parap(26) = radi
+    parameters[26] = model->degradationRate;          // parap(27) = mu
+    parameters[27] = model->sharpnessMax;             // parap(28) = tazmax
+    parameters[28] = model->nucleusTraction;          // parap(29) = radibi
+    parameters[29] = model->biasCenterRadius;         // parap(30) = radibii = GUI "Bwi" (XML mapping error)
+    parameters[30] = model->initialActivator;         // parap(31) = ina
+    parameters[31] = model->basalMesenchymalRate;     // parap(32) = umgr
 
-    out << "\n";
-
-    // Write faces (both orientations since triangles are not oriented)
-    for (const auto& tri : triangles) {
-        out << "3 " << tri[0] << " " << tri[1] << " " << tri[2] << "\n";
-        out << "3 " << tri[0] << " " << tri[2] << " " << tri[1] << "\n";
-    }
+    // parap(12) holds acaca (Not3) but the Fortran overwrites it with ncals at the
+    // end of agafarparap; loadParameters() then reads Not3 back from it. Kept
+    // for compatibility (TODO.md 12.2 F2).
+    parameters[11] = model->numCellsTotal;
 }
+
+void FileIO::loadParameters() {
+    model->timeStep = static_cast<int>(parameters[0]);          // parap(1)
+    model->numCells = static_cast<int>(parameters[1]);          // parap(2)
+    model->epithelialGrowthRate = parameters[2];                // parap(3) = tacre
+    model->mesenchymalGrowthRate = parameters[3];               // parap(4) = tahor
+    model->stiffness = parameters[4];                           // parap(5) = elas
+    model->borderDistance = parameters[5];                      // parap(6) = tadi
+    model->neighborTraction = parameters[6];                    // parap(7) = crema
+    model->activatorAutoActivation = parameters[7];             // parap(8) = acac
+    model->activatorInhibition = parameters[8];                 // parap(9) = ihac
+    model->ectodinRate = parameters[9];                         // parap(10) = acec
+    model->growthFactorSecretion = parameters[10];              // parap(11) = ih
+    model->not3Rate = parameters[11];                           // parap(12) = acaca (see storeParameters)
+    for (int j = 0; j < NUM_3D_QUANTITIES; j++) {
+        model->diffusionCoeffs3D[j] = parameters[12 + j];       // parap(13..17) = difq3d(1..5)
+    }
+    for (int j = 0; j < NUM_2D_QUANTITIES; j++) {
+        model->diffusionCoeffs2D[j] = parameters[17 + j];       // parap(18..21) = difq2d(1..4)
+    }
+    model->diffThresholdInt = parameters[16];                   // parap(17) = us
+    model->diffThresholdSet = parameters[17];                   // parap(18) = ud
+    model->borderWidth = parameters[19];                        // parap(20) = tadif
+    model->biasFactor = parameters[20];                         // parap(21) = fac
+    model->biasPosterior = parameters[21];                      // parap(22) = bip
+    model->biasAnterior = parameters[22];                       // parap(23) = bia
+    model->biasBuccal = parameters[23];                         // parap(24) = bib
+    model->biasLingual = parameters[24];                        // parap(25) = bil
+    model->radius = static_cast<int>(parameters[25]);           // parap(26) = radi
+    model->degradationRate = parameters[26];                    // parap(27) = mu
+    model->sharpnessMax = parameters[27];                       // parap(28) = tazmax
+    model->nucleusTraction = parameters[28];                    // parap(29) = radibi
+    model->biasCenterRadius = parameters[29];                   // parap(30) = radibii
+    model->initialActivator = parameters[30];                   // parap(31) = ina
+    model->basalMesenchymalRate = parameters[31];               // parap(32) = umgr
+}
+
+//=============================================================================
+// Visualization helpers
+//=============================================================================
 
 void FileIO::calculateMaterial() {
-    materialValues.resize(model->numCells);
-    std::fill(materialValues.begin(), materialValues.end(), 0.0);
+    materialValues.assign(model->numCells, 0.0);
 
     for (int i = 0; i < model->numCells; i++) {
         if (model->knotMarkers[i] == 1) {
