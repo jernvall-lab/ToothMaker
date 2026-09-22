@@ -41,7 +41,7 @@ void ToothModel::addNewCells() {
     std::vector<std::array<int, 2>> newNodePairs;
     std::vector<int> isExternal;
     for (int i = 0; i < numCells; i++) {
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
+        for (int j = 0; j < slotEnd[i]; j++) {
             int k = neighbors[i][j];
             // Fortran: if (k/=0.and.k>i.and.k<=ncels)
             if (k != 0 && k > i + 1 && k <= numCells) {

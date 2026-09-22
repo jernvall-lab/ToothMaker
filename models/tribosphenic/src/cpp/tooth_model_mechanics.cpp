@@ -32,7 +32,7 @@ void ToothModel::calculateGrowthPushing() {
 
         double aa = 0.0, bb = 0.0, cc = 0.0;
 
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
+        for (int j = 0; j < slotEnd[i]; j++) {
             int k = neighbors[i][j];
             if (k == 0 || k > numCells) continue;
             k--;  // Convert to 0-based
@@ -79,7 +79,7 @@ void ToothModel::calculateGrowthPushing() {
         double uaa = 0.0, ubb = 0.0;
         double dd = 0.0, ddd = 0.0;
 
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
+        for (int j = 0; j < slotEnd[i]; j++) {
             int k = neighbors[i][j];
             if (k < 1 || k > numCells) continue;
             k--;
@@ -231,7 +231,7 @@ void ToothModel::calculateNeighborRepulsion() {
 
         double sumX = 0.0, sumY = 0.0, sumZ = 0.0;
 
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
+        for (int j = 0; j < slotEnd[i]; j++) {
             int k = neighbors[i][j];
             if (k <= 0 || k > numCells) continue;
             k--;
@@ -461,7 +461,7 @@ void ToothModel::calculateNucleusTraction() {
         double a = 0.0, b = 0.0, c = 0.0;
         double n = 0;
 
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
+        for (int j = 0; j < slotEnd[i]; j++) {
             int k = neighbors[i][j];
             if (k > 0 && k <= maxNeighbor) {
                 k--;

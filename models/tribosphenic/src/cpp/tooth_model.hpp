@@ -82,6 +82,7 @@ public:
     // which change at initialisation and at cell division. It is recorded once per
     // topology as index lists and re-summed each iteration.
     bool marginWalksValid = false;
+    std::vector<int> slotEnd;       // per cell: last occupied neighbour slot + 1 (loop bound)
     std::vector<int> walkCell;      // per occupied slot: owning cell
     std::vector<int> walkSlot;      // per occupied slot: slot index
     std::vector<int> walkOffset;    // per occupied slot: start in walkVertex (size + 1)

@@ -23,7 +23,7 @@ void ToothModel::reactionDiffusion() {
         int slotJ[MAX_NEIGHBORS];
         int slotII[MAX_NEIGHBORS];
         int nSlots = 0;
-        for (int j = 0; j < MAX_NEIGHBORS; j++) {
+        for (int j = 0; j < slotEnd[i]; j++) {
             if (neighbors[i][j] != 0) {
                 slotJ[nSlots] = j;
                 slotII[nSlots] = neighbors[i][j] - 1;

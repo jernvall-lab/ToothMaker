@@ -15,6 +15,18 @@ void ToothModel::rebuildMarginWalks() {
     walkOffset.clear();
     walkVertex.clear();
 
+    // Upper bound for the neighbour-slot loops. They still skip empty slots
+    // below it, so the bound is exact whether or not a list has holes.
+    slotEnd.assign(numCells, 0);
+    for (int i = 0; i < numCells; i++) {
+        for (int j = MAX_NEIGHBORS - 1; j >= 0; j--) {
+            if (neighbors[i][j] != 0) {
+                slotEnd[i] = j + 1;
+                break;
+            }
+        }
+    }
+
     for (int i = 0; i < numCells; i++) {
         int kl = 0;
 
