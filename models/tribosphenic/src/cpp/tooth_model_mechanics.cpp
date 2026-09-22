@@ -470,12 +470,12 @@ void ToothModel::updatePositions() {
     for (int i = 0; i < numBorderCells; i++) {
         if (std::abs(cellPositions[i][1]) < biasCenterRadius) {
             if (cellPositions[i][0] > 0) {
-                // Anterior side
+                // x > 0 side: bia, fed by GUI Pbi (see the note in tooth_model.hpp)
                 positionDeltas[i][0] *= biasAnterior;
                 positionDeltas[i][2] *= biasFactor;
             }
             if (cellPositions[i][0] < 0) {
-                // Posterior side
+                // x < 0 side: bip, fed by GUI Abi
                 positionDeltas[i][0] *= biasPosterior;
                 positionDeltas[i][2] *= biasFactor;
             }

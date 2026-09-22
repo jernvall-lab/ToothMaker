@@ -282,13 +282,15 @@ void ToothModel::updateDifferentiation() {
 
 void ToothModel::applyBuccalLingualBias() {
     for (int i = 0; i < numBorderCells; i++) {
+        // The bias is a floor: the activator is never lowered. Sides and names, see
+        // the note in tooth_model.hpp.
         if (cellPositions[i][1] < -borderDistance) {
-            // Lingual side - won't reset activator if already higher than bias
+            // y < -Swi side: bil, fed by GUI Bbi
             if (quantities3D[i][0][0] < biasLingual) {
                 quantities3D[i][0][0] = biasLingual;
             }
         } else if (cellPositions[i][1] > borderDistance) {
-            // Buccal side
+            // y > Swi side: bib, fed by GUI Lbi
             if (quantities3D[i][0][0] < biasBuccal) {
                 quantities3D[i][0][0] = biasBuccal;
             }

@@ -80,10 +80,10 @@ The original Fortran code had two modules and a main program:
 | `tadi` | `borderDistance` | Swi | Border definition distance |
 | `tadif` | `borderWidth` | Dff | **Differentiation rate** (see note below) |
 | `difq2d(2)` | `diffusionCoeffs2D[1]` | Boy | **Buoyancy strength** (see note below) |
-| `bip` | `biasPosterior` | Pbi | Posterior bias |
-| `bia` | `biasAnterior` | Abi | Anterior bias |
-| `bil` | `biasLingual` | Lbi | Lingual bias |
-| `bib` | `biasBuccal` | Bbi | Buccal bias |
+| `bip` | `biasPosterior` | Abi* | Bias on the x < 0 side (see note below) |
+| `bia` | `biasAnterior` | Pbi* | Bias on the x > 0 side (see note below) |
+| `bil` | `biasLingual` | Bbi* | Activator floor on the y < −Swi side (see note below) |
+| `bib` | `biasBuccal` | Lbi* | Activator floor on the y > Swi side (see note below) |
 | `radibii` | `biasCenterRadius` | Bwi* | AP bias center radius (see note below) |
 | `fac` | `biasFactor` | Bgr | Bias factor |
 
@@ -103,6 +103,14 @@ The Fortran variable names are historically misleading and do not reflect actual
    `radibii` / `biasCenterRadius` (the radius where AP bias is applied), NOT border width.
    This appears to be a historical mapping error in the XML interface definition.
    The actual "border width" functionality is controlled by `tadi` / `borderDistance` (Swi).
+
+4. **Abi/Pbi and Bbi/Lbi***: The four bias variables are named after the Fortran (`bip`, `bia`,
+   `bil`, `bib`), but the GUI passes parameters positionally and `Abi` lands in `bip` /
+   `biasPosterior`, `Pbi` in `bia` / `biasAnterior`, `Lbi` in `bib` / `biasBuccal` and `Bbi` in
+   `bil` / `biasLingual` — the Fortran source says so itself (`NOTE: Abi, Pbi, Bbi, Lbi`). The
+   GUI, the Fortran and the C++ therefore agree with each other; only the variable names are
+   misleading. The names and the order are kept because existing users and parameter files rely
+   on them. Only the name-based reader for ToothMaker-format files disagrees (Known Issues, B1).
 
 ### Cell Counts
 
@@ -302,7 +310,9 @@ comparison has to round the Fortran values to 6 decimals first
   `Lbi` into `bib` and `Bbi` into `bil`. The name-based reader follows the (misleading) Fortran
   variable names instead, so a ToothMaker-format file given directly to `humppa_cpp` produces a
   different tooth than the same file run through the GUI. GUI, `examples/cli` and webtooth are
-  positional and unaffected. This is also why the two unit-test references differ.
+  positional and unaffected. This is also why the two unit-test references differ. *Decision
+  2026-09-22: kept for now, with the mapping documented in the code, so that nothing changes for
+  existing users.*
 - **B2. `.dad` values are written with 6 decimals.** `saveParameters()` sets
   `std::fixed << setprecision(6)` and the stream keeps it for margins, positions and
   concentrations; the Fortran writes 17 significant digits. The `.off` and the `.txt` parameter

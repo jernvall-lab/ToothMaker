@@ -119,10 +119,15 @@ public:
     // Border/bias parameters
     double borderDistance;           // Swi (tadi) - distance from 0 where borders are defined
     double borderWidth;              // Dff (tadif) - NOTE: Actually differentiation rate, not border width!
-    double biasPosterior;            // Pbi (bip) - posterior bias
-    double biasAnterior;             // Abi (bia) - anterior bias
-    double biasLingual;              // Lbi (bil) - lingual bias
-    double biasBuccal;               // Bbi (bib) - buccal bias
+    // The four biases are named after the Fortran variables (bip, bia, bil, bib),
+    // whose names do not match the GUI parameter that feeds them: parameters are
+    // passed positionally, and -- as the Fortran source notes itself ("NOTE: Abi,
+    // Pbi, Bbi, Lbi") -- Abi lands in bip, Pbi in bia, Lbi in bib and Bbi in bil.
+    // Kept as is: existing users and parameter files rely on this order.
+    double biasPosterior;            // bip = GUI Abi; scales x-growth of border cells with x < 0
+    double biasAnterior;             // bia = GUI Pbi; scales x-growth of border cells with x > 0
+    double biasLingual;              // bil = GUI Bbi; activator floor on the y < -Swi side
+    double biasBuccal;               // bib = GUI Lbi; activator floor on the y > Swi side
     double biasCenterRadius;         // radibii - radius of center where AP bias is applied
                                      // NOTE: GUI "Bwi" maps here due to XML position error
     double biasFactor;               // Bgr (fac) - bias factor

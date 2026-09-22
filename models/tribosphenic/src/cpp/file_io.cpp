@@ -298,6 +298,11 @@ int FileIO::getParameterIndex(const std::string& name) {
     if (nameLower == "boy") return 18;   // diffusionCoeffs2D[1] - buoyancy
     if (nameLower == "dff") return 19;   // borderWidth (misnaming) - actually differentiation rate
     if (nameLower == "bgr") return 20;   // biasFactor
+    // The biases are mapped as the Fortran variable names suggest (Pbi -> bip),
+    // which is the reverse of the GUI's positional order (Abi -> bip, see
+    // tooth_model.hpp): a ToothMaker-format file run directly through this
+    // reader gives a different tooth than the same file run through the GUI.
+    // Kept deliberately for now (TODO.md 12.1 B1).
     if (nameLower == "pbi") return 21;
     if (nameLower == "abi") return 22;
     if (nameLower == "bbi") return 23;
@@ -417,10 +422,10 @@ void FileIO::storeParameters() {
     parameters[18] = model->diffusionCoeffs2D[1];     // parap(19) = difq2d(2) = GUI "Boy" (buoyancy)
     parameters[19] = model->borderWidth;              // parap(20) = tadif = GUI "Dff" (differentiation rate)
     parameters[20] = model->biasFactor;               // parap(21) = fac
-    parameters[21] = model->biasPosterior;            // parap(22) = bip
-    parameters[22] = model->biasAnterior;             // parap(23) = bia
-    parameters[23] = model->biasBuccal;               // parap(24) = bib
-    parameters[24] = model->biasLingual;              // parap(25) = bil
+    parameters[21] = model->biasPosterior;            // parap(22) = bip (GUI Abi)
+    parameters[22] = model->biasAnterior;             // parap(23) = bia (GUI Pbi)
+    parameters[23] = model->biasBuccal;               // parap(24) = bib (GUI Lbi)
+    parameters[24] = model->biasLingual;              // parap(25) = bil (GUI Bbi)
     parameters[25] = model->radius;                   // parap(26) = radi
     parameters[26] = model->degradationRate;          // parap(27) = mu
     parameters[27] = model->sharpnessMax;             // parap(28) = tazmax
@@ -458,10 +463,10 @@ void FileIO::loadParameters() {
     model->diffThresholdSet = parameters[17];                   // parap(18) = ud
     model->borderWidth = parameters[19];                        // parap(20) = tadif
     model->biasFactor = parameters[20];                         // parap(21) = fac
-    model->biasPosterior = parameters[21];                      // parap(22) = bip
-    model->biasAnterior = parameters[22];                       // parap(23) = bia
-    model->biasBuccal = parameters[23];                         // parap(24) = bib
-    model->biasLingual = parameters[24];                        // parap(25) = bil
+    model->biasPosterior = parameters[21];                      // parap(22) = bip (GUI Abi)
+    model->biasAnterior = parameters[22];                       // parap(23) = bia (GUI Pbi)
+    model->biasBuccal = parameters[23];                         // parap(24) = bib (GUI Lbi)
+    model->biasLingual = parameters[24];                        // parap(25) = bil (GUI Bbi)
     model->radius = static_cast<int>(parameters[25]);           // parap(26) = radi
     model->degradationRate = parameters[26];                    // parap(27) = mu
     model->sharpnessMax = parameters[27];                       // parap(28) = tazmax
