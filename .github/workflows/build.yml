@@ -90,19 +90,15 @@ jobs:
             sudo ln -sf "$GFORTRAN" /usr/local/bin/gfortran
           fi
 
-      - name: Setup MSVC (Windows)
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           update: true
           install: >-
-            mingw-w64-x86_64-gcc-fortran
-            mingw-w64-x86_64-clang
+            mingw-w64-ucrt-x86_64-gcc-fortran
+            mingw-w64-ucrt-x86_64-clang
             make
 
       #
@@ -146,7 +142,12 @@ jobs:
       - name: Build ToothMaker (Windows)
         if: runner.os == 'Windows'
         shell: cmd
+        # MSVC environment through vswhere + vcvars64.bat (ilammy/msvc-dev-cmd
+        # has no Node 24 release; Node 20 was removed from runners 2026-09-23).
         run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSPATH=%%i"
+          if not defined VSPATH (echo vswhere found no Visual Studio with the C++ tools & exit /b 1)
+          call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
           mkdir build
           cd build
           qmake ..\ToothMaker.pro CONFIG+=release
@@ -210,7 +211,7 @@ jobs:
       # Package artifacts
       #
       # Stage final package directory per platform. We do NOT create our own
-      # archive — actions/upload-artifact@v4 already zips on download, so any
+      # archive — actions/upload-artifact already zips on download, so any
       # archive we create here would produce a double-wrapped download.
       - name: Package (Linux)
         if: runner.os == 'Linux'
@@ -240,7 +241,7 @@ jobs:
 
           # Note: previously we ran `ditto -c -k --keepParent` here to preserve
           # framework symlinks (QtCore.framework/Versions/Current → A, etc).
-          # upload-artifact@v4 follows symlinks rather than preserving them,
+          # upload-artifact follows symlinks rather than preserving them,
           # so the framework dirs in the downloaded zip will be flatter than
           # the original. The app usually still runs because dyld resolves
           # the (now-real) files at the same paths. If a future macOS package
@@ -270,12 +271,12 @@ jobs:
           }
 
       #
-      # Upload artifacts — upload the directory; upload-artifact@v4 wraps it in
+      # Upload artifacts — upload the directory; upload-artifact wraps it in
       # a single zip on download. Do not feed it a pre-made archive (that
       # produces the double-zip we want to avoid).
       #
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: ToothMaker_${{ steps.version.outputs.VERSION_NODOTS }}
