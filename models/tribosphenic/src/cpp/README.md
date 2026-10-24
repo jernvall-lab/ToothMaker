@@ -89,6 +89,12 @@ The original Fortran code had two modules and a main program:
 
 #### Parameter Naming Confusion (IMPORTANT)
 
+Side conventions (2026-10-24, from an expert-reviewed rendering, `examples/ringed_seal_2018*`): the
+model is a right lower tooth; GUI `Pbi` enlarges the +x side, which is posterior, and GUI `Lbi` sets the
+floor on the +y side, which is lingual. The Fortran names say the opposite on both axes (`bia` acts on +x,
+`bil` on −y), so `bib`/`bil` are swapped exactly like `bia`/`bip`. The view rotations in all three model
+XMLs follow the GUI convention.
+
 The Fortran variable names are historically misleading and do not reflect actual functionality:
 
 1. **Boy (Buoyancy)**: The GUI parameter "Boy" controls `difq2d(2)` / `diffusionCoeffs2D[1]`.

@@ -27,11 +27,11 @@
     </Orientation>
     <Orientation>
         <Name>Buccal</Name>
-        <Rotate>0.0,-90.0</Rotate>
+        <Rotate>180.0,-90.0</Rotate>
     </Orientation>
     <Orientation>
         <Name>Lingual</Name>
-        <Rotate>180.0,-90.0</Rotate>
+        <Rotate>0.0,-90.0</Rotate>
     </Orientation>
     <Orientation>
         <Name>Posterior</Name>
@@ -200,19 +200,19 @@
         <Hidden>False</Hidden>
     </Parameter>
     <Parameter>
-        <Name>Bbi</Name>
-        <Value>1.0</Value>
-        <Position>300,185</Position>
-        <Description>Buccal bias.</Description>
-        <Hidden>True</Hidden>
-    </Parameter>    
-    <Parameter>
         <Name>Lbi</Name>
         <Value>1.0</Value>
         <Position>300,260</Position>
         <Description>Lingual bias.</Description>
         <Hidden>True</Hidden>
     </Parameter>
+    <Parameter>
+        <Name>Bbi</Name>
+        <Value>1.0</Value>
+        <Position>300,185</Position>
+        <Description>Buccal bias.</Description>
+        <Hidden>True</Hidden>
+    </Parameter>    
     <Parameter>
         <Name>Rad</Name>
         <Position>270,432</Position>
