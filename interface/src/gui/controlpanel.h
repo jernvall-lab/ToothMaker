@@ -49,6 +49,7 @@ class ControlPanel : public QWidget
         void endHistory(int niter, int index = -1);
         void removeHistory(int);
         void resetOrientation(int);
+        QString currentOrientation() const { return orientations->currentText(); }
         void setModelIndex(int);
 
         void setViewMode(int);

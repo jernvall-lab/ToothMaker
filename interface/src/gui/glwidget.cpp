@@ -207,7 +207,11 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
             obj.deltaX = 0;
             obj.deltaY = 0;
         }
-        emit resetOrientation(0);
+        // Back to free rotation only if the view actually turned; a click
+        // without movement keeps the selected orientation.
+        if (obj.deltaX != 0 || obj.deltaY != 0) {
+            emit resetOrientation(0);
+        }
         update();
     }
 

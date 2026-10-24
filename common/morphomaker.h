@@ -9,6 +9,10 @@
 // Default model index. Indexing is determined by the order in which the models
 // are loaded, which is alphabetical.
 #define DEFAULT_MODEL 0
+// View orientation selected once at launch; afterwards the view stays as the
+// user sets it. Must be one of the orientation menu names (Occlusal, Buccal,
+// Lingual, Posterior, Anterior).
+#define DEFAULT_ORIENTATION "Lingual"
 
 // Debug mode. If 1, then preserves object files in tmp folder etc.
 #define DEBUG_MODE 0

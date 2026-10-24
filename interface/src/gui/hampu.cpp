@@ -183,6 +183,7 @@ int Hampu::init_GUI()
     QString defaultModelName = QString::fromStdString(models.at(DEFAULT_MODEL)->getModelName());
     currentHistory = controlPanel->addHistoryEntry(defaultModelName);
     setModelSettings(DEFAULT_MODEL, 1);
+    selectOrientation_( DEFAULT_ORIENTATION );
 
     // Create a temporary folder for running the models.
     int pid = (int)QCoreApplication::applicationPid();
@@ -766,6 +767,23 @@ void Hampu::resetOrientation(int val)
 
 
 /**
+ * @brief Selects a named orientation in the menu, which also applies it to the
+ * view; an unknown or empty name leaves the menu at free rotation.
+ */
+void Hampu::selectOrientation_(const std::string& name)
+{
+    auto orient = models.at(currentModel)->getOrientations();
+    for (size_t i = 0; i < orient.size(); i++) {
+        if (orient.at(i).name == name) {
+            controlPanel->resetOrientation(i + 1);
+            return;
+        }
+    }
+}
+
+
+
+/**
  * @brief Updates the GUI with proper model settings.
  * - Optionally loads the default/example parameters.
  *
@@ -816,7 +834,10 @@ void Hampu::setModelSettings(int id, int useDefault)
     else {
         glwidget->setRotations(true);
     }
+    // Refilling the menu resets it to free rotation; keep the current selection.
+    const std::string keepOrientation = controlPanel->currentOrientation().toStdString();
     controlPanel->setOrientations( orientations );
+    selectOrientation_( keepOrientation );
     controlPanel->showCellConnections( model->getShowMeshAccess(),
                                        model->getShowMesh() );
 

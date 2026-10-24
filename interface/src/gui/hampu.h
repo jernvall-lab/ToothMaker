@@ -67,6 +67,7 @@ private slots:
     void stopParameterScan();
 
     void resetOrientation(int);
+    void selectOrientation_(const std::string& name);
     void setModelSettings(int, int);
     int exportModelData(int, int, QString);
     void setVisualData();
