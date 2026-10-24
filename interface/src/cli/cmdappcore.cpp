@@ -86,10 +86,11 @@ void CmdAppCore::updateProgress()
         glengine->setVisualData( toothLife, i+1, models.at(modelId) );
 
         QImage img = glengine->screenshotGL();
+        // Entry i is iteration i*stepsize; entry 0 is the empty iteration-0 tooth.
         int stepsize = models.at(modelId)->getStepSize();
         QString filename = QString("%1_%2.png")
                            .arg(PROGRAM_NAME)
-                           .arg((i+1)*stepsize, 10, 10, QChar('0'));
+                           .arg(i*stepsize, 10, 10, QChar('0'));
         QString target = runDir + "/images/" + filename;
         img.save(target);
     }
