@@ -5,6 +5,7 @@
  * Prints help and calls either GUI or CLI as requested.
  */
 
+#include <clocale>
 #include <QApplication>
 #include "gui/hampu.h"
 #include "cli/cmdappcore.h"
@@ -142,6 +143,7 @@ int main(int argc, char *argv[])
     // Command-line interface:
     if (argc>1 && niter>-1 && parfile>0 && scanfile>0) {
         CmdAppCore cmdAppCore(argc, argv);
+        setlocale(LC_NUMERIC, "C");   // Qt adopts the system locale; numbers stay dot-decimal
         if (cmdAppCore.startParameterScan( niter, argv[parfile], argv[scanfile],
                                            step, expimg, res )) {
             return -1;
@@ -151,6 +153,7 @@ int main(int argc, char *argv[])
 
     // Graphical interface:
     QApplication app(argc, argv);
+    setlocale(LC_NUMERIC, "C");       // see above
     Hampu hampu;
     if (hampu.init_GUI()) {
         return -1;

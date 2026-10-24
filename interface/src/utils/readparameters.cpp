@@ -35,10 +35,6 @@ int morphomaker::Import_parameters(std::string file, Parameters *par)
         return -1;
     }
 
-    #if defined(__linux__)
-    char *oldloc = setlocale(LC_ALL, "C");
-    #endif
-
     while (!feof(input) && !ferror(input)) {
         char line[256];
         strcpy(line, "");
@@ -60,10 +56,6 @@ int morphomaker::Import_parameters(std::string file, Parameters *par)
         }
     }
 
-    #if defined(__linux__)
-    setlocale(LC_ALL, oldloc);
-    #endif
-
     fclose(input);
     return 0;
 }
@@ -83,10 +75,6 @@ ScanList* morphomaker::Read_scanlist(std::string file)
                 file.c_str());
         return NULL;
     }
-
-    #if defined(__linux__)
-    char *oldloc = setlocale(LC_ALL, "C");
-    #endif
 
     ScanList *scanList = new ScanList();
 
@@ -150,10 +138,6 @@ ScanList* morphomaker::Read_scanlist(std::string file)
                     item->getMinValue(), item->getStep(), item->getMaxValue());  // DEBUG
        }
     }
-
-    #if defined(__linux__)
-    setlocale(LC_ALL, oldloc);
-    #endif
 
     fclose(input);
     return scanList;
