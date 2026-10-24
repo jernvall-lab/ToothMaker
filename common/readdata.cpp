@@ -439,11 +439,12 @@ int morphomaker::Read_Humppa_DAD_file( int step, int stepsize, int run_id,
                                        Tooth& tooth)
 {
     // Construct the file name, open for reading.
-    QString target = QString::number(step*stepsize) + "*"
+    // "<iter>_*": the '_' keeps "500*" from matching step 5000's file.
+    QString target = QString::number(step*stepsize) + "_*"
                      + QString::number(run_id) + "*.dad";
     QStringList filter(target);
     QDir qdir("./");
-    QFileInfoList files = qdir.entryInfoList( filter, QDir::Files );
+    QFileInfoList files = qdir.entryInfoList( filter, QDir::Files, QDir::Name );
     if (files.size() == 0)
         return -1;
 

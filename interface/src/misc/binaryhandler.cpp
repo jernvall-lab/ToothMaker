@@ -72,11 +72,14 @@ QFileInfoList OutputReader::findOutputFiles_(int step) const
     if (ext.isEmpty())
         return {};
 
+    // Anchor the iteration with the '_' that follows it in every naming
+    // convention (C++ "500_<id>_.off", Fortran "500___<id>___.off", parser
+    // "500_<id>.off"); "500*" would also match step 5000.
     int iter = step * m_stepSize;
-    QString pattern = QString::number(iter) + "*"
+    QString pattern = QString::number(iter) + "_*"
                       + QString::number(m_runId) + "*" + ext;
     QDir qdir(m_runPath);
-    return qdir.entryInfoList(QStringList(pattern), QDir::Files);
+    return qdir.entryInfoList(QStringList(pattern), QDir::Files, QDir::Name);
 }
 
 
