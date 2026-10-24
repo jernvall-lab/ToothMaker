@@ -345,7 +345,9 @@ compare parsed values, as `test/run_tests.sh` does.
   puts `not3Rate` and then `numCellsTotal` into index 11, and `loadParameters()`, called after
   every step's output, reads `not3Rate` back from it. With `Not2 ≠ 0` a run split into steps
   therefore differs from the same run in one step, and the `.txt` echo always reports
-  `Not3` = cell count. Masked in normal use because `Not2` is hidden and zero.
+  `Not3` = cell count. Masked in normal use because `Not2` is hidden and zero. **Decision
+  2026-10-24: kept** — identical to the Fortran by design and pinned by unit test 4 (`Not3` ≠ 0,
+  four steps). If the Not channels are revived, fix both codes together.
 - **F3.** *(resolved 2026-09-22)* In the Fortran a division "panic" (ring walk longer than
   `nvmax`) abandons that iteration's divisions and the run continues; the offending pair is still
   too far apart next time, so every later iteration repeats the failed attempt and the cell count
