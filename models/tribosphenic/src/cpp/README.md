@@ -266,6 +266,15 @@ The C++ `saveAsOFF()` function produces different output than the original Fortr
 
 The C++ version uses the `dad_to_polygons` algorithm instead, which fixes these issues. As a consequence, **each triangle is written twice with both orientations**. This doubles the polygon count but ensures correct rendering regardless of viewer orientation, since recovering correctly oriented triangles from the original data structure is non-trivial.
 
+The face set equals what `dad_to_polygons` produces from the same `.dad`: triangles of three mutually
+neighbouring cells, plus 4-cycles without diagonals split into two triangles, skipped when both pairs
+of opposite corners share a third neighbour (its "quad crossed by triangles" check; missing from
+`getTriangles()` until 2026-10-24, which produced extra overlapping faces). That check still lets a
+quad through when only one pair is clean, even with a cell inside the cycle (seen once in a 12 000-
+iteration run); replicated for fidelity. Remaining differences: the C++ sorts the neighbour lists
+(exact set operations) and splits a quad along the diagonal through its lowest-numbered corner,
+whereas `dad_to_polygons`' diagonal depends on its unstable sort. Vertices and colours are identical.
+
 #### Color Mapping Change
 
 The C++ `getColorMapping()` outputs colors that match what `dad_to_polygons` produces, rather than the original Fortran colors:

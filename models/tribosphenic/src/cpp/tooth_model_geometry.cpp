@@ -217,8 +217,28 @@ std::vector<std::array<int, 3>> ToothModel::getTriangles() const {
         }
     }
 
-    // Find quads (4 cells where opposite pairs aren't directly connected)
-    // and convert them to triangles
+    // Find quads (4-cycles without diagonals) and convert them to triangles.
+    // Same quads as dad_to_polygons; only the splitting diagonal may differ.
+
+    // True if a and b share a neighbour other than i and k.
+    auto shareThirdNeighbour = [&nlist](int a, int b, int i, int k) {
+        const auto& la = nlist[a];
+        const auto& lb = nlist[b];
+        size_t p = 0, q = 0;
+        while (p < la.size() && q < lb.size()) {
+            if (la[p] < lb[q]) {
+                p++;
+            } else if (lb[q] < la[p]) {
+                q++;
+            } else {
+                if (la[p] != i && la[p] != k) return true;
+                p++;
+                q++;
+            }
+        }
+        return false;
+    };
+
     for (int i = 0; i < numCells; i++) {
         for (int j : nlist[i]) {
             if (j <= i) continue;
@@ -246,6 +266,10 @@ std::vector<std::array<int, 3>> ToothModel::getTriangles() const {
                     // Check that w and j are NOT connected (making it a quad, not 2 triangles)
                     bool wjConnected = std::binary_search(nlist[w].begin(), nlist[w].end(), j);
                     if (wjConnected) continue;
+
+                    // dad_to_polygons' crossing check: a cell inside the cycle rejects the
+                    // quad only if neither pair of opposite corners is clean
+                    if (shareThirdNeighbour(w, j, i, k) && shareThirdNeighbour(i, k, j, w)) continue;
 
                     // Valid quad: i-j-k-w, split into two triangles
                     // Only add if this is the canonical ordering to avoid duplicates
