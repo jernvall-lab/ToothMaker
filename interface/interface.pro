@@ -106,8 +106,10 @@ win32 {
 # On macOS, we need OpenGL framework but not the deprecated AGL framework
 # AGL was removed in newer macOS SDKs
 macx {
-    # Qt5 supports macOS 10.13+, Qt6 requires 10.15+
-    greaterThan(QT_MAJOR_VERSION, 5): QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15
+    # Qt 5 builds run on macOS 10.13+. The Qt 6 frameworks the release packages
+    # bundle (Homebrew) require 14.0; keep the app's minimum in step so Finder
+    # refuses cleanly on older systems instead of crashing at launch.
+    greaterThan(QT_MAJOR_VERSION, 5): QMAKE_MACOSX_DEPLOYMENT_TARGET = 14.0
     else: QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.13
     ICON = icons/toothmaker.icns
 
