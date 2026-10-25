@@ -58,15 +58,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools \
+            qt6-base-dev qt6-base-dev-tools libqt6opengl6-dev \
             gfortran clang libgl1-mesa-dev libx11-dev
 
       - name: Install Qt (macOS)
         if: runner.os == 'macOS'
         run: |
-          # Homebrew's "qt" formula is Qt 6 (currently 6.7+). Qt 6 enables
-          # high-DPI scaling by default, which Qt 5 does not; Linux CI stays
-          # on apt Qt 5 because that platform didn't exhibit the DPI symptom.
+          # Homebrew's "qt" formula is Qt 6. All three platforms build with
+          # Qt 6 (Linux: Ubuntu 22.04's apt Qt 6.2).
           brew install qt
           echo "$(brew --prefix qt)/bin" >> $GITHUB_PATH
 
@@ -75,7 +74,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           # Qt 6 to match local dev (Qt 6.10.3 on the Windows VM) and to get
-          # automatic high-DPI scaling. Linux CI stays on Qt 5 via apt.
+          # automatic high-DPI scaling.
           version: '6.10.3'
           cache: true
 
@@ -136,7 +135,8 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           mkdir build && cd build
-          qmake ../ToothMaker.pro CONFIG+=release
+          QMAKE=$(command -v qmake6 || command -v qmake)   # apt Qt 6 installs qmake6
+          "$QMAKE" ../ToothMaker.pro CONFIG+=release
           make
 
       - name: Build ToothMaker (Windows)
@@ -225,6 +225,38 @@ jobs:
           # Remove macOS-specific library
           rm -f "$PACKAGE_DIR/Resources/bin/libquadmath.0.dylib"
 
+      # Self-contained AppImage (Qt and libquadmath bundled; glibc, libstdc++, X11
+      # and OpenGL come from the user's system). Resources sit next to the
+      # executable, where ToothMaker looks for them.
+      - name: Package AppImage (Linux)
+        if: runner.os == 'Linux'
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1   # the runner has no FUSE for the tools
+          LINUXDEPLOY_OUTPUT_VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          ARCH=$(uname -m)
+          export QMAKE=$(command -v qmake6)   # tells the qt plugin which Qt to bundle
+          curl -sSL -o "linuxdeploy-$ARCH.AppImage" \
+            "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$ARCH.AppImage"
+          curl -sSL -o "linuxdeploy-plugin-qt-$ARCH.AppImage" \
+            "https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-$ARCH.AppImage"
+          chmod +x linuxdeploy-*.AppImage
+
+          mkdir -p AppDir/usr/bin
+          cp -r build/interface/Resources AppDir/usr/bin/Resources
+          rm -f AppDir/usr/bin/Resources/bin/libquadmath.0.dylib
+          DEPS=""
+          for f in AppDir/usr/bin/Resources/bin/*; do DEPS="$DEPS --deploy-deps-only $f"; done
+
+          "./linuxdeploy-$ARCH.AppImage" --appdir AppDir \
+            --executable build/interface/ToothMaker \
+            --desktop-file scripts/linux/toothmaker.desktop \
+            --icon-file interface/icons/toothmaker.png \
+            --custom-apprun scripts/linux/AppRun \
+            --plugin qt $DEPS --output appimage
+          mkdir -p appimage && mv ToothMaker-*.AppImage appimage/
+          ls -la appimage/
+
       - name: Package (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -278,3 +310,10 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: ${{ runner.os == 'macOS' && format('{0}.zip', matrix.artifact) || format('ToothMaker_{0}', steps.version.outputs.VERSION_NODOTS) }}
+
+      - name: Upload AppImage (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}-AppImage
+          path: appimage/*.AppImage

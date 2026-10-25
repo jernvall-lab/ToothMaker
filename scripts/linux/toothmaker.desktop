@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ToothMaker
+Comment=Simulator of tooth development and morphology
+Exec=ToothMaker
+Icon=toothmaker
+Categories=Science;Education;
+Terminal=false
