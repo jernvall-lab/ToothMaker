@@ -27,11 +27,11 @@ int parse_general_info_(QXmlStreamReader *xml, Model &m)
 
     while (xml->tokenType()!=QXmlStreamReader::EndElement || xml->name()!=key) {
         if (xml->tokenType() == QXmlStreamReader::StartElement) {
-            if (xml->name() == "Name") {
+            if (xml->name() == QLatin1String("Name")) {
                 xml->readNext();
                 m.setModelName( xml->text().toString().toStdString() );
             }
-           if (xml->name() == "DefaultParameters") {
+           if (xml->name() == QLatin1String("DefaultParameters")) {
                 xml->readNext();
                 m.setExampleParameters( xml->text().toString().toStdString() );
             }
@@ -60,34 +60,34 @@ int parse_binary_info_(QXmlStreamReader *xml, Model &m)
         if (xml->tokenType() == QXmlStreamReader::StartElement) {
 
 #if defined(__APPLE__)
-            if (xml->name() == "BinaryOSX") {
+            if (xml->name() == QLatin1String("BinaryOSX")) {
                 xml->readNext();
                 bin_info[0] = xml->text().toString();
             }
 #elif defined(__linux__)
-            if (xml->name() == "BinaryLinux") {
+            if (xml->name() == QLatin1String("BinaryLinux")) {
                 xml->readNext();
                 bin_info[0] = xml->text().toString();
             }
 #else
-            if (xml->name() == "BinaryWindows") {
+            if (xml->name() == QLatin1String("BinaryWindows")) {
                 xml->readNext();
                 bin_info[0] = xml->text().toString();
             }
 #endif
-            if (xml->name() == "InputStyle") {
+            if (xml->name() == QLatin1String("InputStyle")) {
                 xml->readNext();
                 bin_info[1] = xml->text().toString();
             }
-            if (xml->name() == "OutputStyle") {
+            if (xml->name() == QLatin1String("OutputStyle")) {
                 xml->readNext();
                 bin_info[2] = xml->text().toString();
             }
-            if (xml->name() == "OutputParser") {
+            if (xml->name() == QLatin1String("OutputParser")) {
                 xml->readNext();
                 output_parsers.push_back( xml->text().toString() );
             }
-            if (xml->name() == "ResultParser") {
+            if (xml->name() == QLatin1String("ResultParser")) {
                 xml->readNext();
                 result_parsers.push_back( xml->text().toString() );
             }
@@ -118,14 +118,14 @@ int parse_file_dialog_(QXmlStreamReader *xml, ParameterWindow &pwin)
 
     validButton=0;
 
-    while (xml->tokenType() != QXmlStreamReader::EndElement || xml->name() != "FileDialog") {
+    while (xml->tokenType() != QXmlStreamReader::EndElement || xml->name() != QLatin1String("FileDialog")) {
         if (xml->tokenType() == QXmlStreamReader::StartElement) {
-            if (xml->name() == "Name") {
+            if (xml->name() == QLatin1String("Name")) {
                 xml->readNext();
                 name = xml->text().toString();
                 validButton++;
             }
-            if (xml->name() == "Button") {
+            if (xml->name() == QLatin1String("Button")) {
                 xml->readNext();
                 list = xml->text().toString().split(",");
                 if (list.size() != 2) {
@@ -164,21 +164,21 @@ int parse_view_mode_( QXmlStreamReader *xml, Model &m )
 {
     model::view_mode mode;
 
-    while (xml->tokenType() != QXmlStreamReader::EndElement || xml->name() != "ViewMode") {
+    while (xml->tokenType() != QXmlStreamReader::EndElement || xml->name() != QLatin1String("ViewMode")) {
         if (xml->tokenType() == QXmlStreamReader::StartElement) {
 
-            if (xml->name() == "Name") {
+            if (xml->name() == QLatin1String("Name")) {
                 xml->readNext();
                 mode.name = xml->text().toString().toStdString();
             }
-            if (xml->name() == "Shape") {
+            if (xml->name() == QLatin1String("Shape")) {
                 xml->readNext();
                 QStringList list = xml->text().toString().split(",");
                 if (list.size() != 2)
                     continue;               // TODO: Add a warning/error.
                 mode.shapes.push_back( {list[0].toInt(), list[1].toInt()} );
             }
-            if (xml->name() == "Content") {
+            if (xml->name() == QLatin1String("Content")) {
                 xml->readNext();
                 mode.shapes.push_back( {xml->text().toString().toInt(), -1} );
             }
@@ -208,14 +208,14 @@ int parse_orientation_( QXmlStreamReader *xml, Model& model )
     int valid_orient = 0;
 
     while (xml->tokenType() != QXmlStreamReader::EndElement ||
-           xml->name() != "Orientation") {
+           xml->name() != QLatin1String("Orientation")) {
         if (xml->tokenType() == QXmlStreamReader::StartElement) {
-            if (xml->name() == "Name") {
+            if (xml->name() == QLatin1String("Name")) {
                 xml->readNext();
                 orient.name = xml->text().toString().toStdString();
                 valid_orient++;
             }
-            if (xml->name() == "Rotate") {
+            if (xml->name() == QLatin1String("Rotate")) {
                 xml->readNext();
                 QStringList list = xml->text().toString().split(",");
                 if (list.size() != 2)
@@ -250,7 +250,7 @@ int parse_controls_( QXmlStreamReader *xml, Model &model )
 
     while (xml->tokenType()!=QXmlStreamReader::EndElement || xml->name()!=key) {
         if (xml->tokenType() == QXmlStreamReader::StartElement) {
-            if (xml->name() == "CellConnections") {
+            if (xml->name() == QLatin1String("CellConnections")) {
                 xml->readNext();
 
                 model.setShowMeshAccess(true);
@@ -260,17 +260,17 @@ int parse_controls_( QXmlStreamReader *xml, Model &model )
                     model.setShowMesh(false);
                 }
             }
-            if (xml->name() == "ViewMode") {
+            if (xml->name() == QLatin1String("ViewMode")) {
                 parse_view_mode_(xml, model);
             }
-            if (xml->name() == "Orientation") {
+            if (xml->name() == QLatin1String("Orientation")) {
                 parse_orientation_(xml, model);
             }
-            if (xml->name() == "ParametersImage") {
+            if (xml->name() == QLatin1String("ParametersImage")) {
                 xml->readNext();
                 model.setBackgroundImage( xml->text().toString() );
             }
-            if (xml->name() == "ModelStepsize") {
+            if (xml->name() == QLatin1String("ModelStepsize")) {
                 xml->readNext();
                 model.setStepSize(xml->text().toString().toInt());
             }
@@ -308,16 +308,16 @@ int parse_parameter_( QXmlStreamReader *xml, QString par_type, Parameters& par )
            || xml->name() != par_type) {
 
         if (xml->tokenType() == QXmlStreamReader::StartElement) {
-            if (xml->name() == "Name") {
+            if (xml->name() == QLatin1String("Name")) {
                 xml->readNext();
                 name = xml->text().toString();
                 validItem++;
             }
-            if (xml->name() == "Value") {
+            if (xml->name() == QLatin1String("Value")) {
                 xml->readNext();
                 value = xml->text().toString().toDouble();
             }
-            if (xml->name() == "Position") {
+            if (xml->name() == QLatin1String("Position")) {
                 xml->readNext();
                 QStringList list = xml->text().toString().split(",");
                 if (list.size() != 2) {
@@ -327,12 +327,12 @@ int parse_parameter_( QXmlStreamReader *xml, QString par_type, Parameters& par )
                 position = { list.at(0).toInt(), list.at(1).toInt() };
                 validItem++;
             }
-            if (xml->name() == "Description") {
+            if (xml->name() == QLatin1String("Description")) {
                 xml->readNext();
                 note = xml->text().toString();
                 validItem++;
             }
-            if (xml->name() == "Hidden") {
+            if (xml->name() == QLatin1String("Hidden")) {
                 xml->readNext();
                 hidden = false;
                 if (xml->text().toString().toLower() == "true") {
@@ -396,28 +396,28 @@ int morphomaker::Read_binary_definitions( const QString xmlfile, Model &m )
         if (token == QXmlStreamReader::StartElement) {
             auto name = xml.name();
 
-            if (name == "Binary") {
+            if (name == QLatin1String("Binary")) {
                 if (parse_binary_info_(&xml, m)) {
                     err=1;
                     break;
                 }
             }
-            if (name == "General") {
+            if (name == QLatin1String("General")) {
                 if (parse_general_info_(&xml, m)) {
                     err=1;
                     break;
                 }
             }
-            if (name == "Controls") {
+            if (name == QLatin1String("Controls")) {
                 if (parse_controls_(&xml, m)) {
                     err=1;
                     break;
                 }
             }
-            if (name == "Parameters") {
+            if (name == QLatin1String("Parameters")) {
                 continue;
             }
-            if (name == "Parameter" || name == "Field" || name == "CheckBox") {
+            if (name == QLatin1String("Parameter") || name == QLatin1String("Field") || name == QLatin1String("CheckBox")) {
                 if (parse_parameter_(&xml, name.toString(), par)) {
                     err=1;
                     break;
@@ -465,10 +465,10 @@ int morphomaker::Read_GUI_definitions( const QString xmlfile, Model &m,
     while (!xml.atEnd()) {
         QXmlStreamReader::TokenType token = xml.readNext();
         if (token == QXmlStreamReader::StartElement) {
-            if (xml.name() == "Parameters") {
+            if (xml.name() == QLatin1String("Parameters")) {
                 continue;
             }
-            if (xml.name() == "FileDialog") {
+            if (xml.name() == QLatin1String("FileDialog")) {
                 if (parse_file_dialog_(&xml, pwin)) {
                     err=1;
                     break;
