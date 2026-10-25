@@ -210,9 +210,9 @@ jobs:
       #
       # Package artifacts
       #
-      # Stage final package directory per platform. We do NOT create our own
-      # archive — actions/upload-artifact already zips on download, so any
-      # archive we create here would produce a double-wrapped download.
+      # Stage final package directory per platform. Linux and Windows upload the
+      # directory as is; upload-artifact zips it on download. macOS uploads a
+      # ditto zip instead (see below), accepting a double-wrapped download.
       - name: Package (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -239,14 +239,13 @@ jobs:
           mkdir -p "$PACKAGE_DIR"
           mv build/interface/ToothMaker.app "$PACKAGE_DIR/"
 
-          # Note: previously we ran `ditto -c -k --keepParent` here to preserve
-          # framework symlinks (QtCore.framework/Versions/Current → A, etc).
-          # upload-artifact follows symlinks rather than preserving them,
-          # so the framework dirs in the downloaded zip will be flatter than
-          # the original. The app usually still runs because dyld resolves
-          # the (now-real) files at the same paths. If a future macOS package
-          # ever fails to launch after download, revert to the ditto approach
-          # and accept the double-wrap for macOS only.
+          # Zip with ditto so the Qt framework symlinks survive: upload-artifact
+          # replaces symlinks with copies, and codesign rejects such frameworks
+          # ("bundle format is ambiguous"). --norsrc: no AppleDouble ._ entries, which
+          # unzip would materialise and codesign also rejects. The zip is named after
+          # the artifact because scripts/sign_macos_releases.sh looks for that inner zip.
+          ditto -c -k --norsrc --keepParent "$PACKAGE_DIR" "${{ matrix.artifact }}.zip"
+          rm -rf "$PACKAGE_DIR"
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -271,12 +270,11 @@ jobs:
           }
 
       #
-      # Upload artifacts — upload the directory; upload-artifact wraps it in
-      # a single zip on download. Do not feed it a pre-made archive (that
-      # produces the double-zip we want to avoid).
+      # Upload artifacts — the package directory on Linux and Windows, the ditto
+      # zip on macOS (see Package (macOS)).
       #
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
-          path: ToothMaker_${{ steps.version.outputs.VERSION_NODOTS }}
+          path: ${{ runner.os == 'macOS' && format('{0}.zip', matrix.artifact) || format('ToothMaker_{0}', steps.version.outputs.VERSION_NODOTS) }}
