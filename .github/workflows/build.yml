@@ -246,7 +246,9 @@ jobs:
           cp -r build/interface/Resources AppDir/usr/bin/Resources
           rm -f AppDir/usr/bin/Resources/bin/libquadmath.0.dylib
           DEPS=""
-          for f in AppDir/usr/bin/Resources/bin/*; do DEPS="$DEPS --deploy-deps-only $f"; done
+          for f in AppDir/usr/bin/Resources/bin/*; do
+            file "$f" | grep -q ELF && DEPS="$DEPS --deploy-deps-only $f"
+          done
 
           "./linuxdeploy-$ARCH.AppImage" --appdir AppDir \
             --executable build/interface/ToothMaker \
