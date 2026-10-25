@@ -7,6 +7,7 @@
 
 #include <clocale>
 #include <QApplication>
+#include <QIcon>
 #include "gui/hampu.h"
 #include "cli/cmdappcore.h"
 
@@ -154,6 +155,9 @@ int main(int argc, char *argv[])
     // Graphical interface:
     QApplication app(argc, argv);
     setlocale(LC_NUMERIC, "C");       // see above
+#ifndef Q_OS_MACOS
+    app.setWindowIcon(QIcon(":/icons/toothmaker.png"));   // macOS: bundle .icns
+#endif
     Hampu hampu;
     if (hampu.init_GUI()) {
         return -1;

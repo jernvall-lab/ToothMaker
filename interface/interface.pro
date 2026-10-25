@@ -78,6 +78,9 @@ QMAKE_LFLAGS_X86_64 -= -arch x86_64 -Xarch_x86_64
 
 CONFIG += c++17
 
+# Window icon for Windows/Linux (macOS uses ICON below).
+RESOURCES += icons/icons.qrc
+
 !win32-msvc* {
     QMAKE_CXXFLAGS_RELEASE -= -O2
     QMAKE_CXXFLAGS_RELEASE += -O3
@@ -97,6 +100,7 @@ win32 {
     DEFINES += NOMINMAX
     LIBS += -lopengl32 -luser32 -lgdi32
     INCLUDEPATH += ../ext/GLEW
+    RC_ICONS = icons/toothmaker.ico
 }
 
 # On macOS, we need OpenGL framework but not the deprecated AGL framework
@@ -105,6 +109,7 @@ macx {
     # Qt5 supports macOS 10.13+, Qt6 requires 10.15+
     greaterThan(QT_MAJOR_VERSION, 5): QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15
     else: QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.13
+    ICON = icons/toothmaker.icns
 
     # Override Qt's OpenGL framework settings to exclude AGL
     QMAKE_LIBS_OPENGL = -framework OpenGL
